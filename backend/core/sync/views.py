@@ -25,9 +25,9 @@ def workspace_read(request, workspace_id, mode):
                 if mode == "snapshot":
                     payload = feed.snapshot(workspace, request.user, queries.view_zone(request.GET))
                 elif mode == "outline":
-                    payload = queries.outline(workspace, request.GET)
+                    payload = queries.outline(workspace, request.GET, request.user)
                 else:
-                    payload = queries.date_preview(workspace, request.GET)
+                    payload = queries.date_preview(workspace, request.GET, request.user)
             except CommandError as error:
                 return JsonResponse({"error": str(error)}, status=error.status)
         else:

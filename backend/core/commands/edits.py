@@ -72,7 +72,7 @@ def capture(tree, data):
     return result
 
 
-def edit(tree, data):
+def edit(tree, data, *, user=None):
     fields(data, ["ids"], ["title", "due"])
     changes = {}
     if "title" in data:
@@ -80,7 +80,7 @@ def edit(tree, data):
     if "due" not in data and not changes:
         raise CommandError("Choose a field to edit.")
     due = due_date(data["due"]) if "due" in data else None
-    clock = workspace_clock(tree.workspace) if "due" in data else None
+    clock = workspace_clock(tree.workspace, user=user) if "due" in data else None
     items = tree.selected(data["ids"])
     result = Changes([str(item.pk) for item in items])
     for item in items:

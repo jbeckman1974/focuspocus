@@ -67,6 +67,11 @@ def check_destinations(rows, workspace):
             if target_id is None:
                 continue
             target = field.related_model
+            if model._meta.label_lower == "core.projectreview" and field.name == "last_actor":
+                # The original reviewer may have since left the workspace or deleted their account.
+                if not target.objects.filter(pk=target_id).exists():
+                    raise conflict()
+                continue
             target_key = (target, str(target_id))
             if target_key in planned:
                 destination = planned[target_key]
@@ -111,7 +116,7 @@ def delete_rows(rows, workspace):
     current().allowed_deletions = {(model._meta.model_name, entry["id"]) for model, _, entry in removals}
     # Remove FK-dependent objects before their targets. Tags protect their
     # parent and may be nested to arbitrary depth; remove leaves first.
-    order = ["itemtag", "occurrence", "repeatseries", "item", "tag"]
+    order = ["itemnote", "attachmentlink", "projectreview", "itemtag", "occurrence", "repeatseries", "item", "tag"]
     for model_name in order:
         model = MODELS[model_name]
         ids = {entry["id"] for kind, _, entry in removals if kind is model}

@@ -121,6 +121,8 @@ def copy_subtree(tree, source, parent_id, result, *, duplicate=False, repeat_suc
     tags = ItemTag.objects.filter(workspace=tree.workspace, item_id__in=copies).values_list("item_id", "tag_id")
     create_many(ItemTag, [ItemTag(workspace=tree.workspace, item=copies[item_id], tag_id=tag_id)
                                  for item_id, tag_id in tags])
+    from core.content.copying import copy_content
+    copy_content(tree.workspace, copies)
     for item in copies.values():
         result.touch(item)
     insert_root(tree, copies[root.pk], root, parent_id, result, duplicate=duplicate)
