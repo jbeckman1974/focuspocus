@@ -10,6 +10,14 @@ test("workspace names identify same-name restores and remain stable across picke
     { id: "abababab-aaaa-4888-8888-000000000001", name: "Private" },
   ];
   const labels = spaces.map((space) => workspaceOption(space, spaces));
-  assert.deepEqual(labels, ["Team · 01234567-a", "Team · 01234567-b", "Team · ffffffff", "Private"]);
-  assert.deepEqual(spaces.map((space) => workspaceOption(space, [...spaces].reverse())), labels);
+  assert.deepEqual(labels, [
+    "Team · 01234567-a",
+    "Team · 01234567-b",
+    "Team · ffffffff",
+    "Private",
+  ]);
+  assert.deepEqual(
+    spaces.map((space) => workspaceOption(space, [...spaces].reverse())),
+    labels,
+  );
 });

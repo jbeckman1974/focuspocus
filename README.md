@@ -4,7 +4,7 @@ WARNING:  This project is under active autonomous development.  It is not recomm
 
 self hostable task manager
 
-The first implementation milestone is a desktop-style task outline. Open the sample Inbox, capture a few tasks, and move them between projects. The inspector edits dates and tags, and the tag view shows the same tasks. Edits stay in the browser tab for the session. Use the sample reset to start again.
+FocusPocus has a signed-in workspace that saves tasks, notes and files in PostgreSQL. A separate sample lets you try the outline in one browser tab. Capture a few tasks, move them between projects, edit dates and tags in the inspector, then use the sample reset to start again.
 
 ## Run the sample on an Apple Silicon Mac
 
@@ -27,6 +27,8 @@ The production target is openSUSE Tumbleweed x64. Each release must publish both
 Open `/app/` for the session-authenticated workspace. Each provisioned account starts with a private Inbox. The sample at `/sample/` uses synthetic, in-memory tasks. The [Mac development steps](docs/OPERATIONS.md#daily-development-on-the-macbook) cover setup and account creation.
 
 The planning views support Forecast, project Review, saved perspectives, notes and attachments. Use **Workspace tools** for transfers, sharing, reminders, calendars and nearby work. [Import, export and sharing](docs/PORTABILITY.md) · [Optional integrations](docs/INTEGRATIONS.md)
+
+For a private test on an existing Tumbleweed x64 Docker host, the test runner verifies where neighboring containers keep their data and creates its database directories under a `focuspocus/` subfolder there. It binds the web interface to loopback and cleans up its own run. [Private test-host procedure](ops/README.md#private-tumbleweed-x64-test-server)
 
 ## License
 

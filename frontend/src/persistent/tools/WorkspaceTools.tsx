@@ -8,13 +8,13 @@ import { ExportPanel } from "./ExportPanel.tsx";
 import { CalendarPanel, ReminderPanel } from "./Integrations.tsx";
 import { Nearby } from "./Nearby.tsx";
 import "./tools.css";
-import {workspaceOption} from "./workspaceNames.ts";
+import { workspaceOption } from "./workspaceNames.ts";
 
 interface Props {
   actorId: number;
   csrf: string;
   workspace: WorkspaceInfo;
-  switching:boolean;
+  switching: boolean;
   spaces: WorkspaceInfo[];
   snapshot: Snapshot;
   selection: string[];
@@ -39,7 +39,7 @@ export function WorkspaceTools(props: Props) {
           >
             {props.spaces.map((space) => (
               <option key={space.id} value={space.id}>
-                {workspaceOption(space,props.spaces)}
+                {workspaceOption(space, props.spaces)}
               </option>
             ))}
           </select>
@@ -79,11 +79,11 @@ function ToolsDialog({
     );
     return () => abort.abort();
   }, [actorId, csrf, workspace.id]);
-  useLayoutEffect(()=>{
-    const node=dialog.current;
-    if(!switching)node?.showModal();
-    return ()=>node?.close();
-  },[switching]);
+  useLayoutEffect(() => {
+    const node = dialog.current;
+    if (!switching) node?.showModal();
+    return () => node?.close();
+  }, [switching]);
   const choose = async (id: string) => {
     await switchTo(id);
     if (client && !client.signal.aborted) close();

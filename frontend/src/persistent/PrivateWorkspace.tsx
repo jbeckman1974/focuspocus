@@ -41,7 +41,7 @@ interface Props {
   csrf: string;
   readOnly?: boolean;
   activeSpace: WorkspaceInfo;
-  switching:boolean;
+  switching: boolean;
   spaces: WorkspaceInfo[];
   switchTo: (id?: string) => Promise<void>;
   onLostAccess: () => void;

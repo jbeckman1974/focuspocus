@@ -24,8 +24,8 @@ export function WorkspaceRouter({
   const [spaces, setSpaces] = useState<WorkspaceInfo[]>();
   const [active, setActive] = useState("");
   const [error, setError] = useState("");
-  const [switching,setSwitching]=useState(false);
-  const [failedTarget,setFailedTarget]=useState<string>();
+  const [switching, setSwitching] = useState(false);
+  const [failedTarget, setFailedTarget] = useState<string>();
   const controller = useRef<AbortController | undefined>(undefined);
   const sequence = useRef(0);
   const changing = useRef(false);
@@ -33,7 +33,11 @@ export function WorkspaceRouter({
     async (requested?: string) => {
       const signal = controller.current?.signal;
       if (!signal || signal.aborted || (!requested && changing.current)) return;
-      if (requested) { changing.current = true; setSwitching(true); setFailedTarget(undefined); }
+      if (requested) {
+        changing.current = true;
+        setSwitching(true);
+        setFailedTarget(undefined);
+      }
       const order = ++sequence.current;
       try {
         const result = await actorRequest<{ workspaces: WorkspaceInfo[] }>(
@@ -42,17 +46,17 @@ export function WorkspaceRouter({
           { signal },
         );
         if (signal.aborted || order !== sequence.current) return;
-        if (requested && !result.workspaces.some((s) => s.id === requested))
-          throw new Error("Workspace access changed.");
+        const target = result.workspaces.find((s) => s.id === requested);
         setSpaces(result.workspaces);
         setActive(
           (current) =>
-            result.workspaces.find((s) => s.id === (requested ?? current))
-              ?.id ??
+            target?.id ??
+            result.workspaces.find((s) => s.id === current)?.id ??
             result.workspaces.find((s) => s.private)?.id ??
             result.workspaces[0]?.id ??
             "",
         );
+        if (requested && !target) throw new Error("Workspace access changed.");
         setError("");
       } catch (e) {
         if (signal.aborted || order !== sequence.current) return;
@@ -60,10 +64,16 @@ export function WorkspaceRouter({
           onLostAccess();
         else {
           setError("Unable to refresh your workspaces.");
-          if (requested) {setFailedTarget(requested);throw e;}
+          if (requested) {
+            setFailedTarget(requested);
+            throw e;
+          }
         }
       } finally {
-        if (requested && order === sequence.current && !signal.aborted) { changing.current = false;setSwitching(false); }
+        if (requested && order === sequence.current && !signal.aborted) {
+          changing.current = false;
+          setSwitching(false);
+        }
       }
     },
     [actorId, onLostAccess],
@@ -102,26 +112,43 @@ export function WorkspaceRouter({
   return (
     <>
       {switching && <p role="status">Switching workspace…</p>}
-      {!switching && failedTarget && <p role="alert">Could not open the requested workspace. Your current workspace is still open.{" "}
-        <button onClick={()=>void switchTo(failedTarget).catch(()=>{})}>Retry workspace switch</button>{" "}
-        <button onClick={()=>{setFailedTarget(undefined);setError("");}}>Stay here</button>
-      </p>}
-      {!switching && error && !failedTarget && <p role="status">{error} <button onClick={()=>void switchTo()}>Refresh workspaces</button></p>}
+      {!switching && failedTarget && (
+        <p role="alert">
+          Could not open the requested workspace.{" "}
+          <button onClick={() => void switchTo(failedTarget).catch(() => {})}>
+            Retry workspace switch
+          </button>{" "}
+          <button
+            onClick={() => {
+              setFailedTarget(undefined);
+              setError("");
+            }}
+          >
+            Stay here
+          </button>
+        </p>
+      )}
+      {!switching && error && !failedTarget && (
+        <p role="status">
+          {error}{" "}
+          <button onClick={() => void switchTo()}>Refresh workspaces</button>
+        </p>
+      )}
       <div hidden={switching} inert={switching}>
-      <PrivateWorkspace
-        key={selected.id + ":" + selected.role}
-        id={selected.id}
-        username={username}
-        actorId={actorId}
-        csrf={csrf}
-        readOnly={selected.role === "viewer"}
-        activeSpace={selected}
-        spaces={spaces!}
-        switching={switching}
-        switchTo={switchTo}
-        onLostAccess={onLostAccess}
-        onSignOut={onSignOut}
-      />
+        <PrivateWorkspace
+          key={selected.id + ":" + selected.role}
+          id={selected.id}
+          username={username}
+          actorId={actorId}
+          csrf={csrf}
+          readOnly={selected.role === "viewer"}
+          activeSpace={selected}
+          spaces={spaces!}
+          switching={switching}
+          switchTo={switchTo}
+          onLostAccess={onLostAccess}
+          onSignOut={onSignOut}
+        />
       </div>
     </>
   );

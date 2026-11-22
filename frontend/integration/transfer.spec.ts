@@ -1,6 +1,11 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./account.ts";
-import { closeTools, createShared, selectWorkspace, toolsPanel } from "./workspace-tools.ts";
+import {
+  closeTools,
+  createShared,
+  selectWorkspace,
+  toolsPanel,
+} from "./workspace-tools.ts";
 import { task } from "../e2e/controls.ts";
 
 test("AT-21/22 · preview import losses, retry one commit, restore a bundle and roll back the source", async ({
@@ -52,7 +57,10 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
     .getByLabel("Workspace bundle", { exact: true })
     .setInputFiles(zip!);
   const restoring = page.waitForResponse(
-    (r) => new URL(r.url()).pathname.endsWith("/portability/restore") && r.request().method() === "POST" && r.ok(),
+    (r) =>
+      new URL(r.url()).pathname.endsWith("/portability/restore") &&
+      r.request().method() === "POST" &&
+      r.ok(),
   );
   await panel
     .getByRole("button", { name: "Restore bundle", exact: true })
@@ -62,7 +70,9 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   );
   const restored = (await (await restoring).json()).workspaceId as string;
   expect(restored).not.toBe(source);
-  await selectWorkspace(page, restored, () => panel.getByRole("button", { name: "Open restored workspace" }).click());
+  await selectWorkspace(page, restored, () =>
+    panel.getByRole("button", { name: "Open restored workspace" }).click(),
+  );
   await expect(task(page, title)).toBeVisible();
   await selectWorkspace(page, source);
   await expect(task(page, title)).toBeVisible();
