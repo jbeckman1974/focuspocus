@@ -1,4 +1,5 @@
 **
+!LICENSE
 !backend/
 !backend/requirements.txt
 !backend/manage.py
