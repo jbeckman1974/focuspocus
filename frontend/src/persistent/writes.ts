@@ -1,3 +1,4 @@
+import type { ReviewIntent } from "./planning/Review.tsx";
 import type { RepeatChange } from "./repeat.ts";
 import type { Command } from "../outline/index.ts";
 import type { Receipt, Snapshot } from "./api.ts";
@@ -6,7 +7,11 @@ import type { DateChanges, DateDefaults } from "./schedule.ts";
 import type { LifecycleChange } from "./lifecycle.ts";
 import type { Properties } from "./rules.ts";
 
+import type { BulkChanges } from "./preferences/bulk.ts";
+
 export type Intent =
+  | { type: "bulk-inspect"; ids: string[]; changes: BulkChanges }
+  | ReviewIntent
   | { type: "set-schedule"; ids: string[]; changes: DateChanges }
   | { type: "set-date-settings"; timeZone: string; dateDefaults: DateDefaults }
   | { type: "repeat"; change: RepeatChange }
@@ -44,6 +49,10 @@ export function prepare(
     intent,
   });
   switch (intent.type) {
+    case "bulk-inspect":
+      return command(intent.type, { ids: intent.ids, changes: intent.changes });
+    case "planning-review":
+      return command(intent.name, intent.payload);
     case "set-schedule":
       return command(intent.type, { ids: intent.ids, ...intent.changes });
     case "set-date-settings":
@@ -114,6 +123,7 @@ export function prepare(
 }
 
 export function describeDraft(intent: Intent, snapshot: Snapshot) {
+  if (intent.type === "bulk-inspect") return JSON.stringify(intent.changes);
   if (intent.type === "set-schedule") return JSON.stringify(intent.changes);
   if (intent.type === "set-date-settings")
     return "Date defaults in " + intent.timeZone;

@@ -2,7 +2,7 @@
 
 Joe wants to capture a task at home, organize it at the office, and return to the same outline in another browser. The reference is native OmniFocus 4.10.1 on Mac, including Pro workflows. The product will have its own implementation, identity, and artwork.
 
-**Status on November 21, 2026.** The planning package, interactive sample outline and private PostgreSQL-backed workspace are on `main`. M3 starts with project modes and task availability. The current test results, image publication status and outstanding Mac walkthrough are in [progress](PROGRESS.md).
+**Status on November 21, 2026.** The planning package, interactive outline, private PostgreSQL workspaces and M3 task rules are on `main`. M4 starts with Forecast and Review. The current test results, image publication status and outstanding Mac walkthrough are in [progress](PROGRESS.md).
 
 ## Maintained specification
 

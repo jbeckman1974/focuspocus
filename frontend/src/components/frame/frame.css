@@ -313,3 +313,21 @@ body {
     padding: 4px 8px;
   }
 }
+
+.fp-shell[data-motion="reduced"] *,
+.fp-shell[data-motion="reduced"] *::before,
+.fp-shell[data-motion="reduced"] *::after {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+  scroll-behavior: auto !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-shell[data-motion="system"] *,
+  .fp-shell[data-motion="system"] *::before,
+  .fp-shell[data-motion="system"] *::after {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -118,7 +118,15 @@ test("Escape leaves the focused task available for navigation and clears every e
     navigate() {},
   };
 
-  function press(key: string) {
+  function press(
+    key: string,
+    shortcut = "x",
+    modifiers: {
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      target?: EventTarget;
+    } = {},
+  ) {
     handleTreeKey(
       {
         key,
@@ -130,6 +138,7 @@ test("Escape leaves the focused task available for navigation and clears every e
         shiftKey: false,
         nativeEvent: { isComposing: false },
         preventDefault() {},
+        ...modifiers,
       },
       {
         view,
@@ -153,6 +162,7 @@ test("Escape leaves the focused task available for navigation and clears every e
       },
       nav,
       ids,
+      shortcut,
     );
   }
 
@@ -166,6 +176,14 @@ test("Escape leaves the focused task available for navigation and clears every e
 
   press(" ");
   press("x");
+  assert.deepEqual(commands, [{ type: "complete", ids: ["b"] }]);
+  commands.length = 0;
+  press("x", "k");
+  press("k", "k", { ctrlKey: true });
+  press("k", "k", { metaKey: true });
+  press("k", "k", { target: new EventTarget() });
+  assert.deepEqual(commands, []);
+  press("k", "k");
   assert.deepEqual(commands, [{ type: "complete", ids: ["b"] }]);
 });
 

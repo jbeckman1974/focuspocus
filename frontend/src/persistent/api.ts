@@ -21,6 +21,7 @@ export interface Snapshot {
   viewZone?: string;
   dateDefaults?: DateDefaults;
   nextDateBoundary?: string | null;
+  perspectiveVersion?: number;
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task &
@@ -55,11 +56,14 @@ export class HttpError extends Error {
 export async function jsonRequest<T>(
   url: string,
   options: RequestInit = {},
+  timeoutMs = 15000,
 ): Promise<T> {
-  const timeout = AbortSignal.timeout(15000);
+  const timeout = AbortSignal.timeout(timeoutMs);
   const signal = options.signal
     ? AbortSignal.any([options.signal, timeout])
     : timeout;
+  const headers = new Headers(options.headers);
+  if (!headers.has("Accept")) headers.set("Accept", "application/json");
   const response = await fetch(url, {
     ...options,
     signal,
@@ -67,7 +71,7 @@ export async function jsonRequest<T>(
     credentials: "same-origin",
     cache: "no-store",
     redirect: "error",
-    headers: { Accept: "application/json", ...options.headers },
+    headers,
   });
   if (!response.ok) {
     const body = await response.json().catch(() => null);
@@ -91,6 +95,17 @@ export function readSession(signal?: AbortSignal) {
   return jsonRequest<Session>("/api/v1/session", { signal });
 }
 
+export function actorRequest<T>(
+  actorId: number,
+  url: string,
+  options: RequestInit = {},
+  timeoutMs?: number,
+) {
+  const headers = new Headers(options.headers);
+  headers.set("X-FocusPocus-Actor", String(actorId));
+  return jsonRequest<T>(url, { ...options, headers }, timeoutMs);
+}
+
 export function workspaceApi(
   id: string,
   actorId: number,
@@ -110,7 +125,7 @@ export function workspaceApi(
       completedAt: string | undefined,
       callerSignal: AbortSignal,
     ) =>
-      jsonRequest<RepeatPreviewResult>(base + "/repeat-preview", {
+      actorRequest<RepeatPreviewResult>(actorId, base + "/repeat-preview", {
         ...jsonPost(csrf, {
           id: item,
           rule,
@@ -128,20 +143,24 @@ export function workspaceApi(
       return membership.role === "owner" || membership.role === "editor";
     },
     snapshot: () =>
-      jsonRequest<Snapshot>(
+      actorRequest<Snapshot>(
+        actorId,
         base +
           "/snapshot" +
           (viewZone ? "?viewZone=" + encodeURIComponent(viewZone) : ""),
         { signal },
       ),
     changes: (cursor: string) =>
-      jsonRequest<{
+      actorRequest<{
         revision: number;
         changes: unknown[];
+        perspectiveVersion?: number;
         resolvedCleanup?: "immediate" | "on-cleanup";
-      }>(base + "/changes?after=" + encodeURIComponent(cursor), { signal }),
+      }>(actorId, base + "/changes?after=" + encodeURIComponent(cursor), {
+        signal,
+      }),
     submit: (name: string, envelope: object) =>
-      jsonRequest<Receipt>(base + "/commands/" + name, {
+      actorRequest<Receipt>(actorId, base + "/commands/" + name, {
         ...jsonPost(csrf, envelope),
         signal,
       }),

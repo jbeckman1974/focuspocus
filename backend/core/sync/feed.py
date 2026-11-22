@@ -7,6 +7,7 @@ from django.core import signing
 from core.commands.context import issue_context
 from core.models import Change
 from core.organization import cleanup_mode
+from core.perspectives.focus import perspective_version
 from core.queries.records import read_records
 
 
@@ -57,6 +58,7 @@ def snapshot(workspace, user, view_zone=None):
         "tags": tags,
         "filingPolicy": workspace.filing_policy,
         "resolvedCleanup": cleanup_mode(user),
+        "perspectiveVersion": perspective_version(workspace, user),
         **metadata,
     }
 
@@ -74,6 +76,7 @@ def changes_since(workspace, user, token, limit):
     return {
         "changes": changes,
         "resolvedCleanup": cleanup_mode(user),
+        "perspectiveVersion": perspective_version(workspace, user),
         "cursor": cursor_for(workspace, user, end),
         "revision": end,
         "more": end < workspace.revision,

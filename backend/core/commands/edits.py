@@ -2,6 +2,7 @@ from django.db.models import Max
 
 from core.history.recording import create_many
 from core.models import Item, ItemTag, Receipt
+from core.planning.schedules import initialize_projects
 
 from .completion import apply_status, restore_statuses
 from core.scheduling.clock import workspace_clock
@@ -32,6 +33,7 @@ def create_entry(tree, name, data):
         workspace=tree.workspace, id=identifier(data["id"]), title=title(data["title"]),
         kind=kind, parent_id=parent_id, position=next_position(tree.siblings(parent_id, library=True)),
     )
+    initialize_projects(tree.workspace, [entry])
     result = Changes([str(entry.pk)])
     result.touch(entry)
     return result
@@ -72,7 +74,7 @@ def capture(tree, data):
     return result
 
 
-def edit(tree, data):
+def edit(tree, data, *, user=None):
     fields(data, ["ids"], ["title", "due"])
     changes = {}
     if "title" in data:
@@ -80,7 +82,7 @@ def edit(tree, data):
     if "due" not in data and not changes:
         raise CommandError("Choose a field to edit.")
     due = due_date(data["due"]) if "due" in data else None
-    clock = workspace_clock(tree.workspace) if "due" in data else None
+    clock = workspace_clock(tree.workspace, user=user) if "due" in data else None
     items = tree.selected(data["ids"])
     result = Changes([str(item.pk) for item in items])
     for item in items:

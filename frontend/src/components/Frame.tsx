@@ -3,13 +3,19 @@ import type { ReactNode } from "react";
 import type { Command, View, Workspace } from "../outline/index.ts";
 import { Icon } from "./frame/Icon.tsx";
 import { Inspector } from "./frame/Inspector.tsx";
+import type { PlanningNavigation } from "./frame/Navigation.tsx";
 import { Rail, Sidebar } from "./frame/Navigation.tsx";
 import { PaneDivider } from "./frame/PaneDivider.tsx";
 import { Preferences } from "./frame/Preferences.tsx";
 import type { Appearance, EditMode } from "./frame/Preferences.tsx";
 import "./frame/frame.css";
 
+import type { PersonalSettings } from "../persistent/preferences/types.ts";
+import { PersonalControls } from "../persistent/preferences/PersonalControls.tsx";
+import { CompletionShortcut } from "./frame/shortcuts.ts";
+
 interface FrameProps {
+  personalPreferences?: PersonalSettings;
   workspace: Workspace;
   view: View;
   onView: (view: View) => void;
@@ -22,6 +28,7 @@ interface FrameProps {
   accountControls?: ReactNode;
   inspectorTools?: ReactNode;
   standardViews?: boolean;
+  planning?: PlanningNavigation;
   pendingTag?: Extract<Command, { type: "setTag" }>;
   mutationsDisabled?: boolean;
   children: ReactNode;
@@ -41,6 +48,7 @@ const readWidth = () => window.innerWidth;
 
 export function Frame({
   workspace,
+  personalPreferences,
   view,
   onView,
   selection,
@@ -51,6 +59,7 @@ export function Frame({
   accountControls,
   inspectorTools,
   standardViews,
+  planning,
   mutationsDisabled,
   pendingTag,
   children,
@@ -64,13 +73,26 @@ export function Frame({
   const compact = width <= 850;
   const [browseOpen, setBrowseOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
-  const [appearance, setAppearance] = useState<Appearance>({
+  const [sampleAppearance, setSampleAppearance] = useState<Appearance>({
     theme: "system",
     density: "comfortable",
     textSize: "standard",
   });
-  const [sidebarSize, setSidebarSize] = useState(212);
-  const [inspectorSize, setInspectorSize] = useState(260);
+  const [sampleSidebarSize, setSampleSidebarSize] = useState(212);
+  const [sampleInspectorSize, setSampleInspectorSize] = useState(260);
+  const appearance = personalPreferences?.account ?? sampleAppearance;
+  const sidebarSize =
+    personalPreferences?.device.sidebarSize ?? sampleSidebarSize;
+  const inspectorSize =
+    personalPreferences?.device.inspectorSize ?? sampleInspectorSize;
+  const setSidebarSize = (value: number) =>
+    personalPreferences
+      ? personalPreferences.setDevice({ sidebarSize: value })
+      : setSampleSidebarSize(value);
+  const setInspectorSize = (value: number) =>
+    personalPreferences
+      ? personalPreferences.setDevice({ inspectorSize: value })
+      : setSampleInspectorSize(value);
   const browseToggle = useRef<HTMLButtonElement>(null);
   const inspectorToggle = useRef<HTMLButtonElement>(null);
   const main = useRef<HTMLElement>(null);
@@ -151,162 +173,193 @@ export function Frame({
     workspace,
     view,
     standardViews,
+    planning: planning && {
+      ...planning,
+      open: (id: string) => {
+        planning.open(id);
+        if (compact) {
+          setBrowseOpen(false);
+          setInspectorOpen(false);
+          requestAnimationFrame(() => main.current?.focus());
+        }
+      },
+    },
     onView: chooseView,
     onPreferences: () => setPreferencesOpen(true),
   };
   return (
-    <div
-      className="fp-shell"
-      data-theme={appearance.theme}
-      data-density={appearance.density}
-      data-text-size={appearance.textSize}
+    <CompletionShortcut.Provider
+      value={personalPreferences?.account.shortcut ?? "x"}
     >
-      <header className="fp-topbar">
-        <div className="fp-wordmark">
-          <span className="fp-brandmark" aria-hidden="true">
-            <Icon name="mark" size={24} />
-          </span>
-          <span>{workspaceLabel ?? "Sample workspace"}</span>
-        </div>
-        <div className="fp-top-actions">
-          {accountControls}
-          {compact && (
+      <div
+        data-motion={personalPreferences?.account.motion ?? "system"}
+        className="fp-shell"
+        data-theme={appearance.theme}
+        data-density={appearance.density}
+        data-text-size={appearance.textSize}
+      >
+        <header className="fp-topbar">
+          <div className="fp-wordmark">
+            <span className="fp-brandmark" aria-hidden="true">
+              <Icon name="mark" size={24} />
+            </span>
+            <span>{workspaceLabel ?? "Sample workspace"}</span>
+          </div>
+          <div className="fp-top-actions">
+            {accountControls}
+            {compact && (
+              <button
+                ref={browseToggle}
+                type="button"
+                className="fp-top-button"
+                aria-label="Browse"
+                aria-expanded={browseOpen}
+                aria-controls="workspace-navigation"
+                title="Browse"
+                onClick={toggleBrowse}
+              >
+                <Icon name="browse" />
+                <span>Browse</span>
+              </button>
+            )}
             <button
-              ref={browseToggle}
+              type="button"
+              className="fp-primary"
+              aria-label="Add task"
+              title="Add task"
+              onClick={capture}
+            >
+              <Icon name="add" size={16} />
+              <span>Add task</span>
+            </button>
+            <button
+              ref={inspectorToggle}
               type="button"
               className="fp-top-button"
-              aria-label="Browse"
-              aria-expanded={browseOpen}
-              aria-controls="workspace-navigation"
-              title="Browse"
-              onClick={toggleBrowse}
+              aria-label="Inspector"
+              aria-expanded={inspectorVisible}
+              aria-controls="task-inspector"
+              title="Inspector"
+              onClick={toggleInspector}
             >
-              <Icon name="browse" />
-              <span>Browse</span>
+              <Icon name="inspector" />
+              <span>Inspector</span>
+            </button>
+          </div>
+        </header>
+        <div
+          className="fp-layout"
+          style={compact ? undefined : { gridTemplateColumns: columns }}
+        >
+          {!compact && <Rail {...navigation} />}
+          <div
+            className="fp-panel-slot"
+            hidden={compact && !browseOpen}
+            onFocusCapture={() => {
+              lastPanel.current = "browse";
+            }}
+            onKeyDown={(event) => {
+              if (compact && event.key === "Escape") closeBrowse();
+            }}
+          >
+            <Sidebar {...navigation} compact={compact} onClose={closeBrowse} />
+          </div>
+          {!compact && (
+            <PaneDivider
+              label="Resize navigation"
+              controls="workspace-navigation"
+              side="left"
+              min={152}
+              max={sidebarMax}
+              size={sidebarWidth}
+              setSize={setSidebarSize}
+            />
+          )}
+          <main
+            id="task-outline"
+            ref={main}
+            tabIndex={-1}
+            className="fp-main"
+            aria-label="Task outline"
+            hidden={compact && (browseOpen || inspectorVisible)}
+            onFocusCapture={() => {
+              lastPanel.current = "outline";
+            }}
+          >
+            {children}
+          </main>
+          {!compact && inspectorVisible && (
+            <PaneDivider
+              label="Resize inspector"
+              controls="task-inspector"
+              side="right"
+              min={190}
+              max={inspectorMax}
+              size={inspectorWidth}
+              setSize={setInspectorSize}
+            />
+          )}
+          <div
+            className="fp-panel-slot"
+            hidden={!inspectorVisible}
+            onFocusCapture={() => {
+              lastPanel.current = "inspector";
+            }}
+          >
+            <Inspector
+              workspace={workspace}
+              selection={selection}
+              run={run}
+              onClose={closeInspector}
+              mutationsDisabled={mutationsDisabled}
+              pendingTag={pendingTag}
+              tools={inspectorTools}
+            />
+          </div>
+        </div>
+        <footer className="fp-statusbar">
+          <span>
+            {workspaceLabel
+              ? "Private workspace"
+              : "Sample data resets on reload"}
+          </span>
+          {personalPreferences?.retry && !preferencesOpen && (
+            <button onClick={() => setPreferencesOpen(true)}>
+              Review preference changes
             </button>
           )}
-          <button
-            type="button"
-            className="fp-primary"
-            aria-label="Add task"
-            title="Add task"
-            onClick={capture}
-          >
-            <Icon name="add" size={16} />
-            <span>Add task</span>
-          </button>
-          <button
-            ref={inspectorToggle}
-            type="button"
-            className="fp-top-button"
-            aria-label="Inspector"
-            aria-expanded={inspectorVisible}
-            aria-controls="task-inspector"
-            title="Inspector"
-            onClick={toggleInspector}
-          >
-            <Icon name="inspector" />
-            <span>Inspector</span>
-          </button>
-        </div>
-      </header>
-      <div
-        className="fp-layout"
-        style={compact ? undefined : { gridTemplateColumns: columns }}
-      >
-        {!compact && <Rail {...navigation} />}
-        <div
-          className="fp-panel-slot"
-          hidden={compact && !browseOpen}
-          onFocusCapture={() => {
-            lastPanel.current = "browse";
-          }}
-          onKeyDown={(event) => {
-            if (compact && event.key === "Escape") closeBrowse();
-          }}
-        >
-          <Sidebar {...navigation} compact={compact} onClose={closeBrowse} />
-        </div>
-        {!compact && (
-          <PaneDivider
-            label="Resize navigation"
-            controls="workspace-navigation"
-            side="left"
-            min={152}
-            max={sidebarMax}
-            size={sidebarWidth}
-            setSize={setSidebarSize}
+          <span role="status" aria-live="polite" aria-atomic="true">
+            {message}
+          </span>
+        </footer>
+        {preferencesOpen && (
+          <Preferences
+            appearance={appearance}
+            onAppearance={
+              personalPreferences
+                ? personalPreferences.setAccount
+                : (patch) =>
+                    setSampleAppearance((current) => ({ ...current, ...patch }))
+            }
+            controls={
+              personalPreferences ? (
+                <PersonalControls settings={personalPreferences} />
+              ) : undefined
+            }
+            editMode={editMode}
+            setEditMode={setEditMode}
+            onClose={() => setPreferencesOpen(false)}
+            onReset={
+              onReset
+                ? () => {
+                    setPreferencesOpen(false);
+                    onReset();
+                  }
+                : undefined
+            }
           />
         )}
-        <main
-          id="task-outline"
-          ref={main}
-          tabIndex={-1}
-          className="fp-main"
-          aria-label="Task outline"
-          hidden={compact && (browseOpen || inspectorVisible)}
-          onFocusCapture={() => {
-            lastPanel.current = "outline";
-          }}
-        >
-          {children}
-        </main>
-        {!compact && inspectorVisible && (
-          <PaneDivider
-            label="Resize inspector"
-            controls="task-inspector"
-            side="right"
-            min={190}
-            max={inspectorMax}
-            size={inspectorWidth}
-            setSize={setInspectorSize}
-          />
-        )}
-        <div
-          className="fp-panel-slot"
-          hidden={!inspectorVisible}
-          onFocusCapture={() => {
-            lastPanel.current = "inspector";
-          }}
-        >
-          <Inspector
-            workspace={workspace}
-            selection={selection}
-            run={run}
-            onClose={closeInspector}
-            mutationsDisabled={mutationsDisabled}
-            pendingTag={pendingTag}
-            tools={inspectorTools}
-          />
-        </div>
       </div>
-      <footer className="fp-statusbar">
-        <span>
-          {workspaceLabel
-            ? "Private workspace"
-            : "Sample data resets on reload"}
-        </span>
-        <span role="status" aria-live="polite" aria-atomic="true">
-          {message}
-        </span>
-      </footer>
-      {preferencesOpen && (
-        <Preferences
-          appearance={appearance}
-          onAppearance={setAppearance}
-          editMode={editMode}
-          setEditMode={setEditMode}
-          onClose={() => setPreferencesOpen(false)}
-          onReset={
-            onReset
-              ? () => {
-                  setPreferencesOpen(false);
-                  onReset();
-                }
-              : undefined
-          }
-        />
-      )}
-    </div>
+    </CompletionShortcut.Provider>
   );
 }

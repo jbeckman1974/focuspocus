@@ -26,6 +26,10 @@ export interface DateChanges {
   durationMinutes?: number | null;
 }
 
+export function formatCalendarDay(instant: string, timeZone: string) {
+  return new Date(instant).toLocaleDateString(undefined, { timeZone });
+}
+
 export function describeDate(value: DateIntent | null | undefined) {
   if (!value) return "Unscheduled";
   return [

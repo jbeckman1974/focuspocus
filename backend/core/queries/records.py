@@ -36,12 +36,12 @@ def record(item, effective, direct_dates, effective_dates):
     }
 
 
-def read_records(workspace, view_zone=None):
+def read_records(workspace, view_zone=None, *, clock=None):
     tags = Tag.objects.filter(workspace=workspace).order_by("title", "id")
     items = list(Item.objects.filter(workspace=workspace, shelf="active").order_by("position", "id").prefetch_related(
         Prefetch("tags", queryset=tags, to_attr="snapshot_tags")
     ))
-    clock = workspace_clock(workspace, view_zone=view_zone)
+    clock = clock or workspace_clock(workspace, view_zone=view_zone)
     direct, dates, defer, boundary = schedules_for(items, clock)
     effective = evaluate_items(items, now=clock.now, direct_defer=defer)
     repeats = repeat_states(workspace, [item.pk for item in items])

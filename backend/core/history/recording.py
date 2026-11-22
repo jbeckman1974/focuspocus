@@ -8,10 +8,14 @@ from uuid import UUID
 from django.db.models.signals import post_save, pre_delete, pre_save
 
 from core.commands.validation import CommandError
+from core.content.models import AttachmentLink, ItemNote
 from core.models import Item, ItemTag, Occurrence, Receipt, RepeatSeries, Tag
+from core.planning.models import ProjectReview
 
 
-MODELS = {model._meta.model_name: model for model in (Item, Tag, ItemTag, RepeatSeries, Occurrence)}
+MODELS = {model._meta.model_name: model for model in (
+    Item, Tag, ItemTag, RepeatSeries, Occurrence, ItemNote, AttachmentLink, ProjectReview
+)}
 _active = ContextVar("focuspocus_command_history", default=None)
 
 

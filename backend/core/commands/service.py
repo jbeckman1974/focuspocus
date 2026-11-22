@@ -7,9 +7,12 @@ from django.db import transaction
 
 from core.access import locked_membership
 from core import organization
+from core.content.commands import content_command
 from core.models import Change, Receipt
 from core.history.recording import recording
 from core.history.restore import reverse
+from core.planning import review
+from core.preferences.bulk import apply_bulk
 from core.repeats import commands as repeats
 
 from . import edits, lifecycle, properties, schedules
@@ -37,12 +40,18 @@ def etag(item):
 
 
 def dispatch(tree, user, name, payload):
+    if name in ("set-note", "remove-file"):
+        return content_command(tree, name, payload)
+    if name in ("set-review", "mark-reviewed"):
+        return review.command(tree, user, name, payload)
+    if name == "bulk-inspect":
+        return apply_bulk(tree, user, payload)
     if name == "set-resolved-cleanup":
         return organization.set_cleanup(user, payload)
     if name in ("create-container", "create-tag"):
         return edits.create_entry(tree, name, payload)
     if name == "set-schedule":
-        return schedules.set_schedule(tree, payload)
+        return schedules.set_schedule(tree, payload, user=user)
     if name == "set-date-settings":
         return schedules.set_date_settings(tree, payload)
     if name in repeats.COMMANDS:
@@ -54,7 +63,7 @@ def dispatch(tree, user, name, payload):
     if name == "capture":
         return edits.capture(tree, payload)
     if name == "bulk-edit":
-        return edits.edit(tree, payload)
+        return edits.edit(tree, payload, user=user)
     if name == "set-tags":
         return edits.set_tags(tree, payload)
     if name in ("complete", "reopen"):
@@ -67,7 +76,7 @@ def dispatch(tree, user, name, payload):
 
 
 @transaction.atomic
-def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
+def execute(user, workspace_id, name, body, *, item_id=None, if_match=None, command_handler=None):
     workspace = scoped_workspace(user, workspace_id, write=True, owner=name == "set-date-settings")
     fields(body, ["operationId", "context", "payload"], ["expectedRevision"])
     op = identifier(body["operationId"])
@@ -90,7 +99,7 @@ def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
             if if_match != etag(item):
                 raise CommandError("This item has changed. Reload and compare the draft.", 412)
             fields(payload, optional=["title", "due"])
-            result = edits.edit(tree, {**payload, "ids": [str(item_id)]})
+            result = edits.edit(tree, {**payload, "ids": [str(item_id)]}, user=user)
         else:
             if "expectedRevision" not in body:
                 raise CommandError("A workspace revision is required.", 428)
@@ -99,7 +108,10 @@ def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
                 raise CommandError("Expected a nonnegative integer revision.")
             if workspace.revision != version:
                 raise CommandError("The workspace changed. Reload and compare the draft.", 409)
-            result = dispatch(tree, user, name, payload)
+            if command_handler is None:
+                result = dispatch(tree, user, name, payload)
+            else:
+                result = command_handler(tree, payload)
         if result.versions:
             inverse = history.finish(name)
             if inverse:

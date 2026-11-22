@@ -85,7 +85,7 @@ def options(params):
     return view, availability, project, tag, folder
 
 
-def project_outline(rows, tags, *, view, availability, project_id=None, tag_id=None, folder_id=None):
+def project_outline(rows, tags, *, view, availability, project_id=None, tag_id=None, folder_id=None, eligible_ids=None):
     by_id = {row["id"]: row for row in rows}
     if project_id is not None and by_id.get(project_id, {}).get("kind") != "project":
         raise CommandError("Project unavailable.", 404)
@@ -96,6 +96,8 @@ def project_outline(rows, tags, *, view, availability, project_id=None, tag_id=N
     key = FILTERS[availability]
     matches = []
     for row, root, project, in_folder in order:
+        if eligible_ids is not None and row["id"] not in eligible_ids:
+            continue
         if folder_id and not in_folder:
             continue
         if not in_view(row, view, root, project, project_id, selected_tags):

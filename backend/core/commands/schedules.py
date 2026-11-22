@@ -29,13 +29,13 @@ def legacy_edit(item, due, context):
         raise CommandError(str(error)) from error
 
 
-def set_schedule(tree, data):
+def set_schedule(tree, data, *, user=None):
     fields(data, ["ids"], ["schedule", "durationMinutes"])
     if len(data) == 1:
         raise CommandError("Choose a date or estimated duration.")
     items = tree.selected(data["ids"])
     result = Changes([str(item.pk) for item in items])
-    context = workspace_clock(tree.workspace)
+    context = workspace_clock(tree.workspace, user=user)
     try:
         for item in items:
             values = {}

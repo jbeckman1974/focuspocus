@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 
 from .lifecycle_models import ItemLifecycleFields, OrganizationPreference, TagTreeFields, WorkspaceFilingFields
+from .scheduling.dates import MAX_DURATION_MINUTES
 
 
 class Workspace(WorkspaceFilingFields):
@@ -89,7 +90,7 @@ class Item(ItemLifecycleFields):
             ),
             models.CheckConstraint(condition=~models.Q(kind="folder", done=True), name="folder_completion"),
             models.CheckConstraint(
-                condition=models.Q(duration_minutes__isnull=True) | models.Q(duration_minutes__lte=5_259_600),
+                condition=models.Q(duration_minutes__isnull=True) | models.Q(duration_minutes__lte=MAX_DURATION_MINUTES),
                 name="item_duration_range",
             ),
         ]
@@ -175,5 +176,9 @@ class LoginWindow(models.Model):
     attempts = models.PositiveIntegerField(default=0)
 
 
-# Django discovers the recurrence models along with the core application's tables.
+# Register feature models with Django's core app while keeping their definitions together.
+from .content.models import AttachmentBlob, AttachmentBody, AttachmentLink, ItemNote  # noqa: E402, F401
+from .perspectives.models import PerspectiveState, SavedPerspective  # noqa: E402, F401
+from .planning.models import ProjectReview  # noqa: E402, F401
+from .preferences.models import AccountPreference, DevicePreference  # noqa: E402, F401
 from .repeats.models import Occurrence, RepeatSeries  # noqa: E402, F401

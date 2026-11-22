@@ -6,6 +6,7 @@ import { NewEntry } from "./NewEntry.tsx";
 import { OrganizeDialog } from "./OrganizeDialog.tsx";
 
 export function WorkspaceActions({
+  actorId,
   snapshot,
   channel,
   state,
@@ -17,6 +18,7 @@ export function WorkspaceActions({
   setTravel,
   cleanUp,
 }: {
+  actorId: number;
   snapshot: Snapshot;
   channel: WorkspaceChannel;
   state: ChannelState;
@@ -106,6 +108,7 @@ export function WorkspaceActions({
       )}
       {organize && (
         <OrganizeDialog
+          actorId={actorId}
           travel={travel}
           deviceZone={deviceZone}
           setTravel={setTravel}

@@ -76,3 +76,14 @@ lima-qemu	Lima · QEMU driver	https://lima-vm.io/docs/config/vmtype/qemu/
 lima-plain	Lima · Plain mode	https://lima-vm.io/docs/config/plain/
 compose-plugin	Docker · Linux Compose plugin	https://docs.docker.com/compose/install/linux/
 opensuse-registry	openSUSE · Official container image registry	https://registry.opensuse.org/cgi-bin/cooverview
+github-package-permissions	GitHub Packages · Permission scopes	https://docs.github.com/en/packages/learn-github-packages/about-permissions-for-github-packages
+github-package-visibility	GitHub Packages · Package access and visibility	https://docs.github.com/en/packages/learn-github-packages/configuring-a-packages-access-control-and-visibility
+github-package-workflows	GitHub Packages · Publishing with Actions	https://docs.github.com/en/packages/managing-github-packages-using-github-actions-workflows/publishing-and-installing-a-package-with-github-actions
+gnu-gpl-v3	GNU General Public License · Version 3	https://www.gnu.org/licenses/gpl-3.0.html
+gnu-gpl-faq	GNU license FAQ · Corresponding source for downloads	https://www.gnu.org/licenses/gpl-faq.html#SourceAndBinaryOnDifferentSites
+dependabot-ecosystems	GitHub Dependabot · Supported ecosystems and repositories	https://docs.github.com/en/code-security/reference/supply-chain-security/supported-ecosystems-and-repositories
+dependabot-options	GitHub Dependabot · Options reference	https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference
+python-standalone	Astral · Python Build Standalone releases	https://github.com/astral-sh/python-build-standalone/releases
+docker-image-inspect	Docker Buildx · Inspect an image index	https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/
+pip-secure-installs	pip · Secure installs	https://pip.pypa.io/en/stable/topics/secure-installs/
+npm-ci	npm 11 · Clean dependency installation	https://docs.npmjs.com/cli/v11/commands/npm-ci

@@ -11,6 +11,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 UTC = timezone.utc
 FIELDS = ("defer", "planned", "due")
+MAX_DURATION_MINUTES = 5_259_600
 DEFAULT_TIMES = {"defer": "00:00", "planned": "00:00", "due": "17:00"}
 DAY = r"[0-9]{4}-[0-9]{2}-[0-9]{2}"
 CLOCK = r"(?:[01][0-9]|2[0-3]):[0-5][0-9]"
@@ -155,6 +156,6 @@ def next_date_boundary(effective, context):
 def duration_minutes(value):
     if value is None:
         return None
-    if type(value) is not int or not 0 <= value <= 5_259_600:
+    if type(value) is not int or not 0 <= value <= MAX_DURATION_MINUTES:
         raise ValueError("Duration must be a whole number of minutes between zero and ten years.")
     return value

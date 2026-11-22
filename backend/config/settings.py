@@ -66,3 +66,10 @@ SESSION_COOKIE_AGE = 60 * 60 * 24 * 14
 USE_TZ = True
 TIME_ZONE = "UTC"
 SPA_ROOT = Path(os.getenv("SPA_ROOT", "/srv/frontend"))
+
+# Logical linked bytes and the independent budget for unlinked bytes retained for undo.
+ATTACHMENT_MAX_BYTES = int(os.getenv("ATTACHMENT_MAX_BYTES", 25 * 1024 * 1024))
+WORKSPACE_ATTACHMENT_MAX_BYTES = int(os.getenv("WORKSPACE_ATTACHMENT_MAX_BYTES", 1024 * 1024 * 1024))
+ATTACHMENT_HISTORY_MAX_BYTES = int(os.getenv("ATTACHMENT_HISTORY_MAX_BYTES", 256 * 1024 * 1024))
+if ATTACHMENT_MAX_BYTES <= 0 or min(WORKSPACE_ATTACHMENT_MAX_BYTES, ATTACHMENT_HISTORY_MAX_BYTES) < 0:
+    raise ImproperlyConfigured("Invalid attachment storage limits")

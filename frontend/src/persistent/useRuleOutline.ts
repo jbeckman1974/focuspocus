@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
 import type { View } from "../outline/index.ts";
-import { HttpError, jsonRequest } from "./api.ts";
+import { actorRequest, HttpError } from "./api.ts";
 import type { Snapshot } from "./api.ts";
 import { outlineQuery } from "./rules.ts";
 import type { Availability, OutlineResult } from "./rules.ts";
 
 export function useRuleOutline(
   snapshot: Snapshot | null,
+  actorId: number,
   view: View,
   availability: Availability,
   viewZone: string,
   refresh: () => Promise<void>,
+  personalVersion = 0,
 ) {
   const id = snapshot?.workspaceId;
   const revision = snapshot?.revision;
@@ -18,7 +20,7 @@ export function useRuleOutline(
   const query =
     outlineQuery(view, availability) +
     (viewZone ? "&viewZone=" + encodeURIComponent(viewZone) : "");
-  const key = JSON.stringify([id, generation, query]);
+  const key = JSON.stringify([id, actorId, generation, query, personalVersion]);
   const [state, setState] = useState<{
     key: string;
     result?: OutlineResult;
@@ -31,7 +33,8 @@ export function useRuleOutline(
     let timer: number | undefined;
     const fetchOutline = async () => {
       try {
-        const data = await jsonRequest<OutlineResult>(
+        const data = await actorRequest<OutlineResult>(
+          actorId,
           "/api/v1/workspaces/" + encodeURIComponent(id) + "/outline?" + query,
           { signal: abort.signal },
         );
@@ -72,7 +75,7 @@ export function useRuleOutline(
       abort.abort();
       window.clearTimeout(timer);
     };
-  }, [id, revision, generation, query, key, attempt, refresh]);
+  }, [id, actorId, revision, generation, query, key, attempt, refresh]);
   const current = state?.key === key ? state : undefined;
   return {
     result: current?.result,

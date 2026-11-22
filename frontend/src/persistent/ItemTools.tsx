@@ -8,6 +8,7 @@ import { RepeatDialog } from "./RepeatDialog.tsx";
 import { ScheduleDialog } from "./ScheduleDialog.tsx";
 
 export function ItemTools({
+  actorId,
   entry,
   kind,
   snapshot,
@@ -16,6 +17,7 @@ export function ItemTools({
   disabled,
   showSource,
 }: {
+  actorId: number;
   entry: Entry & RuleFields;
   kind: "project" | "group" | "folder" | "action";
   snapshot: Snapshot;
@@ -88,6 +90,7 @@ export function ItemTools({
       )}
       {editor?.type === "schedule" && (
         <ScheduleDialog
+          actorId={actorId}
           showSource={(id) => {
             setEditor(undefined);
             showSource(id);

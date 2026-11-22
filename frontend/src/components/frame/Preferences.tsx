@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import type { ReactNode } from "react";
 import { Icon } from "./Icon.tsx";
 
 type Theme = "system" | "light" | "dark";
@@ -13,8 +14,9 @@ export interface Appearance {
 }
 
 interface Props {
+  controls?: ReactNode;
   appearance: Appearance;
-  onAppearance: (settings: Appearance) => void;
+  onAppearance: (settings: Partial<Appearance>) => void;
   editMode: EditMode;
   setEditMode: (value: EditMode) => void;
   onClose: () => void;
@@ -23,6 +25,7 @@ interface Props {
 
 export function Preferences({
   appearance,
+  controls,
   onAppearance,
   editMode,
   setEditMode,
@@ -62,10 +65,10 @@ export function Preferences({
         <label className="fp-field">
           Theme
           <select
+            aria-label="Theme"
             value={appearance.theme}
             onChange={(event) =>
               onAppearance({
-                ...appearance,
                 theme: event.currentTarget.value as Theme,
               })
             }
@@ -78,10 +81,10 @@ export function Preferences({
         <label className="fp-field">
           Row density
           <select
+            aria-label="Row density"
             value={appearance.density}
             onChange={(event) =>
               onAppearance({
-                ...appearance,
                 density: event.currentTarget.value as Density,
               })
             }
@@ -93,10 +96,10 @@ export function Preferences({
         <label className="fp-field">
           Text size
           <select
+            aria-label="Text size"
             value={appearance.textSize}
             onChange={(event) =>
               onAppearance({
-                ...appearance,
                 textSize: event.currentTarget.value as TextSize,
               })
             }
@@ -108,6 +111,7 @@ export function Preferences({
         <label className="fp-field">
           Edit titles in
           <select
+            aria-label="Edit titles in"
             value={editMode}
             onChange={(event) =>
               setEditMode(event.currentTarget.value as EditMode)
@@ -117,12 +121,13 @@ export function Preferences({
             <option value="inspector">Inspector</option>
           </select>
         </label>
+        {controls}
       </div>
       <div className="fp-dialog-footer">
         <p>
           {onReset
             ? "Tasks and preferences last until you reset the sample or reload this tab."
-            : "Appearance preferences apply to this tab."}
+            : "Your account saves appearance and editing choices. This browser keeps its own pane layout."}
         </p>
         {onReset && (
           <button

@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { effectiveDone } from "../../outline/index.ts";
 import type { Command, Workspace } from "../../outline/index.ts";
+import { useCompletionShortcut } from "../frame/shortcuts.ts";
 import { MoveForm } from "./MoveForm.tsx";
 import type { OutlinePanel } from "./keyboard.ts";
 
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function ActionDialog(props: Props) {
+  const shortcut = useCompletionShortcut();
   const [name, setName] = useState("");
   const [search, setSearch] = useState("");
   const [error, setError] = useState("");
@@ -92,7 +94,7 @@ export function ActionDialog(props: Props) {
     },
     {
       name: complete ? "Reopen" : "Complete",
-      key: "X",
+      key: shortcut.toUpperCase(),
       enabled: !!selected.length,
       invoke: () =>
         submit({ type: complete ? "reopen" : "complete", ids: selected }),

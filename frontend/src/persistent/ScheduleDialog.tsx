@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Entry } from "../outline/index.ts";
-import { jsonRequest } from "./api.ts";
+import { actorRequest } from "./api.ts";
 import type { Snapshot } from "./api.ts";
 import type { RuleFields } from "./rules.ts";
 import {
@@ -17,12 +17,14 @@ import type {
 } from "./schedule.ts";
 
 export function ScheduleDialog({
+  actorId,
   entry,
   base,
   apply,
   showSource,
   close,
 }: {
+  actorId: number;
   entry: Entry & RuleFields;
   base: Snapshot;
   apply: (changes: DateChanges) => boolean;
@@ -61,7 +63,8 @@ export function ScheduleDialog({
     setResult(undefined);
     setMessage("Checking date…");
     try {
-      const data = await jsonRequest<DatePreview>(
+      const data = await actorRequest<DatePreview>(
+        actorId,
         "/api/v1/workspaces/" +
           encodeURIComponent(base.workspaceId) +
           "/date-preview?" +

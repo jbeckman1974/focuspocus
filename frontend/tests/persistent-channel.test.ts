@@ -344,6 +344,7 @@ test("repeat previews send one versionless read with the current CSRF token", as
       assert.equal(url, "/api/v1/workspaces/office/repeat-preview");
       assert.equal(init?.credentials, "same-origin");
       assert.equal(new Headers(init?.headers).get("X-CSRFToken"), csrf);
+      assert.equal(new Headers(init?.headers).get("X-FocusPocus-Actor"), "1");
       assert.deepEqual(JSON.parse(String(init?.body)), { id: "item", rule });
       return Response.json({ revision: 2, next: null, remaining: 0 });
     },
@@ -356,4 +357,31 @@ test("repeat previews send one versionless read with the current CSRF token", as
   );
   assert.equal(value.remaining, 0);
   assert.equal(fetcher.mock.callCount(), 1);
+});
+
+test("workspace snapshots, changes and writes bind the account that opened the tab", async (t) => {
+  const api = workspaceApi(
+    "shared",
+    17,
+    crypto.randomUUID(),
+    new AbortController().signal,
+  );
+  const calls: string[] = [];
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: RequestInfo | URL, init?: RequestInit) => {
+      assert.equal(new Headers(init?.headers).get("X-FocusPocus-Actor"), "17");
+      calls.push(String(url));
+      return Response.json({});
+    },
+  );
+  await api.snapshot();
+  await api.changes("checkpoint");
+  await api.submit("set-title", {});
+  assert.deepEqual(calls, [
+    "/api/v1/workspaces/shared/snapshot",
+    "/api/v1/workspaces/shared/changes?after=checkpoint",
+    "/api/v1/workspaces/shared/commands/set-title",
+  ]);
 });

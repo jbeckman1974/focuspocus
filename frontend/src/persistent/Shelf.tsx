@@ -1,15 +1,17 @@
 import { useEffect, useState } from "react";
 import type { Snapshot } from "./api.ts";
-import { jsonRequest } from "./api.ts";
+import { actorRequest } from "./api.ts";
 import type { LifecycleChange, ShelfItem } from "./lifecycle.ts";
 
 export type ShelfPage = "trash" | "archive" | "preview";
 
 export function Shelf({
+  actorId,
   page,
   snapshot,
   submit,
 }: {
+  actorId: number;
   page: ShelfPage;
   snapshot: Snapshot;
   submit: (change: LifecycleChange, revision?: number) => void;
@@ -30,7 +32,8 @@ export function Shelf({
       page === "preview"
         ? "archive-preview?before=" + encodeURIComponent(before)
         : "shelf?state=" + page;
-    void jsonRequest<{ items: ShelfItem[]; revision: number }>(
+    void actorRequest<{ items: ShelfItem[]; revision: number }>(
+      actorId,
       "/api/v1/workspaces/" +
         encodeURIComponent(snapshot.workspaceId) +
         "/" +
@@ -45,6 +48,7 @@ export function Shelf({
       });
     return () => controller.abort();
   }, [
+    actorId,
     snapshot.workspaceId,
     snapshot.generation,
     snapshot.revision,

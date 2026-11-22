@@ -3,6 +3,7 @@
 from uuid import uuid4
 
 from core.models import Item
+from core.planning.schedules import initialize_projects
 
 from .edits import GAP, next_position
 from .state import Changes, save_changed
@@ -46,6 +47,7 @@ def miscellaneous(tree, result):
     project = Item.objects.create(id=uuid4(), workspace=tree.workspace, kind="project",
                                   title="Miscellaneous", mode="single-action", is_miscellaneous=True,
                                   position=next_position(tree.siblings(None, library=True)))
+    initialize_projects(tree.workspace, [project])
     result.touch(project)
     return project
 

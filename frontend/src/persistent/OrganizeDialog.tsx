@@ -11,6 +11,7 @@ import { Shelf } from "./Shelf.tsx";
 import type { ShelfPage } from "./Shelf.tsx";
 
 export function OrganizeDialog({
+  actorId,
   snapshot,
   view,
   selection,
@@ -21,6 +22,7 @@ export function OrganizeDialog({
   setTravel,
   cleanUp,
 }: {
+  actorId: number;
   snapshot: Snapshot;
   view: View;
   selection: string[];
@@ -88,7 +90,13 @@ export function OrganizeDialog({
       </nav>
       {message && <p role="alert">{message}</p>}
       {page !== "selection" ? (
-        <Shelf key={page} page={page} snapshot={snapshot} submit={submit} />
+        <Shelf
+          key={page}
+          actorId={actorId}
+          page={page}
+          snapshot={snapshot}
+          submit={submit}
+        />
       ) : (
         <>
           <SelectionActions
