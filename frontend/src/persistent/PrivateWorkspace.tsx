@@ -30,6 +30,8 @@ import { ContentTools } from "./content/ContentTools.tsx";
 import { PlanningArea } from "./planning/PlanningArea.tsx";
 import { usePlanningNavigation } from "./planning/usePlanningNavigation.ts";
 import { useCatalog } from "./planning/useCatalog.ts";
+import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
+import type { WorkspaceInfo } from "./tools/WorkspaceRouter.tsx";
 import { WriteNotice } from "./WriteNotice.tsx";
 
 interface Props {
@@ -38,6 +40,9 @@ interface Props {
   actorId: number;
   csrf: string;
   readOnly?: boolean;
+  activeSpace: WorkspaceInfo;
+  spaces: WorkspaceInfo[];
+  switchTo: (id?: string) => Promise<void>;
   onLostAccess: () => void;
   onSignOut: () => void;
 }
@@ -77,6 +82,7 @@ function ConnectedOutline({
   id,
   csrf,
   readOnly = false,
+  activeSpace, spaces, switchTo,
   onSignOut,
   channel,
 }: Props & { channel: WorkspaceChannel }) {
@@ -358,9 +364,11 @@ function ConnectedOutline({
           if (window.innerWidth <= 850) setShowInspector(false);
           setCapture((n) => n + 1);
         }}
-        workspaceLabel={username}
-        accountControls={
+        workspaceLabel={activeSpace.private ? username : activeSpace.name}
+        accountControls={<>
+          <WorkspaceTools actorId={actorId} csrf={csrf} workspace={activeSpace} spaces={spaces} snapshot={snapshot} selection={selection} switchTo={switchTo} refresh={channel.refresh} openItem={showSource}/>
           <WorkspaceActions
+            readOnly={readOnly}
             actorId={actorId}
             channel={channel}
             state={state}
@@ -373,7 +381,7 @@ function ConnectedOutline({
             setTravel={setTravel}
             cleanUp={cleanUp}
           />
-        }
+        </>}
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}

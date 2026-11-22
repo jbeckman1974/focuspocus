@@ -1,0 +1,9 @@
+services:
+  web:
+    environment:
+      FOCUSPOCUS_OIDC_FILE: /run/secrets/oidc
+    secrets: [oidc]
+
+secrets:
+  oidc:
+    file: ${FOCUSPOCUS_OIDC_CONFIG:?Set the path to the protected identity-provider configuration}

@@ -26,6 +26,8 @@ class ImportParserTests(TestCase):
         self.assertEqual(group["kind"], "group")
         self.assertEqual(task["parentLine"], group["line"])
         self.assertEqual(task["fields"]["repeat"]["interval"], 2)
+        self.assertEqual([s["due"]["value"] for s in task["fields"]["successorsIfCompletedOnSchedule"]],
+                         ["2026-12-06", "2026-12-20", "2027-01-03"])
         self.assertEqual(task["fields"]["tags"], ["Field", "Desk"])
         self.assertEqual(task["fields"]["note"], "Notes β")
         self.assertFalse(any(i["category"] == "invalid" for i in result["issues"]))
@@ -44,3 +46,11 @@ class ImportParserTests(TestCase):
                 self.assertTrue(any(i["category"] == "invalid" for i in parse(text.encode(), "csv", self.clock)["issues"]))
         with self.assertRaises(CommandError):
             parse(b"\x81\x00", "csv", self.clock)
+
+    def test_local_meridiem_and_file_scoped_outline_numbering(self):
+        csv = "Task ID\tPersistent ID\tType\tName\tDue\n1\tproject\tProject\tPlan\t\n1.1\t\tTask\tRead\t2026-04-19 5pm\n"
+        result = parse(csv.encode("utf-16"), "csv", self.clock)
+        project, task = result["rows"]
+        self.assertEqual(task["parentLine"], project["line"])
+        self.assertEqual(task["fields"]["schedule"]["due"], {"kind": "floating", "value": "2026-04-19T17:00"})
+        self.assertEqual(task["sourceId"], "")

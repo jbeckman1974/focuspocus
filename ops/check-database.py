@@ -8,11 +8,15 @@ from django.db import connection
 
 django.setup()
 from core.content.models import AttachmentBlob, AttachmentBody, AttachmentLink, ItemNote
-from core.models import Item, ItemTag, Tag, Workspace
+from core.imports.models import ImportBatch, ImportMapping
+from core.integrations.models import TagPlace
+from core.models import Item, ItemTag, Membership, Tag, Workspace
 from core.perspectives.models import PerspectiveState, SavedPerspective
 from core.planning.models import ProjectReview
+from core.portability.models import RestoredHistory, RestoredReviewer, RestoreReceipt
 from core.preferences.models import AccountPreference, DevicePreference
 from core.repeats.models import Occurrence, RepeatSeries
+from core.sharing.models import SharedWorkspace
 
 
 def check_grants():
@@ -73,10 +77,15 @@ def content_digest():
     if not Occurrence.objects.filter(predecessor__outcome="completed").exists():
         raise RuntimeError("Browser fixtures did not persist a recurring successor and its predecessor")
     check_planning_fixture()
+    if not (ImportBatch.objects.filter(status="rolled_back").exists()
+            and ImportMapping.objects.filter(active=True).exists()
+            and RestoreReceipt.objects.filter(destination__isnull=False).exists()):
+        raise RuntimeError("The import, restore and guarded rollback journey did not persist its provenance")
     digest = hashlib.sha256()
     for model in (Workspace, Item, Tag, ItemTag, RepeatSeries, Occurrence,
                   ProjectReview, PerspectiveState, SavedPerspective, ItemNote, AttachmentLink, AttachmentBlob,
-                  AccountPreference, DevicePreference):
+                  AccountPreference, DevicePreference, Membership, SharedWorkspace, ImportBatch, ImportMapping,
+                  RestoreReceipt, RestoredHistory, RestoredReviewer, TagPlace):
         digest.update(model._meta.label.encode("utf-8") + b"\n")
         for row in model.objects.order_by("pk").values().iterator():
             if model is Workspace:

@@ -9,7 +9,7 @@ from core.commands.validation import CommandError
 from .source import MAX_ISSUES, MAX_ROWS, issue, row
 
 
-ALIASES = {"task id": "id", "item id": "id", "parentid": "parent id", "name": "title", "task": "title",
+ALIASES = {"persistent id": "id", "item id": "id", "parentid": "parent id", "name": "title", "task": "title",
            "type": "kind", "task type": "kind", "task name": "title", "notes": "note", "flag": "flagged",
            "defer date": "defer", "planned date": "planned", "due date": "due", "start date": "defer",
            "completion date": "completed at", "date completed": "completed at", "tag": "tags",
@@ -26,13 +26,17 @@ def header(value):
 
 
 def read(text):
-    reader = csv.reader(io.StringIO(text, newline=""), strict=True)
+    header_line = text.partition("\n")[0]
+    delimiter = "\t" if "\t" in header_line and "," not in header_line else ","
+    reader = csv.reader(io.StringIO(text, newline=""), delimiter=delimiter, strict=True)
     rows, issues, ids, depths = [], [], {}, []
     try:
         keys = [header(s) for s in next(reader, [])]
         if not keys or not all(keys) or len(keys) != len(set(keys)) or "title" not in keys or len(keys) > 100:
             return [], [issue(1, "header", "invalid", "Supply unique, nonempty columns including Title or Name (maximum 100 columns).")]
         while True:
+            if len(issues) > MAX_ISSUES:
+                raise CommandError("Too many import diagnostics.", 413)
             number = reader.line_num + 1
             values = next(reader, None)
             if values is None:
@@ -61,10 +65,17 @@ def read(text):
                     del depths[depth:]
                     item["parentLine"] = depths[-1] if depths else None
                     depths.append(number)
-            if item["sourceId"]:
-                if item["sourceId"] in ids:
+            local_id = data.pop("task id", "").strip()
+            if local_id and not item["sourceId"]:
+                issues.append(issue(number, "task id", "ambiguous", "Used for hierarchy in this file. No persistent source ID was supplied."))
+            for alias in dict.fromkeys((item["sourceId"], local_id)):
+                if not alias:
+                    continue
+                if alias in ids:
                     issues.append(issue(number, "id", "invalid", "Source ID occurs more than once."))
-                ids[item["sourceId"]] = number
+                ids[alias] = number
+            if not item["parentKey"] and raw_depth == "" and re.fullmatch(r"[0-9]+(?:\.[0-9]+)+", local_id):
+                item["parentKey"] = local_id.rsplit(".", 1)[0]
             item["rawFields"] = {k: v for k, v in data.items() if v != ""}
             rows.append(item)
             if len(rows) > MAX_ROWS or len(issues) > MAX_ISSUES:

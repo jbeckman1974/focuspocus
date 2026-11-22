@@ -87,3 +87,10 @@ python-standalone	Astral · Python Build Standalone releases	https://github.com/
 docker-image-inspect	Docker Buildx · Inspect an image index	https://docs.docker.com/reference/cli/docker/buildx/imagetools/inspect/
 pip-secure-installs	pip · Secure installs	https://pip.pypa.io/en/stable/topics/secure-installs/
 npm-ci	npm 11 · Clean dependency installation	https://docs.npmjs.com/cli/v11/commands/npm-ci
+docker-image-rm	Docker · Remove an image	https://docs.docker.com/reference/cli/docker/image/rm/
+docker-compose-config	Docker Compose · Resolve the effective configuration	https://docs.docker.com/reference/cli/docker/compose/config/
+oidc-core	OpenID Foundation · OpenID Connect Core 1.0 with errata	https://openid.net/specs/openid-connect-core-1_0.html
+pyjwt-api	PyJWT · API reference	https://pyjwt.readthedocs.io/en/stable/api.html
+oauth-pkce	IETF · Proof Key for Code Exchange (RFC 7636)	https://www.rfc-editor.org/rfc/rfc7636.html
+icalendar	IETF · iCalendar format (RFC 5545)	https://www.rfc-editor.org/rfc/rfc5545.html
+vapid	IETF · Voluntary Application Server Identification for Web Push (RFC 8292)	https://www.rfc-editor.org/rfc/rfc8292.html

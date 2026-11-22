@@ -21,6 +21,11 @@ def boolean(raw):
 def date_intent(raw):
     if raw.startswith("{"):
         return DateIntent.from_wire(json.loads(raw)).wire()
+    # Omni's documented absolute local form permits an hour and meridiem.
+    clock = re.fullmatch(r"(\d{4}-\d\d-\d\d)\s+(1[0-2]|0?[1-9])(?::([0-5][0-9]))?\s*(am|pm)", raw, re.I)
+    if clock:
+        hour = int(clock[2]) % 12 + (12 if clock[4].lower() == "pm" else 0)
+        raw = f"{clock[1]}T{hour:02d}:{clock[3] or '00'}"
     date_value = raw.replace(" ", "T", 1)
     if len(raw) == 10:
         kind = "date"

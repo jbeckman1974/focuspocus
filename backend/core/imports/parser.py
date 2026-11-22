@@ -4,7 +4,8 @@ from collections import defaultdict
 from hashlib import sha256
 
 from core.commands.validation import CommandError
-from core.scheduling.recurrence import next_occurrence
+from core.scheduling.dates import DateIntent
+from core.scheduling.recurrence import anchor_field, next_occurrence
 from core.scheduling.repeat_rule import RepeatRule
 from core.scheduling.storage import merge_schedule
 
@@ -23,6 +24,25 @@ COVERAGE = {
     "history": "Change history and prior repeat occurrences cannot be reconstructed from this text.",
     "tags": "Text labels represent root tags. Tag status, geographic data and nested tag identity are unavailable.",
 }
+
+
+def repeat_preview(values, clock):
+    """Project up to three successors assuming completion on each assigned anchor."""
+    rule = RepeatRule.from_wire(values["repeat"])
+    origin = values.get("schedule", {})
+    schedule, remaining, result = origin, rule.count, []
+    # Validate a recurrence even when its ending count allows no successor.
+    next_occurrence(rule, schedule, clock, origin=origin, remaining=2)
+    for _ in range(3):
+        date_fields = {k: DateIntent.from_wire(v) for k, v in schedule.items()}
+        anchor = anchor_field(rule, date_fields)
+        completed = date_fields[anchor].instant(anchor, clock)
+        successor = next_occurrence(rule, schedule, clock, completed_at=completed, origin=origin, remaining=remaining)
+        if successor is None:
+            break
+        schedule, remaining = successor.schedule, successor.remaining
+        result.append(schedule)
+    return result
 
 
 def parse(raw, fmt, clock):
@@ -60,17 +80,14 @@ def parse(raw, fmt, clock):
                 fields["schedule"] = merge_schedule({}, fields["schedule"], clock)
             for key, anchor in (("completedAt", "due"), ("droppedAt", "due")):
                 if key in fields:
-                    from core.scheduling.dates import DateIntent
                     fields[key] = DateIntent.from_wire(fields[key]).instant(anchor, clock).isoformat()
         except (ValueError, OverflowError, TypeError):
             warn("date", "invalid", "The date falls outside the supported workspace calendar.")
         if "repeat" in fields:
             try:
-                schedule = fields.get("schedule", {})
                 if item["kind"] == "folder" or fields.get("status") in ("completed", "dropped"):
                     raise ValueError
-                rule = RepeatRule.from_wire(fields["repeat"])
-                next_occurrence(rule, schedule, clock, origin=schedule, remaining=2)
+                fields["successorsIfCompletedOnSchedule"] = repeat_preview(fields, clock)
             except (ValueError, OverflowError):
                 del fields["repeat"]
                 warn("repeat", "unsupported", "The supplied status, anchor or dates do not define a runnable recurrence.")
@@ -78,6 +95,18 @@ def parse(raw, fmt, clock):
             raise CommandError("Too many import diagnostics.", 413)
     if "" in sources:
         issues.append(issue(0, "identity", "ambiguous", "Rows without source IDs are identified by this file and row. A changed export may duplicate them."))
+    if rows:
+        for name in ("mode", "autoComplete", "flagged", "status", "durationMinutes", "completedAt", "droppedAt", "repeat", "note", "tags"):
+            missing = sum(name not in r["fields"] for r in rows)
+            if missing:
+                issues.append(issue(0, name, "omitted by source", f"{missing} of {len(rows)} rows have no mapped {name} value."))
+        for name in ("defer", "planned", "due"):
+            missing = sum(name not in r["fields"].get("schedule", {}) for r in rows)
+            if missing:
+                issues.append(issue(0, name, "omitted by source", f"{missing} of {len(rows)} rows have no mapped {name} date."))
+        if all(r["parentLine"] is None for r in rows):
+            issues.append(issue(0, "hierarchy", "ambiguous", "All rows are top-level. Relationships absent from the source cannot be inferred from repeated titles."))
+        issues.append(issue(0, "order", "transformed", "Sibling order follows explicit complete positions or the order in this file."))
     for siblings in children.values():
         if any("position" in r["fields"] for r in siblings):
             if all("position" in r["fields"] for r in siblings):

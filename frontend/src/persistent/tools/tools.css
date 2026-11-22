@@ -1,0 +1,16 @@
+.workspace-tools {width:min(48rem,92vw);max-height:85dvh;overflow:auto;color:var(--ink);padding:1.25rem;}
+.workspace-tools header,.workspace-tools nav,.workspace-tools .actions {display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;}
+.workspace-tools header {justify-content:space-between;}
+.workspace-tools h2,.workspace-tools h3 {margin:.3rem 0 .7rem;}
+.workspace-tools nav {margin:0 0 1rem;border-bottom:1px solid currentColor;padding:.6rem 0;}
+.workspace-tools nav [aria-current=page] {font-weight:bold;text-decoration:underline;text-underline-offset:4px;}
+.workspace-tools form,.workspace-tools fieldset {display:grid;gap:.55rem;margin:.75rem 0;}
+.workspace-tools fieldset {border:1px solid var(--line,currentColor);padding:.8rem;}
+.workspace-tools label {display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;}
+.workspace-tools :is(input,select,textarea) {max-width:100%;font:inherit;}
+.workspace-tools ul {padding-left:1.2rem;}
+.workspace-tools li {margin:.4rem 0;overflow-wrap:anywhere;}
+.workspace-tools table {width:100%;border-collapse:collapse;}
+.workspace-tools :is(th,td) {text-align:left;vertical-align:top;padding:.35rem;border-bottom:1px solid var(--line,currentColor);}
+.workspace-tools .scroll-table {overflow:auto;max-height:18rem;}
+.workspace-tools .secret {width:100%;font:inherit;}

@@ -7,6 +7,7 @@ import { OrganizeDialog } from "./OrganizeDialog.tsx";
 
 export function WorkspaceActions({
   actorId,
+  readOnly,
   snapshot,
   channel,
   state,
@@ -19,6 +20,7 @@ export function WorkspaceActions({
   cleanUp,
 }: {
   actorId: number;
+  readOnly: boolean;
   snapshot: Snapshot;
   channel: WorkspaceChannel;
   state: ChannelState;
@@ -39,7 +41,7 @@ export function WorkspaceActions({
     view: View;
     selection: string[];
   }>();
-  const disabled = state.phase !== "ready";
+  const disabled = readOnly || state.phase !== "ready";
   return (
     <div className="private-actions">
       <button

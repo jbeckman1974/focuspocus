@@ -3,6 +3,7 @@
 from datetime import datetime
 
 from core.commands.validation import CommandError, identifier
+from core.integrations.calendars import add_to_forecast
 from core.queries.outline import tag_scope
 from core.queries.records import read_records
 from core.queries.views import view_zone
@@ -41,6 +42,7 @@ def forecast(workspace, user, params):
         tags=tag_scope(tags, tag) if tag else set(), layout=layout, include_held=held,
         focus=focused_ids(workspace, user, rows),
     )
+    add_to_forecast(day_rows, workspace, user, clock.zone)
     boundary = next_midnight(clock)
     if metadata["nextDateBoundary"]:
         boundary = min(boundary, datetime.fromisoformat(metadata["nextDateBoundary"]))

@@ -8,13 +8,16 @@ from core.commands.validation import CommandError
 MAX_BYTES = 512 * 1024
 MAX_ROWS = 2000
 MAX_ISSUES = 5000
-MAX_TAGS = 64
 
 
 def source_text(raw):
     if not raw or len(raw) > MAX_BYTES:
         raise CommandError("Supply a nonempty file of at most 512 KiB.", 413)
-    encoding = "utf-16" if raw.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+    encoding = "utf-8"
+    if raw.startswith((b"\xff\xfe", b"\xfe\xff")):
+        encoding = "utf-16"
+    elif raw.startswith(b"\xef\xbb\xbf"):
+        encoding = "utf-8-sig"
     try:
         text = raw.decode(encoding)
     except UnicodeError as error:

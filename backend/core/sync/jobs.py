@@ -17,6 +17,9 @@ LEASE = timedelta(seconds=30)
 MAX_HEARTBEAT_AGE = timedelta(seconds=45)
 PROBE = "workspace-revision-probe"
 
+class RetryJob(Exception):
+    """An adapter confirmed that the provider did not accept the delivery."""
+
 
 def heartbeat():
     WorkerHeartbeat.objects.update_or_create(
@@ -52,6 +55,12 @@ def claim():
     if job is None:
         return None
     if job.attempts >= MAX_ATTEMPTS:
+        if job.kind == "reminder-push":
+            from core.integrations.models import ReminderDelivery
+            attempts = ReminderDelivery.objects.filter(pk=job.payload.get("delivery"), reminder__workspace=job.workspace,
+                                                      reminder__user_id=job.actor_id)
+            attempts.filter(status="sending").update(status="uncertain")
+            attempts.filter(status="pending").update(status="failed")
         job.status = "failed"
         job.last_error = "lease_exhausted"
         job.finished_at = now
@@ -66,7 +75,13 @@ def claim():
 
 
 def execute(job):
-    """The M2 handler checks a revision without accessing task content or providers."""
+    from core.integrations.calendars import CALENDAR, refresh
+    from core.integrations.delivery import deliver, make_due
+    from core.integrations.reminders import DUE, PUSH
+    if job.kind in (CALENDAR, DUE, PUSH):
+        if not isinstance(job.payload, dict):
+            return "invalid_job"
+        return {CALENDAR: refresh, DUE: make_due, PUSH: deliver}[job.kind](job)
     membership = Membership.objects.filter(
         workspace_id=job.workspace_id, user_id=job.actor_id, user__is_active=True
     )
@@ -106,6 +121,8 @@ def run_one():
             error = execute(job)
         except OperationalError:
             finish(job, "database_unavailable", retry=True)
+        except RetryJob as exc:
+            finish(job, str(exc), retry=True)
         else:
             finish(job, error)
     return True

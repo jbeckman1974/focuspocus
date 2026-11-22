@@ -1,0 +1,17 @@
+services:
+  web:
+    environment:
+      FOCUSPOCUS_INTEGRATIONS_FILE: /run/secrets/integrations
+    secrets: [integrations]
+  worker:
+    environment:
+      FOCUSPOCUS_INTEGRATIONS_FILE: /run/secrets/integrations
+    secrets: [integrations]
+    networks: [database, providers]
+
+networks:
+  providers: {}
+
+secrets:
+  integrations:
+    file: ${FOCUSPOCUS_INTEGRATIONS_CONFIG:?Set the path to the protected calendar and push configuration}
