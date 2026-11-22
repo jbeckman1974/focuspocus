@@ -1,5 +1,6 @@
 import type { Entry, Task } from "../outline/index.ts";
 
+import type { DateDefaults } from "./schedule.ts";
 import type { FilingPolicy, TagStatus } from "./lifecycle.ts";
 import type { RuleFields } from "./rules.ts";
 
@@ -15,6 +16,9 @@ export interface Snapshot {
   generation: string;
   context: string;
   cursor: string;
+  timeZone?: string;
+  dateDefaults?: DateDefaults;
+  nextDateBoundary?: string | null;
   filingPolicy?: FilingPolicy;
   tasks: (Task & RuleFields & { version: number; filingProjectId?:string|null })[];
   folders?: (Entry & RuleFields & { version: number })[];

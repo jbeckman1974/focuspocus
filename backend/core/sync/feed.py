@@ -42,8 +42,8 @@ def read_cursor(token, workspace, user):
     return value[3]
 
 
-def snapshot(workspace, user):
-    rows, tags = read_records(workspace)
+def snapshot(workspace, user, view_zone=None):
+    rows, tags, metadata = read_records(workspace, view_zone)
     return {
         "workspaceId": str(workspace.pk),
         "generation": str(workspace.generation),
@@ -55,6 +55,7 @@ def snapshot(workspace, user):
         "tasks": [row for row in rows if row["kind"] in ("group", "action")],
         "tags": tags,
         "filingPolicy": workspace.filing_policy,
+        **metadata,
     }
 
 

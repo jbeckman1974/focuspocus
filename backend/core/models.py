@@ -173,3 +173,7 @@ class LoginWindow(models.Model):
     key = models.CharField(max_length=64, primary_key=True)
     started_at = models.DateTimeField()
     attempts = models.PositiveIntegerField(default=0)
+
+
+# Django discovers the recurrence models along with the core application's tables.
+from .repeats.models import Occurrence, RepeatSeries  # noqa: E402, F401

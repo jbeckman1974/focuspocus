@@ -2,7 +2,7 @@
 
 from core.rules.properties import mode_for
 
-from .completion import apply_status
+from .completion import apply_status, validate_status
 from .state import Changes, save_changed
 from .validation import CommandError, fields
 
@@ -28,14 +28,11 @@ def validate(item, payload):
     if "autoComplete" in payload and item.kind not in ("project", "group"):
         raise CommandError("Only a project or group can complete with its last action.")
     mode = payload.get("mode", mode_for(item))
-    if mode == "single-action" and payload.get("autoComplete", item.auto_complete):
+    if mode == "single-action" and payload.get("autoComplete", False):
         raise CommandError("Single-action lists cannot complete with their last action.")
     if "status" in payload:
         status = choice(payload["status"], STATES, "status")
-        if status == "held" and item.kind != "project":
-            raise CommandError("Only projects can be held.")
-        if status == "completed" and item.kind == "folder":
-            raise CommandError("Folders can be active or dropped.")
+        validate_status(item, status)
 
 
 def set_properties(tree, data):
@@ -52,7 +49,9 @@ def set_properties(tree, data):
             properties["mode"] = data["mode"]
         if "flagged" in data:
             properties["flagged"] = data["flagged"]
-        if "autoComplete" in data:
+        if data.get("mode") == "single-action":
+            properties["auto_complete"] = False
+        elif "autoComplete" in data:
             properties["auto_complete"] = data["autoComplete"]
         save_changed(item, result, **properties)
     if "status" in data:

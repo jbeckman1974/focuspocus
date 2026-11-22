@@ -1,5 +1,8 @@
+import type { Occurrence } from "./repeat.ts";
 import type { Entry, OutlineRow, View } from "../outline/index.ts";
 import type { Snapshot } from "./api.ts";
+
+import type { Schedule, EffectiveDate, DateField } from "./schedule.ts";
 
 export type Mode = "parallel" | "sequential" | "single-action";
 export type ItemStatus = "active" | "held" | "completed" | "dropped";
@@ -13,9 +16,13 @@ export interface Properties {
 }
 
 export interface RuleFields extends Properties {
+  repeat?: Occurrence | null;
+  schedule?: Schedule;
+  durationMinutes?: number | null;
   parentId?: string;
   effective?: {
     status: ItemStatus;
+    schedule?: Partial<Record<DateField, EffectiveDate|null>>;
     flagged: boolean;
     flagSource: string | null;
     remaining: boolean;
@@ -39,7 +46,7 @@ export interface OutlineResult {
   rows: QueryRow[];
   count: number;
   matchIds: string[];
-  nextEvaluationAt?: string | null;
+  nextDateBoundary?: string | null;
 }
 
 export function outlineQuery(view: View, availability: Availability) {

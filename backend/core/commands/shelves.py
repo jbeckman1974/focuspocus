@@ -99,7 +99,7 @@ def insert_root(tree, obj, original, parent_id, result, *, duplicate=False):
         save_changed(item, result, parent_id=parent_id, position=rank * GAP)
 
 
-def copy_subtree(tree, source, parent_id, result, *, duplicate=False):
+def copy_subtree(tree, source, parent_id, result, *, duplicate=False, repeat_successor=False):
     originals = list(source)
     root = originals[0]
     copies = {}
@@ -108,7 +108,7 @@ def copy_subtree(tree, source, parent_id, result, *, duplicate=False):
         copy = Item(
             workspace=tree.workspace, id=uuid4(), title=item.title, kind=item.kind, position=item.position,
             parent_id=parent_id if item.pk == root.pk else copies[item.parent_id].pk,
-            due=item.due, done=item.done, mode=item.mode, flagged=item.flagged, auto_complete=item.auto_complete,
+            schedule=item.schedule, duration_minutes=item.duration_minutes, due=item.due, done=item.done, mode=item.mode, flagged=item.flagged, auto_complete=item.auto_complete,
             disposition=item.disposition, completed_at=item.completed_at, dropped_at=item.dropped_at,
             changed_at=now, created_at=now,
             filing_project_id=(item.filing_project_id if item.pk == root.pk and parent_id is None
@@ -123,6 +123,10 @@ def copy_subtree(tree, source, parent_id, result, *, duplicate=False):
         result.touch(item)
     insert_root(tree, copies[root.pk], root, parent_id, result, duplicate=duplicate)
     result.selection.append(str(copies[root.pk].pk))
+    if not repeat_successor:
+        from core.repeats.templates import copy_series
+        copy_series(tree, copies)
+    return copies
 
 
 def duplicate(tree, data):

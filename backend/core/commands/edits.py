@@ -3,6 +3,9 @@ from django.db.models import Max
 from core.models import Item, ItemTag, Receipt
 
 from .completion import apply_status, restore_statuses
+from core.scheduling.clock import workspace_clock
+
+from .schedules import legacy_edit
 from .state import Changes, save_changed
 from . import tagging
 from .validation import CommandError, due_date, fields, identifier, title
@@ -73,14 +76,15 @@ def edit(tree, data):
     changes = {}
     if "title" in data:
         changes["title"] = title(data["title"])
-    if "due" in data:
-        changes["due"] = due_date(data["due"])
-    if not changes:
+    if "due" not in data and not changes:
         raise CommandError("Choose a field to edit.")
+    due = due_date(data["due"]) if "due" in data else None
+    clock = workspace_clock(tree.workspace) if "due" in data else None
     items = tree.selected(data["ids"])
     result = Changes([str(item.pk) for item in items])
     for item in items:
-        save_changed(item, result, **changes)
+        schedule = legacy_edit(item, due, clock) if clock is not None else {}
+        save_changed(item, result, **changes, **schedule)
     return result
 
 

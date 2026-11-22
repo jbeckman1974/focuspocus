@@ -27,7 +27,8 @@ class Migration(migrations.Migration):
                     CROSS JOIN LATERAL jsonb_array_elements_text(affected) AS touched(id)
                    GROUP BY workspace_id, touched.id
               ) AS observed
-             WHERE item.workspace_id = observed.workspace_id AND item.id::text = observed.id
+             WHERE item.workspace_id = observed.workspace_id AND item.id::text = observed.id;
+            SET CONSTRAINTS ALL IMMEDIATE;
             """,
             migrations.RunSQL.noop,
         ),

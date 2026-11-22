@@ -16,12 +16,13 @@ class Migration(migrations.Migration):
                SET schedule = jsonb_build_object('due', jsonb_build_object(
                    'kind', 'date', 'value', to_char(due, 'YYYY-MM-DD')))
              WHERE due IS NOT NULL;
+            SET CONSTRAINTS ALL IMMEDIATE;
             ALTER TABLE core_item ADD CONSTRAINT item_schedule_object CHECK (
                 jsonb_typeof(schedule) = 'object'
                 AND (schedule - ARRAY['defer','planned','due']) = '{}'::jsonb
-                AND (NOT schedule ? 'defer' OR jsonb_typeof(schedule->'defer') = 'object')
-                AND (NOT schedule ? 'planned' OR jsonb_typeof(schedule->'planned') = 'object')
-                AND (NOT schedule ? 'due' OR jsonb_typeof(schedule->'due') = 'object')
+                AND (NOT (schedule ? 'defer') OR jsonb_typeof(schedule->'defer') = 'object')
+                AND (NOT (schedule ? 'planned') OR jsonb_typeof(schedule->'planned') = 'object')
+                AND (NOT (schedule ? 'due') OR jsonb_typeof(schedule->'due') = 'object')
             );
             ALTER TABLE core_workspace ADD CONSTRAINT workspace_date_defaults_object CHECK (
                 jsonb_typeof(date_defaults) = 'object'

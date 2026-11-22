@@ -110,10 +110,19 @@ export function Sidebar({
     </button>
   );
 
-  const directory = directoryRows([
-    ...(workspace.folders ?? []).map(folder => ({...folder,kind:"folder" as const})),
-    ...workspace.projects.map(project => ({...project,kind:"project" as const})),
-  ], "root");
+  const directory = directoryRows(
+    [
+      ...(workspace.folders ?? []).map((folder) => ({
+        ...folder,
+        kind: "folder" as const,
+      })),
+      ...workspace.projects.map((project) => ({
+        ...project,
+        kind: "project" as const,
+      })),
+    ],
+    "root",
+  );
   return (
     <nav
       className="fp-sidebar"
@@ -138,21 +147,35 @@ export function Sidebar({
           <section aria-label="Perspectives">
             <h3>Perspectives</h3>
             {link("Inbox", "inbox", { kind: "inbox" })}
-            {standardViews && perspectives.map(p => link(p.label, p.icon, p.target))}
+            {standardViews &&
+              perspectives.map((p) => link(p.label, p.icon, p.target))}
             {link("All tasks", "all", { kind: "all" })}
           </section>
         )}
         <section aria-label="Projects">
           <h3>Projects</h3>
-          {directory.map(({entry,depth}) => <div key={entry.id} style={{paddingInlineStart: Math.min(depth, 8) * 12}}>
-            {link(entry.title, "projects", {kind:entry.kind,id:entry.id})}
-          </div>)}
+          {directory.map(({ entry, depth }) => (
+            <div
+              key={entry.id}
+              style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
+            >
+              {link(entry.title, "projects", {
+                kind: entry.kind,
+                id: entry.id,
+              })}
+            </div>
+          ))}
         </section>
         <section aria-label="Tags">
           <h3>Tags</h3>
-          {directoryRows(workspace.tags,null).map(({entry,depth}) => <div key={entry.id} style={{paddingInlineStart: Math.min(depth, 8) * 12}}>
-            {link(entry.title, "tags", {kind:"tag",id:entry.id})}
-          </div>)}
+          {directoryRows(workspace.tags, null).map(({ entry, depth }) => (
+            <div
+              key={entry.id}
+              style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
+            >
+              {link(entry.title, "tags", { kind: "tag", id: entry.id })}
+            </div>
+          ))}
         </section>
       </div>
       {compact && (

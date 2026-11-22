@@ -1,16 +1,21 @@
+import type { RepeatChange } from "./repeat.ts";
 import type { Command } from "../outline/index.ts";
 import type { Receipt, Snapshot } from "./api.ts";
 
+import type { DateChanges, DateDefaults } from "./schedule.ts";
 import type { LifecycleChange } from "./lifecycle.ts";
 import type { Properties } from "./rules.ts";
 
 export type Intent =
+  | { type: "set-schedule"; ids:string[]; changes:DateChanges }
+  | { type: "set-date-settings"; timeZone: string; dateDefaults: DateDefaults }
+  | { type: "repeat"; change:RepeatChange }
   | { type: "lifecycle"; change: LifecycleChange }
   | { type: "folder"; title: string; parentId: string }
   | { type: "set-properties"; ids: string[]; properties: Properties }
   | Command
   | { type: "project" | "tag"; title: string; parentId?: string }
-  | { type: "undo"; receipt: Receipt };
+  | { type: "undo" | "redo"; receipt: Receipt };
 
 export interface Write {
   name: string;
@@ -39,6 +44,11 @@ export function prepare(
     intent,
   });
   switch (intent.type) {
+    case "set-schedule":
+      return command(intent.type,{ids:intent.ids,...intent.changes});
+    case "set-date-settings":
+      return command(intent.type,{timeZone:intent.timeZone,dateDefaults:intent.dateDefaults});
+    case "repeat":
     case "lifecycle":
       return command(intent.change.name, intent.change.payload);
     case "folder":
@@ -79,7 +89,8 @@ export function prepare(
         enabled: intent.enabled,
       });
     case "undo":
-      return command("undo", {
+    case "redo":
+      return command(intent.type, {
         operationId: intent.receipt.operationId,
         contextId: intent.receipt.contextId,
       });
@@ -95,7 +106,9 @@ export function prepare(
 }
 
 export function describeDraft(intent: Intent, snapshot: Snapshot) {
-  if (intent.type === "lifecycle") return intent.change.name.replaceAll("-", " ");
+  if (intent.type === "set-schedule") return JSON.stringify(intent.changes);
+  if (intent.type === "set-date-settings") return "Date defaults in "+intent.timeZone;
+  if (intent.type === "repeat" || intent.type === "lifecycle") return intent.change.name.replaceAll("-", " ");
   if (intent.type === "set-properties") return Object.entries(intent.properties).map(([field, value]) => field + " " + String(value)).join(", ");
   if (intent.type === "capture") return intent.titles.join(", ");
   if ("title" in intent) return intent.title;

@@ -67,7 +67,7 @@ def with_context(matches, order, by_id):
 
 
 def options(params):
-    if set(params) - {"view", "availability", "projectId", "folderId", "tagId"}:
+    if set(params) - {"view", "availability", "projectId", "folderId", "tagId", "viewZone"}:
         raise CommandError("Unsupported outline option.", 400)
     if any(len(params.getlist(name)) != 1 for name in params):
         raise CommandError("Each outline option may appear once.", 400)

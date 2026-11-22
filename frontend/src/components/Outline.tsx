@@ -1,7 +1,13 @@
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { INBOX, visibleRows } from "../outline/index.ts";
-import type { Command, Task, View, Workspace, OutlineRow } from "../outline/index.ts";
+import type {
+  Command,
+  Task,
+  View,
+  Workspace,
+  OutlineRow,
+} from "../outline/index.ts";
 import { viewKey } from "../workspace/viewState.ts";
 import { Capture } from "./outline/Capture.tsx";
 import { TaskTree } from "./outline/TaskTree.tsx";

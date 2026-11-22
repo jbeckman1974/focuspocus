@@ -33,15 +33,25 @@ for (const mode of ["sequential", "parallel", "single-action"]) {
     await modeControl.selectOption(mode);
     await expect(modeControl).toHaveValue(mode);
     const first = ids.slice(0, 1);
-    await expectTaskOrder(page, "available", mode === "sequential" ? first : ids);
-    await expectTaskOrder(page, "first-available", mode === "single-action" ? ids : first);
+    await expectTaskOrder(
+      page,
+      "available",
+      mode === "sequential" ? first : ids,
+    );
+    await expectTaskOrder(
+      page,
+      "first-available",
+      mode === "single-action" ? ids : first,
+    );
     await task(page, titles[0])
       .getByRole("button", { name: `Complete ${titles[0]}`, exact: true })
       .click();
     await expectTaskOrder(page, "remaining", ids.slice(1));
     await expectTaskOrder(page, "everything", ids);
     await expect(
-      task(page, titles[0]).getByRole("button", { name: `Reopen ${titles[0]}` }),
+      task(page, titles[0]).getByRole("button", {
+        name: `Reopen ${titles[0]}`,
+      }),
     ).toBeVisible();
   });
 }

@@ -14,10 +14,12 @@ import { workspaceApi } from "./api.ts";
 import { WorkspaceChannel } from "./channel.ts";
 import { WorkspaceActions } from "./WorkspaceActions.tsx";
 import { hasEligibleFiling } from "./lifecycle.ts";
-import { AvailabilityFilter, RuleControls } from "./RuleControls.tsx";
+import { AvailabilityFilter } from "./RuleControls.tsx";
 import { projectedRows, visibleSelection } from "./rules.ts";
-import type { Availability, Properties, RuleFields } from "./rules.ts";
+import type { Availability, RuleFields } from "./rules.ts";
 import type { Entry } from "../outline/index.ts";
+import { useClockRefresh } from "./useClockRefresh.ts";
+import { ItemTools } from "./ItemTools.tsx";
 import { useRuleOutline } from "./useRuleOutline.ts";
 import { WriteNotice } from "./WriteNotice.tsx";
 
@@ -77,7 +79,8 @@ function ConnectedOutline({
   const collapsed = collapsedRows[key] ?? new Set<string>();
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
-  const projection = useRuleOutline(snapshot, view, availability, channel.tick);
+  useClockRefresh(snapshot?.nextDateBoundary, channel.refresh);
+  const projection = useRuleOutline(snapshot, view, availability, channel.refresh);
   const rows = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
   const selection = visibleSelection(rows, selected[key] ?? []);
   const [showInspector, setShowInspector] = useState(
@@ -155,8 +158,7 @@ function ConnectedOutline({
   function controls(entry: Entry & RuleFields, kind: "project" | "group" | "action" | "folder") {
     const pending = tagIntent?.type === "set-properties" && tagIntent.ids.includes(entry.id) &&
       ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase) ? tagIntent.properties : undefined;
-    return <RuleControls entry={entry} kind={kind} pending={pending} disabled={state.phase !== "ready"}
-      change={(properties: Properties) => channel.run({type: "set-properties", ids:[entry.id], properties})} />;
+    return <ItemTools key={entry.id} entry={entry} kind={kind} snapshot={snapshot!} channel={channel} pending={pending} disabled={state.phase !== "ready"} />;
   }
   const project = view.kind === "project" ? snapshot.projects.find(p => p.id === view.id) : undefined;
   const folder = view.kind === "folder" ? snapshot.folders?.find(f => f.id === view.id) : undefined;
@@ -217,9 +219,9 @@ function ConnectedOutline({
           undo={() => {
             if (state.undo) channel.run({ type: "undo", receipt: state.undo });
           }}
-          redo={() => {}}
+          redo={() => { if(state.redo) channel.run({type:"redo",receipt:state.redo}); }}
           canUndo={Boolean(state.undo) && state.phase === "ready"}
-          canRedo={false}
+          canRedo={Boolean(state.redo) && state.phase === "ready"}
           captureSignal={capture}
           editMode={mode}
           onInspect={() => {

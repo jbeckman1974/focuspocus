@@ -3,6 +3,7 @@ import type { View } from "../outline/index.ts";
 import type { Snapshot } from "./api.ts";
 import type { FilingPolicy, LifecycleChange, TagStatus } from "./lifecycle.ts";
 import type { Intent } from "./writes.ts";
+import { DateDefaultsForm } from "./DateDefaultsForm.tsx";
 import { Shelf } from "./Shelf.tsx";
 import type { ShelfPage } from "./Shelf.tsx";
 
@@ -57,6 +58,7 @@ export function OrganizeDialog({snapshot,view,selection,run,close}: {
         </select></label>
         <label><input type="checkbox" checked={tag.exclusive ?? false} onChange={event=>submit({name:"edit-tag",payload:{id:tag.id,exclusive:event.currentTarget.checked}})}/>Mutually exclusive child tags</label>
       </fieldset>}
+      <DateDefaultsForm base={base} submit={intent=>{if(run(intent,base)) close();}}/>
       {view.kind==="inbox" && <fieldset><legend>Inbox filing</legend>
         <label>File items with<select value={snapshot.filingPolicy ?? "project"} onChange={event=>submit({name:"set-filing-policy",payload:{policy:event.currentTarget.value as FilingPolicy}})}>
           <option value="project">A project</option><option value="tag">A tag</option><option value="both">A project and a tag</option><option value="either">A project or a tag</option>

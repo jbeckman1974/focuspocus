@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from django.utils import timezone
 
 from core.models import Item, Tag
+from core.rules.properties import mode_for
+from core.scheduling.storage import read_schedule
 
 from .validation import CommandError, identifier, identifiers
 
@@ -80,6 +82,9 @@ def direct_item(item):
         "title": item.title,
         "due": item.due.isoformat() if item.due else None,
         "done": item.done,
+        "status": item.status, "mode": mode_for(item), "flagged": item.flagged,
+        "autoComplete": item.auto_complete, "schedule": read_schedule(item),
+        "durationMinutes": item.duration_minutes,
         "tags": sorted(str(tag.pk) for tag in item.tags.all()),
         "version": item.version,
     }

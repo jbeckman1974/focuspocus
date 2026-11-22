@@ -38,3 +38,52 @@ test("project modes use the normal retryable command envelope", () => {
   assert.equal(command.name,"set-properties");
   assert.deepEqual(command.envelope, { context:"context",expectedRevision:5,operationId:"operation",payload:{ids:["p"],mode:"single-action",autoComplete:false}});
 });
+
+import { directoryRows, hasEligibleFiling } from "../src/persistent/lifecycle.ts";
+test("nested folder, project and tag navigation retains manual sibling order", () => {
+  const rows = directoryRows([
+    {id:"sub",title:"Sub",parentId:"top",position:2},
+    {id:"project",title:"Project",parentId:"top",position:1},
+    {id:"top",title:"Top",parentId:"root",position:5},
+    {id:"second",title:"Second",parentId:"root",position:8},
+  ], "root");
+  assert.deepEqual(rows.map(row=>[row.entry.id,row.depth]), [["top",0],["project",1],["sub",1],["second",0]]);
+});
+
+test("a tagged Inbox entry stays put under the default project filing policy", () => {
+  const inbox = {...snapshot,tasks:[{...snapshot.tasks[1]!,parentId:"inbox",tags:["tag"]}]};
+  assert.equal(hasEligibleFiling(inbox),false);
+  assert.equal(hasEligibleFiling({...inbox,filingPolicy:"either"}),true);
+  assert.equal(hasEligibleFiling({...inbox,filingPolicy:"both"}),false);
+  assert.equal(hasEligibleFiling({...inbox,tasks:[{...inbox.tasks[0]!,filingProjectId:"p"}],filingPolicy:"both"}),true);
+});
+
+test("archive retrieval and restoration submit only the selected original IDs", () => {
+  for(const name of ["restore","retrieve"] as const) {
+    const write = prepare({type:"lifecycle",change:{name,payload:{ids:["original"],parentId:"p"}}},snapshot,()=>"op");
+    assert.equal(write.name,name);
+    assert.deepEqual(write.envelope.payload,{ids:["original"],parentId:"p"});
+    assert.equal(write.envelope.expectedRevision,5);
+  }
+});
+
+import { durationMinutes, previewQuery } from "../src/persistent/schedule.ts";
+test("previews distinguish ambiguous wall-clock inputs and preserve the encoded timezone", () => {
+  const query = new URLSearchParams(previewQuery("planned"," 2026-11-01 01:30 ","zoned","America/New_York",1));
+  assert.equal(query.get("zone"),"America/New_York");
+  assert.equal(query.get("text"),"2026-11-01 01:30");
+  assert.equal(query.get("fold"),"1");
+  assert.equal(query.get("field"),"planned");
+});
+test("duration edits distinguish zero minutes from clearing an estimate", () => {
+  assert.equal(durationMinutes("0"),0);
+  assert.equal(durationMinutes(""),null);
+  assert.throws(()=>durationMinutes("-1"));
+  assert.throws(()=>durationMinutes("90 minutes"));
+});
+test("schedule commands preserve independent date fields, time intent and original revision", () => {
+  const changes = {schedule:{defer:null,planned:{kind:"zoned" as const,value:"2026-11-01T01:30",zone:"America/New_York",fold:1 as const}},durationMinutes:30};
+  const write = prepare({type:"set-schedule",ids:["task"],changes},snapshot,()=>"op");
+  assert.deepEqual(write.envelope.payload,{ids:["task"],...changes});
+  assert.equal(write.envelope.expectedRevision,5);
+});

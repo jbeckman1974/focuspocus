@@ -27,8 +27,8 @@ export function useRuleOutline(snapshot: Snapshot | null, view: View, availabili
           return;
         }
         setState({ key, result: data });
-        if (data.nextEvaluationAt) {
-          const wait = Date.parse(data.nextEvaluationAt) - Date.now();
+        if (data.nextDateBoundary) {
+          const wait = Date.parse(data.nextDateBoundary) - Date.now();
           if (Number.isFinite(wait)) timer = window.setTimeout(fetchOutline, Math.max(1000, Math.min(2147483647, wait)));
         }
       } catch (error) {

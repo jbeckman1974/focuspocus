@@ -19,7 +19,9 @@ test("AT-27 · duplicate and restore a nested group with stable original IDs", a
   await submitCapture(page, `${groupTitle}\n${childTitle}`);
   const groupId = await taskId(page, groupTitle);
   const childId = await taskId(page, childTitle);
-  const rows = page.getByRole("tree", { name: "Task outline" }).getByRole("treeitem");
+  const rows = page
+    .getByRole("tree", { name: "Task outline" })
+    .getByRole("treeitem");
   const group = rows.and(page.locator(`[data-task-id="${groupId}"]`));
   const child = rows.and(page.locator(`[data-task-id="${childId}"]`));
   await child.getByText(childTitle, { exact: true }).click();
@@ -28,20 +30,28 @@ test("AT-27 · duplicate and restore a nested group with stable original IDs", a
   await expect(child).toHaveAttribute("aria-level", "2");
   await group.getByText(groupTitle, { exact: true }).click();
   const duplicate = await openOrganizer(page);
-  await duplicate.getByRole("button", { name: "Duplicate selection", exact: true }).click();
+  await duplicate
+    .getByRole("button", { name: "Duplicate selection", exact: true })
+    .click();
   await expect(rows).toHaveCount(4);
   const visibleIds = () =>
-    rows.evaluateAll((elements) => elements.map((row) => row.getAttribute("data-task-id")));
+    rows.evaluateAll((elements) =>
+      elements.map((row) => row.getAttribute("data-task-id")),
+    );
   const bothTrees = await visibleIds();
   expect(new Set(bothTrees).size).toBe(4);
   const copyIds = bothTrees.filter((id) => id !== groupId && id !== childId);
   await group.getByText(groupTitle, { exact: true }).click();
   const remove = await openOrganizer(page);
-  await remove.getByRole("button", { name: "Move to Trash", exact: true }).click();
+  await remove
+    .getByRole("button", { name: "Move to Trash", exact: true })
+    .click();
   await expect.poll(visibleIds).toEqual(copyIds);
   const restore = await openOrganizer(page);
   await restore.getByRole("button", { name: "Trash", exact: true }).click();
-  await restore.getByRole("button", { name: `Restore ${groupTitle}`, exact: true }).click();
+  await restore
+    .getByRole("button", { name: `Restore ${groupTitle}`, exact: true })
+    .click();
   await expect.poll(visibleIds).toEqual(bothTrees);
   await expect(child).toHaveAttribute("aria-level", "2");
 });

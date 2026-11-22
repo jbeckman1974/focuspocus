@@ -7,20 +7,23 @@ from django.db import transaction
 
 from core.access import locked_membership
 from core.models import Change, Receipt
+from core.repeats import commands as repeats
 
-from . import edits, lifecycle, properties
+from . import edits, lifecycle, properties, schedules
 from .context import validate_context
 from .state import Outline
 from .structure import organize
 from .validation import CommandError, fields, identifier
 
 
-def scoped_workspace(user, workspace_id, *, write=False):
+def scoped_workspace(user, workspace_id, *, write=False, owner=False):
     if not user.is_authenticated:
         raise CommandError("Login required.", 401)
     workspace, role = locked_membership(user, workspace_id)
     if workspace is None:
         raise CommandError("Workspace unavailable.", 404)
+    if owner and role != "owner":
+        raise CommandError("Workspace owner permission required.", 403)
     if write and role not in ("owner", "editor"):
         raise CommandError("Write permission required.", 403)
     return workspace
@@ -33,6 +36,12 @@ def etag(item):
 def dispatch(tree, user, name, payload):
     if name in ("create-container", "create-tag"):
         return edits.create_entry(tree, name, payload)
+    if name == "set-schedule":
+        return schedules.set_schedule(tree, payload)
+    if name == "set-date-settings":
+        return schedules.set_date_settings(tree, payload)
+    if name in repeats.COMMANDS:
+        return repeats.dispatch(tree, name, payload)
     if name == "set-properties":
         return properties.set_properties(tree, payload)
     if name in lifecycle.COMMANDS:
@@ -54,7 +63,7 @@ def dispatch(tree, user, name, payload):
 
 @transaction.atomic
 def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
-    workspace = scoped_workspace(user, workspace_id, write=True)
+    workspace = scoped_workspace(user, workspace_id, write=True, owner=name == "set-date-settings")
     fields(body, ["operationId", "context", "payload"], ["expectedRevision"])
     op = identifier(body["operationId"])
     context = validate_context(workspace, user, body["context"])

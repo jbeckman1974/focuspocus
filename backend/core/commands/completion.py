@@ -5,6 +5,7 @@ from datetime import datetime
 
 from django.utils import timezone
 
+from core.repeats.resolution import advance, reject_historical_change
 from core.rules.availability import RESOLVED
 from core.rules.properties import status_updates
 
@@ -43,7 +44,7 @@ def change_directly(item, desired, ancestors, selected):
     return True
 
 
-def apply_status(tree, result, items, desired):
+def apply_status(tree, result, items, desired, *, skip=False):
     for item in items:
         validate_status(item, desired)
     by_id = tree.items.in_bulk()
@@ -54,18 +55,22 @@ def apply_status(tree, result, items, desired):
     now = timezone.now()
     for item in writable:
         prior = item.status
+        reject_historical_change(tree, item, desired)
         set_status(item, result, desired, now)
         by_id[item.pk] = item
         if prior not in RESOLVED and desired in RESOLVED:
-            unresolved[item.parent_id] -= 1
-            parents.append(item.parent_id)
+            outcome = "skipped" if skip else desired
+            if not advance(tree, result, item, outcome, now):
+                unresolved[item.parent_id] -= 1
+                parents.append(item.parent_id)
     while parents:
         parent = by_id.get(parents.popleft())
         if parent is None or not parent.auto_complete or parent.status != "active" or unresolved[parent.pk]:
             continue
         set_status(parent, result, "completed", now)
-        unresolved[parent.parent_id] -= 1
-        parents.append(parent.parent_id)
+        if not advance(tree, result, parent, "completed", now):
+            unresolved[parent.parent_id] -= 1
+            parents.append(parent.parent_id)
 
 
 def restore_statuses(tree, result, inverse):

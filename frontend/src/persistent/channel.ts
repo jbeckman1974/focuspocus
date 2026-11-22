@@ -1,3 +1,4 @@
+import { CommandHistory } from "./history.ts";
 import { HttpError } from "./api.ts";
 import type { Receipt, Snapshot, WorkspaceApi } from "./api.ts";
 import { prepare } from "./writes.ts";
@@ -18,6 +19,7 @@ export interface ChannelState {
   phase: Phase;
   pending: Write | null;
   undo: Receipt | null;
+  redo: Receipt | null;
   message: string;
   conflictFresh: boolean;
   lastChange: { receipt: Receipt; intent: Intent } | null;
@@ -25,10 +27,12 @@ export interface ChannelState {
 
 export class WorkspaceChannel {
   private api: WorkspaceApi;
+  private history = new CommandHistory();
   private lostAccess: () => void;
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
+  private refreshRequested = false;
   private epoch = 0;
   private accessCheck: { write: Write; status: number; reason: string } | null =
     null;
@@ -36,7 +40,7 @@ export class WorkspaceChannel {
     snapshot: null,
     phase: "loading",
     pending: null,
-    undo: null,
+    ...this.history.clear(),
     message: "",
     conflictFresh: false,
     lastChange: null,
@@ -71,7 +75,7 @@ export class WorkspaceChannel {
       this.update({
         snapshot: null,
         pending: null,
-        undo: null,
+        ...this.history.clear(),
         lastChange: null,
         phase: "loading",
       });
@@ -82,6 +86,11 @@ export class WorkspaceChannel {
     }
     return false;
   }
+
+  refresh = async () => {
+    this.refreshRequested = true;
+    await this.tick();
+  };
 
   tick = async () => {
     if (!this.active || this.polling || this.state.phase === "sending") return;
@@ -107,6 +116,7 @@ export class WorkspaceChannel {
         return;
       }
       let refresh =
+        this.refreshRequested ||
         !snapshot ||
         phase === "acknowledged" ||
         (phase === "conflict" && !this.state.conflictFresh);
@@ -138,13 +148,14 @@ export class WorkspaceChannel {
         next.revision < (this.state.lastChange?.receipt.revision ?? 0)
       )
         return;
+      this.refreshRequested = false;
       this.update({ snapshot: next, conflictFresh: phase === "conflict" });
       if (phase === "acknowledged") {
         const restored = next.generation !== snapshot?.generation;
         this.update({
           phase: "ready",
           pending: null,
-          ...(restored ? { undo: null, lastChange: null } : {}),
+          ...(restored ? { ...this.history.clear(), lastChange: null } : {}),
           message: restored
             ? "Workspace restored. Check your recent changes."
             : "Saved changes",
@@ -153,7 +164,7 @@ export class WorkspaceChannel {
         this.update({ phase: "ready", message: "" });
       } else if (snapshot?.generation !== next.generation) {
         this.update({
-          undo: null,
+          ...this.history.clear(),
           message:
             "Workspace restored. Check the current values before making changes.",
         });
@@ -216,14 +227,9 @@ export class WorkspaceChannel {
     try {
       const receipt = await this.api.submit(write.name, write.envelope);
       if (!this.active || epoch !== this.epoch) return;
-      const undo = receipt.undoable
-        ? receipt
-        : write.name === "undo"
-          ? null
-          : this.state.undo;
       this.update({
         phase: "acknowledged",
-        undo,
+        ...this.history.acknowledge(write.name, receipt),
         lastChange: { receipt, intent: write.intent },
         message: "Saved changes",
       });
@@ -239,7 +245,7 @@ export class WorkspaceChannel {
         this.update({
           snapshot: null,
           pending: null,
-          undo: null,
+          ...this.history.clear(),
           lastChange: null,
           phase: "verifying",
           message: "Checking workspace access…",
