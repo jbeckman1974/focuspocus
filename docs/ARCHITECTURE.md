@@ -108,6 +108,8 @@ HTTP's strong `If-Match` supports conditional editing. The compound precondition
 
 Joe opens the same private Inbox in two profiles. Profile A captures “Check field notes” and loses the acknowledgement. Its retry carries the same key and item UUID. It receives the original receipt and both profiles see one item. Both now read item version 1. A renames it, producing version 2. B edits from version 1, receives a precondition failure and keeps its draft beside the current title. B can choose to reapply its edit to version 2. Moving the item to a project updates both parent lists in one commit. A third profile signed into a different account receives no item, count or event for Joe's workspace. This is a proposed AT-01/AT-17/AT-18 demonstration.
 
+In M2 compound edits guard the complete workspace revision. A concurrent edit can therefore ask the user to compare a draft even when it affects another item. Direct item edits support a strong per-item ETag. The M2 compensating undo covers the immediately preceding ordinary completion or reopening.
+
 ## Reads, change delivery and offline editing
 
 On opening a workspace, return its authorized snapshot and cursor from the **same** consistent database snapshot. Initial payloads contain outline metadata and direct values. Fetch large bodies separately. Start with foreground polling about every two seconds so two browsers can converge with standard HTTP and one backend process type. Back off while hidden and check immediately on resume, reconnect or login change. Deliver complete revision groups, including deletions and subtree invalidations. Reauthorize each fetch. A cursor is opaque and bound to the subject, workspace and current data generation.

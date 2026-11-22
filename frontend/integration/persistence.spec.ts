@@ -1,8 +1,21 @@
 import { expect, test } from "@playwright/test";
-import { inspector, sidebarDestination, task, taskId } from "../e2e/controls.ts";
-import { createDestination, signIn, submitCapture, withProfile } from "./account.ts";
+import {
+  inspector,
+  sidebarDestination,
+  task,
+  taskId,
+} from "../e2e/controls.ts";
+import {
+  createDestination,
+  signIn,
+  submitCapture,
+  withProfile,
+} from "./account.ts";
 
-test("AT-01/16/17 · organize a private workspace, reload, and switch accounts", async ({ page, browser }) => {
+test("AT-01/16/17 · organize a private workspace, reload, and switch accounts", async ({
+  page,
+  browser,
+}) => {
   await signIn(page, "owner");
   const source = "Depot survey";
   const destination = "County control";
@@ -21,29 +34,63 @@ test("AT-01/16/17 · organize a private workspace, reload, and switch accounts",
   await page.getByRole("button", { name: "Indent", exact: true }).click();
   await expect(child).toHaveAttribute("aria-level", "2");
   await child.getByText("Prism pole", { exact: true }).click();
-  await inspector(page).getByRole("checkbox", { name: tag }).check();
-  await expect(page.getByRole("button", { name: "New project", exact: true })).toBeEnabled();
-  await expect(inspector(page).getByRole("checkbox", { name: tag })).toBeChecked();
+  const tagOption = inspector(page).getByRole("checkbox", { name: tag });
+  let releaseTagWrite!: () => void;
+  const tagWriteWait = new Promise<void>((resolve) => {
+    releaseTagWrite = resolve;
+  });
+  await page.route(
+    /\/commands\/set-tags\/?$/,
+    async (route) => {
+      await tagWriteWait;
+      await route.continue();
+    },
+    { times: 1 },
+  );
+  try {
+    await tagOption.check();
+    await expect(page.getByRole("status")).toHaveText("Saving…");
+    await expect(tagOption).toBeChecked();
+    await expect(tagOption).toBeDisabled();
+    await parent.getByText("Field supplies", { exact: true }).click();
+    await expect(tagOption).not.toBeChecked();
+    await child.getByText("Prism pole", { exact: true }).click();
+    await expect(tagOption).toBeChecked();
+  } finally {
+    releaseTagWrite();
+  }
+  await expect(tagOption).toBeEnabled();
+  await expect(tagOption).toBeChecked();
   const due = inspector(page).getByLabel("Due date", { exact: true });
   await due.fill("2027-01-15");
   await inspector(page).getByRole("button", { name: "Apply date" }).click();
-  await expect(page.getByRole("button", { name: "New project", exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "New project", exact: true }),
+  ).toBeEnabled();
   await expect(due).toHaveValue("2027-01-15");
   await parent.getByText("Field supplies", { exact: true }).click();
   await page.getByRole("button", { name: "Move…" }).click();
   const move = page.getByRole("dialog", { name: "Move tasks" });
-  await move.getByRole("combobox", { name: "Move to" }).selectOption({ label: destination });
+  await move
+    .getByRole("combobox", { name: "Move to" })
+    .selectOption({ label: destination });
   await move.getByRole("button", { name: "Move tasks" }).click();
-  await expect(page.getByRole("button", { name: "New project", exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "New project", exact: true }),
+  ).toBeEnabled();
   await sidebarDestination(page, destination).click();
   await expect(parent).toHaveAttribute("data-task-id", parentId);
   await expect(child).toHaveAttribute("data-task-id", childId);
   await sidebarDestination(page, tag).click();
   await expect(child).toHaveAttribute("data-task-id", childId);
   await child.getByRole("button", { name: "Complete Prism pole" }).click();
-  await expect(child.getByRole("button", { name: "Reopen Prism pole" })).toBeVisible();
+  await expect(
+    child.getByRole("button", { name: "Reopen Prism pole" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(child.getByRole("button", { name: "Complete Prism pole" })).toBeVisible();
+  await expect(
+    child.getByRole("button", { name: "Complete Prism pole" }),
+  ).toBeVisible();
   await page.reload();
   await sidebarDestination(page, destination).click();
   await expect(parent).toHaveAttribute("data-task-id", parentId);
@@ -51,8 +98,12 @@ test("AT-01/16/17 · organize a private workspace, reload, and switch accounts",
   await expect(child).toHaveAttribute("aria-level", "2");
   await child.getByText("Prism pole", { exact: true }).click();
   await expect(due).toHaveValue("2027-01-15");
-  await expect(inspector(page).getByRole("checkbox", { name: tag })).toBeChecked();
-  await expect(child.getByRole("button", { name: "Complete Prism pole" })).toBeVisible();
+  await expect(
+    inspector(page).getByRole("checkbox", { name: tag }),
+  ).toBeChecked();
+  await expect(
+    child.getByRole("button", { name: "Complete Prism pole" }),
+  ).toBeVisible();
   await withProfile(browser, "neighbor", async (neighbor) => {
     await submitCapture(neighbor, "Neighbor private marker");
     await expect(task(neighbor, "Neighbor private marker")).toBeVisible();

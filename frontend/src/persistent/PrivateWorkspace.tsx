@@ -5,6 +5,7 @@ import { homeView, inbox, reconcileSelection, viewExists, viewKey, containsSelec
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
 import { workspaceApi } from "./api.ts";
+import type { Snapshot } from "./api.ts";
 import { WorkspaceChannel } from "./channel.ts";
 import { NewEntry } from "./NewEntry.tsx";
 import { WriteNotice } from "./WriteNotice.tsx";
@@ -12,6 +13,7 @@ import { WriteNotice } from "./WriteNotice.tsx";
 interface Props {
   id: string;
   username: string;
+  actorId: number;
   csrf: string;
   onLostAccess: () => void;
   onSignOut: () => void;
@@ -19,10 +21,10 @@ interface Props {
 
 export function PrivateWorkspace(props: Props) {
   const [channel, setChannel] = useState<WorkspaceChannel>();
-  const { id, csrf, onLostAccess } = props;
+  const { id, actorId, csrf, onLostAccess } = props;
   useEffect(() => {
     const abort = new AbortController();
-    const instance = new WorkspaceChannel(workspaceApi(id, csrf, abort.signal), onLostAccess);
+    const instance = new WorkspaceChannel(workspaceApi(id, actorId, csrf, abort.signal), onLostAccess);
     setChannel(instance);
     void instance.tick();
     const interval = window.setInterval(instance.tick, 1500);
@@ -35,7 +37,7 @@ export function PrivateWorkspace(props: Props) {
       window.removeEventListener("focus", instance.tick);
       window.removeEventListener("online", instance.tick);
     };
-  }, [id, csrf, onLostAccess]);
+  }, [id, actorId, csrf, onLostAccess]);
   return channel ? <ConnectedOutline {...props} channel={channel} /> : <p role="status">Opening private workspace…</p>;
 }
 
@@ -52,7 +54,7 @@ function ConnectedOutline({ username, onSignOut, channel }: Props & { channel: W
   const [showInspector, setShowInspector] = useState(() => window.innerWidth > 850);
   const [mode, setMode] = useState<"inline"|"inspector">("inline");
   const [capture, setCapture] = useState(0);
-  const [entry, setEntry] = useState<"project"|"tag">();
+  const [entry, setEntry] = useState<{ kind: "project" | "tag"; target?: { id: string; title: string }; base: Snapshot }>();
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
   useEffect(() => {
@@ -87,12 +89,16 @@ function ConnectedOutline({ username, onSignOut, channel }: Props & { channel: W
     setSelected(previous => ({...previous,[key]: ids}));
   };
 
+  const tagIntent = state.pending?.intent;
+  const pendingTag = tagIntent?.type === "setTag" && ["sending","acknowledged","uncertain","retryable"].includes(state.phase)
+    ? tagIntent : undefined;
   return <div {...drafts.bindings}>
-    <Frame workspace={snapshot} view={view} onView={setView} selection={selection} onSelect={choose} run={run}
+    <Frame mutationsDisabled={state.phase !== "ready"} pendingTag={pendingTag} workspace={snapshot} view={view} onView={setView} selection={selection} onSelect={choose} run={run}
       onCapture={() => { setView(inbox); if (window.innerWidth <= 850) setShowInspector(false); setCapture(n=>n+1); }}
       workspaceLabel={username} accountControls={<div className="private-actions">
-        <button disabled={state.phase !== "ready"} onClick={()=>setEntry("project")}>New project</button>
-        <button disabled={state.phase !== "ready"} onClick={()=>setEntry("tag")}>New tag</button>
+        <button disabled={state.phase !== "ready"} onClick={()=>setEntry({ kind: "project", base: snapshot })}>New project</button>
+        <button disabled={state.phase !== "ready"} onClick={()=>setEntry({ kind: "tag", base: snapshot })}>New tag</button>
+        {view.kind === "project" && <button disabled={state.phase !== "ready"} onClick={() => setEntry({kind:"project", target: snapshot.projects.find(p=>p.id===view.id), base:snapshot})}>Rename project</button>}
         <button onClick={() => { if (!state.pending || window.confirm("Leave this workspace with a pending change?")) onSignOut(); }}>Sign out</button>
       </div>}
       inspectorOpen={showInspector} setInspectorOpen={setShowInspector} editMode={mode} setEditMode={setMode} message={state.message}>
@@ -109,7 +115,7 @@ function ConnectedOutline({ username, onSignOut, channel }: Props & { channel: W
           setShowInspector(true);
           requestAnimationFrame(()=>document.getElementById("inspector-title")?.focus());
         }} />
-      {entry && <NewEntry kind={entry} onCreate={title=>channel.run({type:entry,title})} onClose={()=>setEntry(undefined)} />}
+      {entry && <NewEntry kind={entry.kind} initialTitle={entry.target?.title} onCreate={title=>channel.run(entry.target ? {type:"rename",id:entry.target.id,title} : {type:entry.kind,title}, entry.base)} onClose={()=>setEntry(undefined)} />}
     </Frame>
   </div>;
 }

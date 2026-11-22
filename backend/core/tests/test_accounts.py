@@ -1,8 +1,14 @@
 import secrets
 from datetime import timedelta
+from io import StringIO
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
+from django.core.management import call_command
+from django.core.management.base import CommandError
 from django.db import IntegrityError, connection, transaction
 from django.test import Client, TestCase
 from django.utils import timezone
@@ -111,3 +117,29 @@ class AccountTests(TestCase):
             with self.subTest(scope=scope.pk), self.assertRaises(IntegrityError), transaction.atomic():
                 ItemTag.objects.create(workspace=scope, item=task, tag=tag)
                 connection.check_constraints()
+
+
+class RecoveryDeliveryTests(TestCase):
+    def test_token_delivered_to_new_private_file_and_stdout_stays_clean(self):
+        user, _ = new_account()
+        with TemporaryDirectory() as tmp:
+            filename = Path(tmp) / "handoff"
+            stdout = StringIO()
+            call_command("issue_recovery", user.username, output_file=str(filename), stdout=stdout)
+            token = filename.read_text().strip()
+            self.assertEqual(filename.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn(token, stdout.getvalue())
+            with self.assertRaises(CommandError):
+                call_command("issue_recovery", user.username, output_file=str(filename))
+            self.assertEqual(filename.read_text().strip(), token)
+            self.assertTrue(redeem(token, secrets.token_urlsafe(30)))
+
+    def test_failed_output_preserves_previous_token_and_removes_partial_file(self):
+        user, _ = new_account()
+        previous = issue_recovery(user.username)
+        with TemporaryDirectory() as tmp, patch("core.management.commands.issue_recovery.os.fsync", side_effect=OSError):
+            path = Path(tmp) / "handoff"
+            with self.assertRaises(CommandError):
+                call_command("issue_recovery", user.username, output_file=str(path))
+            self.assertFalse(path.exists())
+        self.assertTrue(redeem(previous, secrets.token_urlsafe(30)))

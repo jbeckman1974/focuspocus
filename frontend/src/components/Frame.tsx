@@ -20,6 +20,8 @@ interface FrameProps {
   onReset?: () => void;
   workspaceLabel?: string;
   accountControls?: ReactNode;
+  pendingTag?: Extract<Command, { type: "setTag" }>;
+  mutationsDisabled?: boolean;
   children: ReactNode;
   inspectorOpen: boolean;
   setInspectorOpen: (open: boolean) => void;
@@ -45,6 +47,8 @@ export function Frame({
   onReset,
   workspaceLabel,
   accountControls,
+  mutationsDisabled,
+  pendingTag,
   children,
   inspectorOpen,
   setInspectorOpen,
@@ -265,11 +269,17 @@ export function Frame({
             selection={selection}
             run={run}
             onClose={closeInspector}
+            mutationsDisabled={mutationsDisabled}
+            pendingTag={pendingTag}
           />
         </div>
       </div>
       <footer className="fp-statusbar">
-        <span>{workspaceLabel ? "Private workspace" : "Sample data resets on reload"}</span>
+        <span>
+          {workspaceLabel
+            ? "Private workspace"
+            : "Sample data resets on reload"}
+        </span>
         <span role="status" aria-live="polite" aria-atomic="true">
           {message}
         </span>
@@ -281,10 +291,14 @@ export function Frame({
           editMode={editMode}
           setEditMode={setEditMode}
           onClose={() => setPreferencesOpen(false)}
-          onReset={onReset ? () => {
-            setPreferencesOpen(false);
-            onReset();
-          } : undefined}
+          onReset={
+            onReset
+              ? () => {
+                  setPreferencesOpen(false);
+                  onReset();
+                }
+              : undefined
+          }
         />
       )}
     </div>

@@ -8,9 +8,8 @@ from django.db import OperationalError, transaction
 from django.db.models import Q
 from django.utils import timezone
 
+from core.access import locked_membership
 from core.models import Job, Membership, WorkerHeartbeat
-
-from .feed import accessible_workspace
 
 
 MAX_ATTEMPTS = 4
@@ -33,7 +32,7 @@ def heartbeat_fresh():
 
 @transaction.atomic
 def enqueue_probe(actor, workspace_id, key):
-    workspace = accessible_workspace(actor, workspace_id)
+    workspace, _ = locked_membership(actor, workspace_id)
     if workspace is None or not actor.is_active:
         raise ValueError("Unknown authorized actor/workspace pair")
     return Job.objects.get_or_create(

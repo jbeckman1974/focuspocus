@@ -120,18 +120,22 @@ export function Preferences({
       </div>
       <div className="fp-dialog-footer">
         <p>
-          {onReset ? "Tasks and preferences last until you reset the sample or reload this tab." : "Appearance preferences apply to this tab."}
+          {onReset
+            ? "Tasks and preferences last until you reset the sample or reload this tab."
+            : "Appearance preferences apply to this tab."}
         </p>
-        {onReset && <button
-          type="button"
-          className="fp-secondary"
-          onClick={() => {
-            dialog.current?.close();
-            onReset();
-          }}
-        >
-          <Icon name="reset" size={16} /> Reset sample
-        </button>}
+        {onReset && (
+          <button
+            type="button"
+            className="fp-secondary"
+            onClick={() => {
+              dialog.current?.close();
+              onReset();
+            }}
+          >
+            <Icon name="reset" size={16} /> Reset sample
+          </button>
+        )}
       </div>
     </dialog>
   );

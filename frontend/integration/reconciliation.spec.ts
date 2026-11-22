@@ -23,6 +23,7 @@ test("AT-18 · retry a capture after the database commits but the acknowledgemen
     const committedId = await taskId(observer, title);
     await page.getByRole("button", { name: "Retry original change" }).click();
     await expect(page.getByRole("button", { name: "Retry original change" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "New project", exact: true })).toBeEnabled();
     await expect(task(page, title)).toHaveAttribute("data-task-id", committedId);
     expect(envelopes.length).toBe(2);
     expect(envelopes[0].length > 0 && envelopes[0] === envelopes[1]).toBe(true);
@@ -65,7 +66,8 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
     }
     const reapply = page.getByRole("button", { name: "Reapply my change" });
     await expect(reapply).toBeVisible();
-    await expect(page.getByText(draft, { exact: false }).first()).toBeVisible();
+    await expect(page.getByText(`Your change: ${draft}`, { exact: true })).toBeVisible();
+    await expect(page.getByText(`Current task: ${winning}`, { exact: false })).toBeVisible();
     await expect(task(other, winning)).toHaveAttribute("data-task-id", itemId);
     await reapply.click();
     await expect(reapply).toHaveCount(0);

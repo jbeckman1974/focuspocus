@@ -3,6 +3,8 @@ from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
+from core.access import locked_membership
+
 from . import feed
 from .health import schema_ready
 
@@ -13,7 +15,7 @@ def workspace_read(request, workspace_id, mode):
     if not request.user.is_authenticated:
         return JsonResponse({"error": "authentication_required"}, status=401)
     with transaction.atomic():
-        workspace = feed.accessible_workspace(request.user, workspace_id)
+        workspace, _ = locked_membership(request.user, workspace_id)
         if workspace is None:
             return JsonResponse({"error": "not_found"}, status=404)
         if mode == "snapshot":

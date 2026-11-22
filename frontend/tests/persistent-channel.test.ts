@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { HttpError } from "../src/persistent/api.ts";
+import { HttpError, workspaceApi } from "../src/persistent/api.ts";
 import type { Receipt, Snapshot, WorkspaceApi } from "../src/persistent/api.ts";
 import { WorkspaceChannel } from "../src/persistent/channel.ts";
 import { prepare } from "../src/persistent/writes.ts";
@@ -15,6 +15,7 @@ function fixture(custom: Partial<WorkspaceApi> = {}) {
   let snapshot = first;
   let submissions: object[] = [];
   const api: WorkspaceApi = {
+    verifySession: async () => true,
     snapshot: async () => snapshot,
     changes: async () => ({ revision: snapshot.revision, changes: [] }),
     submit: async (_name, envelope) => {
@@ -42,6 +43,7 @@ test("a lost response is retried with exactly the original operation, IDs, conte
   fake.channel.discard();
   assert.equal(fake.channel.getSnapshot().phase, "uncertain");
   assert.equal(fake.channel.run({type:"project",title:"X"}), false);
+  fake.replace({...first, revision:3});
   fake.channel.retry();
   await settle();
   assert.equal(attempts[0], attempts[1]);
@@ -72,6 +74,7 @@ test("concurrent edits preserve draft and require explicit fresh write after res
   assert.equal(state.snapshot?.revision,4);
   assert.equal(attempts.length,1);
   fail = false;
+  target = {...target,revision:5};
   fake.channel.reapply();
   await settle();
   assert.equal(attempts.length,2);
@@ -116,4 +119,79 @@ test("completion undo uses the prior receipt and a new operation ID",()=>{
   const write=prepare({type:"undo",receipt}, first, ()=>"new-op");
   assert.equal(write.envelope.operationId,"new-op");
   assert.deepEqual(write.envelope.payload,{operationId:"old-op",contextId:"old-context"});
+});
+
+test("missing target preserves the submitted title after confirming the same principal and workspace", async () => {
+  let confirm!: (canWrite: boolean) => void;
+  const fake = fixture({
+    verifySession: () => new Promise(resolve => { confirm = resolve; }),
+    submit: async () => { throw new HttpError(404, "Item unavailable."); },
+  });
+  await fake.channel.tick();
+  fake.channel.run({type:"rename", id:"vanished",title:"My draft"});
+  await settle();
+  assert.equal(fake.channel.getSnapshot().phase,"verifying");
+  assert.equal(fake.channel.getSnapshot().snapshot,null);
+  assert.equal(fake.channel.getSnapshot().pending,null);
+  confirm(true);
+  await settle();
+  assert.equal(fake.channel.getSnapshot().phase,"rejected");
+  assert.equal(fake.channel.getSnapshot().pending?.envelope.payload.title,"My draft");
+  assert.equal(fake.revoked(),false);
+});
+
+test("rotated CSRF retries the original command only after verified access",async()=>{
+  let checked=false;
+  const submitted: object[]=[];
+  const fake = fixture({
+    verifySession:async()=>{checked=true; return true;},
+    submit:async(_name,envelope)=>{
+      submitted.push(envelope);
+      if (!checked) throw new HttpError(403,"Refresh your session.");
+      return {operationId:"edit",contextId:"ctx",revision:2,selection:[],undoable:false};
+    },
+  });
+  await fake.channel.tick();
+  fake.channel.run({type:"setTitle",ids:["a"],title:"Retained"});
+  await settle();
+  assert.equal(fake.channel.getSnapshot().phase,"retryable");
+  fake.channel.retry();
+  await settle();
+  assert.equal(submitted[0],submitted[1]);
+  assert.equal(fake.channel.getSnapshot().phase,"ready");
+});
+
+test("command error with changed account or revoked membership wipes the workspace and draft",async()=>{
+  const fake=fixture({
+    verifySession:async()=>{throw new HttpError(403,"Workspace access changed.");},
+    submit:async()=>{throw new HttpError(404,"Workspace unavailable.");},
+  });
+  await fake.channel.tick();
+  fake.channel.run({type:"capture",parentId:"inbox",titles:["Private entry"]});
+  await settle();
+  assert.equal(fake.revoked(),true);
+  assert.equal(fake.channel.getSnapshot().snapshot,null);
+  assert.equal(fake.channel.getSnapshot().pending,null);
+});
+
+
+test("transport renews the CSRF header only for the verified actor and workspace", async (t) => {
+  const initial = crypto.randomUUID();
+  let session = { user: {id: 12, username: "actor"}, workspaces: [{id: "office", role: "owner"}], csrfToken: crypto.randomUUID() };
+  const headers: (string | null)[] = [];
+  t.mock.method(globalThis, "fetch", async (url: string, options: RequestInit) => {
+    if (url === "/api/v1/session") return Response.json(session);
+    headers.push(new Headers(options.headers).get("X-CSRFToken"));
+    return Response.json({});
+  });
+  const api = workspaceApi("office", 12, initial, new AbortController().signal);
+  await api.submit("complete", {});
+  assert.equal(await api.verifySession(), true);
+  await api.submit("complete", {});
+  assert.deepEqual(headers, [initial, session.csrfToken]);
+
+  session = {...session, user:{id:13,username:"different"}, csrfToken:crypto.randomUUID()};
+  await assert.rejects(api.verifySession(), {status:403});
+  session = {...session, user:{id:12,username:"actor"}, workspaces:[]};
+  await assert.rejects(api.verifySession(), {status:403});
 });

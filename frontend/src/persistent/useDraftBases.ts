@@ -8,7 +8,8 @@ import type { Snapshot } from "./api.ts";
 export function useDraftBases(snapshot: Snapshot | null, selection: string[]) {
   const initial = useRef(new WeakMap<HTMLInputElement, Snapshot>());
   const drafts = useRef(new Map<string, Snapshot>());
-  const key = (field: string, ids: string[]) => field + ":" + [...ids].sort().join(",");
+  const key = (field: string, ids: string[]) =>
+    field + ":" + [...ids].sort().join(",");
   function fieldFor(input: HTMLInputElement) {
     if (input.id === "inspector-date") return key("due", selection);
     if (input.id === "inspector-title") return key("title", selection);
@@ -19,27 +20,40 @@ export function useDraftBases(snapshot: Snapshot | null, selection: string[]) {
   }
   function onFocusCapture(event: FocusEvent) {
     const input = event.target;
-    if (input instanceof HTMLInputElement && snapshot && fieldFor(input)) initial.current.set(input, snapshot);
+    if (input instanceof HTMLInputElement && snapshot && fieldFor(input))
+      initial.current.set(input, snapshot);
   }
   function onInputCapture(event: FormEvent) {
     const input = event.target;
     if (!(input instanceof HTMLInputElement) || !snapshot) return;
     const field = fieldFor(input);
-    if (field && !drafts.current.has(field)) drafts.current.set(field, initial.current.get(input) ?? snapshot);
+    if (field && !drafts.current.has(field))
+      drafts.current.set(field, initial.current.get(input) ?? snapshot);
   }
   function onKeyDownCapture(event: KeyboardEvent) {
-    if (event.key !== "Escape" || !(event.target instanceof HTMLInputElement)) return;
+    if (event.key !== "Escape" || !(event.target instanceof HTMLInputElement))
+      return;
     const field = fieldFor(event.target);
     if (field) drafts.current.delete(field);
   }
   function forCommand(command: Command) {
-    const field = command.type === "rename" ? key("title", [command.id]) :
-      command.type === "setTitle" ? key("title", command.ids) :
-      command.type === "setDue" ? key("due", command.ids) : undefined;
+    const field =
+      command.type === "rename"
+        ? key("title", [command.id])
+        : command.type === "setTitle"
+          ? key("title", command.ids)
+          : command.type === "setDue"
+            ? key("due", command.ids)
+            : undefined;
     return {
-      base: field ? drafts.current.get(field) ?? snapshot : snapshot,
-      clear: () => { if (field) drafts.current.delete(field); },
+      base: field ? (drafts.current.get(field) ?? snapshot) : snapshot,
+      clear: () => {
+        if (field) drafts.current.delete(field);
+      },
     };
   }
-  return { bindings: {onFocusCapture, onInputCapture, onKeyDownCapture}, forCommand };
+  return {
+    bindings: { onFocusCapture, onInputCapture, onKeyDownCapture },
+    forCommand,
+  };
 }

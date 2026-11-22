@@ -3,7 +3,7 @@ import type { Receipt, Snapshot, WorkspaceApi } from "./api.ts";
 import { prepare } from "./writes.ts";
 import type { Intent, Write } from "./writes.ts";
 
-type Phase = "loading" | "ready" | "sending" | "uncertain" | "acknowledged" | "conflict" | "rejected";
+type Phase = "loading" | "ready" | "sending" | "uncertain" | "acknowledged" | "conflict" | "rejected" | "verifying" | "retryable";
 export interface ChannelState {
   snapshot: Snapshot | null;
   phase: Phase;
@@ -21,6 +21,7 @@ export class WorkspaceChannel {
   private active = true;
   private polling = false;
   private epoch = 0;
+  private accessCheck: {write: Write; status: number; reason: string} | null = null;
   private state: ChannelState = {
     snapshot: null, phase: "loading", pending: null, undo: null,
     message: "", conflictFresh: false, lastChange: null,
@@ -51,6 +52,7 @@ export class WorkspaceChannel {
   private accessError(error: unknown) {
     if (error instanceof HttpError && [401, 403, 404].includes(error.status)) {
       this.update({ snapshot: null, pending: null, undo: null, lastChange: null, phase: "loading" });
+      this.accessCheck = null;
       this.stop();
       this.lostAccess();
       return true;
@@ -64,6 +66,17 @@ export class WorkspaceChannel {
     this.polling = true;
     try {
       const { snapshot, phase } = this.state;
+      if (phase === "verifying" && this.accessCheck) {
+        const {write, status, reason} = this.accessCheck;
+        const canWrite = await this.api.verifySession();
+        const next = await this.api.snapshot();
+        if (!this.active || epoch !== this.epoch) return;
+        this.accessCheck = null;
+        const retryable = status === 403 && canWrite;
+        this.update({ snapshot: next, pending: write, phase: retryable ? "retryable" : "rejected",
+          message: retryable ? "Your session was refreshed. Retry the original change." : reason });
+        return;
+      }
       let refresh = !snapshot || phase === "acknowledged" || (phase === "conflict" && !this.state.conflictFresh);
       if (!refresh && snapshot) {
         try {
@@ -74,12 +87,17 @@ export class WorkspaceChannel {
           refresh = true;
         }
       }
-      if (!refresh) return;
+      if (!refresh) {
+        if (this.active && epoch === this.epoch && this.state.message === "Connection interrupted. Reconnecting…") this.update({message:"Connected."});
+        return;
+      }
       const next = await this.api.snapshot();
       if (!this.active || epoch !== this.epoch) return;
+      if (phase === "acknowledged" && snapshot?.generation === next.generation && next.revision < (this.state.lastChange?.receipt.revision ?? 0)) return;
       this.update({ snapshot: next, conflictFresh: phase === "conflict" });
       if (phase === "acknowledged") {
-        this.update({ phase: "ready", pending: null, message: "Saved changes" });
+        const restored = next.generation !== snapshot?.generation;
+        this.update({ phase: "ready", pending: null, ...(restored ? {undo:null, lastChange: null} : {}), message: restored ? "Workspace restored. Check your recent changes." : "Saved changes" });
       } else if (phase === "loading") {
         this.update({ phase: "ready", message: "" });
       } else if (snapshot?.generation !== next.generation) {
@@ -103,7 +121,7 @@ export class WorkspaceChannel {
   }
 
   retry() {
-    if (this.state.phase === "uncertain" && this.state.pending) void this.send(this.state.pending);
+    if (["uncertain", "retryable"].includes(this.state.phase) && this.state.pending) void this.send(this.state.pending);
   }
 
   reapply() {
@@ -112,7 +130,7 @@ export class WorkspaceChannel {
   }
 
   discard() {
-    if (!["conflict", "rejected"].includes(this.state.phase)) return;
+    if (!["conflict", "rejected", "retryable"].includes(this.state.phase)) return;
     this.update({ pending: null, phase: "ready", message: "Change discarded." });
   }
 
@@ -126,7 +144,15 @@ export class WorkspaceChannel {
       this.update({ phase: "acknowledged", undo, lastChange: { receipt, intent: write.intent }, message: "Saved changes" });
       await this.tick();
     } catch (error) {
-      if (!this.active || epoch !== this.epoch || this.accessError(error)) return;
+      if (!this.active || epoch !== this.epoch) return;
+      if (error instanceof HttpError && [403, 404].includes(error.status)) {
+        this.accessCheck = {write, status: error.status, reason: error.message};
+        this.update({snapshot: null, pending: null, undo: null, lastChange: null,
+          phase:"verifying", message:"Checking workspace access…"});
+        await this.tick();
+        return;
+      }
+      if (this.accessError(error)) return;
       if (error instanceof HttpError && [409, 410, 412].includes(error.status)) {
         this.update({ phase: "conflict", message: error.message });
         await this.tick();

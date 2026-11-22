@@ -10,7 +10,9 @@ export async function signIn(page: Page, person: Person) {
     readFileSync("/run/qa-accounts.json", "utf8"),
   );
   await page.goto("/app/");
-  await page.getByLabel("Username", { exact: true }).fill(accounts[person].username);
+  await page
+    .getByLabel("Username", { exact: true })
+    .fill(accounts[person].username);
   const password = page.getByLabel("Password", { exact: true });
   await expect(password).toBeVisible();
   await password.fill(accounts[person].password);

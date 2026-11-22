@@ -38,8 +38,11 @@ export async function jsonRequest<T>(
   url: string,
   options: RequestInit = {},
 ): Promise<T> {
+  const timeout = AbortSignal.timeout(15000);
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
   const response = await fetch(url, {
     ...options,
+    signal,
     mode: "same-origin",
     credentials: "same-origin",
     cache: "no-store",
@@ -68,9 +71,19 @@ export function readSession(signal?: AbortSignal) {
   return jsonRequest<Session>("/api/v1/session", { signal });
 }
 
-export function workspaceApi(id: string, csrf: string, signal: AbortSignal) {
+export function workspaceApi(id: string, actorId: number, initialCsrf: string, signal: AbortSignal) {
+  let csrf = initialCsrf;
   const base = "/api/v1/workspaces/" + encodeURIComponent(id);
   return {
+    async verifySession() {
+      const session = await readSession(signal);
+      const membership = session.workspaces.find(space => space.id === id);
+      if (session.user?.id !== actorId || !membership) {
+        throw new HttpError(403, "Workspace access changed.");
+      }
+      csrf = session.csrfToken;
+      return membership.role === "owner" || membership.role === "editor";
+    },
     snapshot: () => jsonRequest<Snapshot>(base + "/snapshot", { signal }),
     changes: (cursor: string) =>
       jsonRequest<{ revision: number; changes: unknown[] }>(

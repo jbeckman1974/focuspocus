@@ -6,7 +6,7 @@ from django.core import signing
 from django.db.models import Prefetch
 
 from core.commands.context import issue_context
-from core.models import Change, Item, Membership, Tag, Workspace
+from core.models import Change, Item, Tag
 
 
 PAGE_SIZE = 100
@@ -16,17 +16,6 @@ CURSOR_SALT = "focuspocus.workspace-changes.v1"
 
 class StaleCursor(ValueError):
     pass
-
-
-def accessible_workspace(user, workspace_id):
-    """Caller holds an atomic block. Recheck authority after obtaining the lock."""
-    memberships = Membership.objects.filter(user=user, workspace_id=workspace_id)
-    workspace = (
-        Workspace.objects.select_for_update()
-        .filter(pk__in=memberships.values("workspace_id"))
-        .first()
-    )
-    return workspace if workspace is not None and memberships.exists() else None
 
 
 def cursor_for(workspace, user, revision):
