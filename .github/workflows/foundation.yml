@@ -32,4 +32,27 @@ jobs:
       - name: Build application image
         run: docker build --target application -t "$FOCUSPOCUS_IMAGE" .
       - name: Verify the built image and persistent stack
+        if: matrix.arch == 'arm64'
         run: bash ops/verify-stack.sh
+      - name: Verify native AMD64 using disposable sibling bind storage
+        if: matrix.arch == 'amd64'
+        run: |
+          mkdir -p build
+          parent=$(mktemp -d "$PWD/build/host-layout.XXXXXXXX")
+          mkdir "$parent/first" "$parent/second"
+          touch "$parent/first/neighbor-canary"
+          first=$(docker create --network none --mount "type=bind,src=$parent/first,dst=/data,readonly" "$FOCUSPOCUS_IMAGE")
+          second=
+          sibling_volume=
+          cleanup() {
+            if [[ -n "$second" ]]; then docker rm "$second" >/dev/null; fi
+            if [[ -n "$sibling_volume" ]]; then docker volume rm "$sibling_volume" >/dev/null; fi
+            docker rm "$first" >/dev/null
+          }
+          trap cleanup EXIT
+          sibling_volume=$(docker volume create --driver local --opt type=none --opt o=bind --opt "device=$parent/second")
+          second=$(docker create --network none --mount "type=volume,src=$sibling_volume,dst=/data,readonly" "$FOCUSPOCUS_IMAGE")
+          FOCUSPOCUS_TEST_DATA_PARENT="$parent" python3 -B ops/host_test_data.py
+          test -f "$parent/first/neighbor-canary"
+          test -d "$parent/focuspocus"
+          test -z "$(ls -A "$parent/focuspocus")"
