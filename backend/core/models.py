@@ -5,6 +5,7 @@ from django.db import models
 from django.utils import timezone
 
 from .lifecycle_models import ItemLifecycleFields, OrganizationPreference, TagTreeFields, WorkspaceFilingFields
+from .scheduling.dates import MAX_DURATION_MINUTES
 
 
 class Workspace(WorkspaceFilingFields):
@@ -89,7 +90,7 @@ class Item(ItemLifecycleFields):
             ),
             models.CheckConstraint(condition=~models.Q(kind="folder", done=True), name="folder_completion"),
             models.CheckConstraint(
-                condition=models.Q(duration_minutes__isnull=True) | models.Q(duration_minutes__lte=5_259_600),
+                condition=models.Q(duration_minutes__isnull=True) | models.Q(duration_minutes__lte=MAX_DURATION_MINUTES),
                 name="item_duration_range",
             ),
         ]

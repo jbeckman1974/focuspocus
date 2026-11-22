@@ -1,8 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../api.ts";
 import type { WorkspaceChannel } from "../channel.ts";
-import { dateFields, describeDate } from "../schedule.ts";
-import { bulkPatch } from "./bulk.ts";
+import { bulkFields, bulkPatch, bulkSelection } from "./bulk.ts";
 import type { BulkChanges, BulkField, BulkValues } from "./bulk.ts";
 
 interface Props {
@@ -15,16 +14,17 @@ const labels: Record<BulkField, string> = {
   title: "Title", flagged: "Flag", status: "Status", durationMinutes: "Duration",
   defer: "Defer", planned: "Planned", due: "Due",
 };
-const fields: BulkField[] = ["title", "flagged", "status", "durationMinutes", ...dateFields];
 
 function BulkDialog({ base, ids, submit, close }: {
   base: Snapshot; ids: string[]; submit: (patch: BulkChanges) => boolean; close: () => void;
 }) {
-  const rows = base.tasks.filter((row) => ids.includes(row.id));
-  const [enabled, setEnabled] = useState<Set<BulkField>>(new Set());
-  const [values, setValues] = useState<BulkValues>({
-    title: "", flagged: "yes", status: "active", durationMinutes: "", defer: "", planned: "", due: "",
+  const [rows] = useState(() => {
+    const selected = new Set(ids);
+    return base.tasks.filter((row) => selected.has(row.id));
   });
+  const [original] = useState(() => bulkSelection(rows));
+  const [enabled, setEnabled] = useState<Set<BulkField>>(new Set());
+  const [values, setValues] = useState<BulkValues>(original.values);
   const [tags, setTags] = useState<Record<string, string>>({});
   const [message, setMessage] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
@@ -33,18 +33,6 @@ function BulkDialog({ base, ids, submit, close }: {
     element?.showModal();
     return () => element?.close();
   }, []);
-  function summary(field: BulkField) {
-    const entries = new Set(rows.map((row) => {
-      switch (field) {
-        case "flagged": return row.flagged ? "Flagged" : "Unflagged";
-        case "status": return row.status ?? "active";
-        case "durationMinutes": return row.durationMinutes == null ? "No estimate" : row.durationMinutes + " min";
-        case "title": return row.title;
-        default: return describeDate(row.schedule?.[field]);
-      }
-    }));
-    return entries.size > 1 ? "Mixed values" : [...entries][0];
-  }
   const update = (field: BulkField, value: string) => setValues({ ...values, [field]: value });
   function save() {
     try {
@@ -56,21 +44,25 @@ function BulkDialog({ base, ids, submit, close }: {
   }
   return <dialog ref={dialog} className="fp-dialog" aria-label="Edit selected items" onCancel={close}>
     <h2>Edit selected items</h2>
+    <p>{ids.length} items selected. Check each field you want to change.</p>
     <form onSubmit={(event) => { event.preventDefault(); save(); }}>
-      {fields.map((field) => <div key={field} className="fp-dialog-fields">
-        <label><input type="checkbox" aria-label={"Change " + labels[field].toLowerCase()}
+      {bulkFields.map((field) => <div key={field} className="fp-dialog-fields">
+        <label><input type="checkbox" aria-describedby={"bulk-current-" + field} aria-label={"Change " + labels[field].toLowerCase()}
           checked={enabled.has(field)} onChange={(event) => {
             const next = new Set(enabled);
             if (event.target.checked) next.add(field); else next.delete(field);
             setEnabled(next);
-          }} /> {labels[field]} <small>{summary(field)}</small></label>
+          }} /> {labels[field]} <small id={"bulk-current-" + field}>{original.labels[field]}</small></label>
         {enabled.has(field) && (field === "flagged" || field === "status" ?
           <select aria-label={labels[field]} value={values[field]} onChange={(e) => update(field, e.target.value)}>
             {field === "flagged" ? <><option value="yes">Flagged</option><option value="no">Unflagged</option></> :
               ["active", "completed", "dropped"].map((status) => <option key={status}>{status}</option>)}
           </select> :
-          <input aria-label={labels[field]} type={field === "title" ? "text" : field === "durationMinutes" ? "number" : "date"}
-            min={field === "durationMinutes" ? 0 : undefined} value={values[field]} onChange={(e) => update(field, e.target.value)} />
+          <label>
+            {field === "durationMinutes" ? "Minutes, or blank to clear" : field === "title" ? "New title" : "Calendar date, or blank to clear"}
+            <input aria-label={labels[field]} type={field === "title" ? "text" : field === "durationMinutes" ? "number" : "date"}
+              min={field === "durationMinutes" ? 0 : undefined} value={values[field]} onChange={(e) => update(field, e.target.value)} />
+          </label>
         )}
       </div>)}
       {base.tags.length > 0 && <fieldset><legend>Direct tags</legend>

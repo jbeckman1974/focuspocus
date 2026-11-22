@@ -2,6 +2,7 @@ from datetime import date, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
+from django.contrib.auth import get_user_model
 from django.db import IntegrityError, connection, transaction
 
 from core.models import Item, Membership, Workspace
@@ -62,6 +63,21 @@ class ReviewApiTests(ReferenceWorkspaceCase):
         late = self.mark(23)
         self.assertEqual(late["nextReview"], "2026-11-30")
         self.assertEqual(late["status"], "active")
+
+    def test_shared_actor_history_cannot_restore_a_deleted_reviewer(self):
+        editor = get_user_model().objects.create_user(username="review-editor")
+        Membership.objects.create(workspace=self.space, user=editor, role="editor")
+        self.client.force_login(editor)
+        self.send("mark-reviewed", {"projectId": self.project})
+        self.client.force_login(self.owner)
+        shared = next(row for row in self.read("planning/review", scope="all")["projects"]
+                      if row["projectId"] == self.project)
+        self.assertEqual(shared["lastReviewedBy"], str(editor.pk))
+        second = self.send("mark-reviewed", {"projectId": self.project, "expectedVersion": shared["version"]})
+        editor.delete()
+        self.send("undo", {"operationId": second["operationId"], "contextId": second["contextId"]}, status=409)
+        actual = ProjectReview.objects.get(project_id=self.project)
+        self.assertEqual(actual.last_actor_id, self.owner.pk)
 
     def test_invalid_intervals_or_foreign_project_cannot_mutate(self):
         initial = self.read("planning/review", scope="all")

@@ -2,6 +2,7 @@ from hashlib import sha256
 import re
 import unicodedata
 from urllib.parse import unquote
+from uuid import UUID
 
 from django.conf import settings
 from django.db.models import Exists, OuterRef, Sum
@@ -50,7 +51,6 @@ def check_inverse_capacity(workspace, rows):
         if obj is not None:
             differences[obj.blob_id] = differences.get(obj.blob_id, 0) - 1
         if entry["before"] is not None:
-            from uuid import UUID
             pk = UUID(entry["before"]["blob_id"])
             differences[pk] = differences.get(pk, 0) + 1
     if not differences:

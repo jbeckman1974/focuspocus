@@ -30,13 +30,35 @@ test("AT-14/15/16/25/32 · capture, forecast, focus, annotate and review a priva
   await expect(forecastItem(page, planned, "Planned", title)).toHaveAttribute("data-item-id", original);
   await expect(forecastItem(page, due, "Due", title)).toHaveAttribute("data-item-id", original);
 
+  await forecastItem(page, planned, "Planned", title).click();
   await openPlanning(page, "Perspectives");
+  const selectionOnly = page.getByLabel("Selected rows only", { exact: true });
+  await selectionOnly.check();
+  const matches = page.getByRole("region", { name: "Search results" });
+  await expect(matches.getByRole("status")).toHaveText("1 match");
+  await expect(matches.getByRole("button", { name: title, exact: true })).toHaveAttribute("data-item-id", original);
+  await selectionOnly.uncheck();
   await focusProject(page, project);
   await page.getByRole("button", { name: "New perspective", exact: true }).click();
   await page.getByLabel("Perspective name", { exact: true }).fill(savedName);
   await page.getByLabel("Favorite", { exact: true }).check();
+  const attempts: string[] = [];
+  await page.route(/\/perspectives\/commands$/, async (route) => {
+    const write = route.request().postDataJSON();
+    if (write.action !== "save") return route.continue();
+    attempts.push(write.operationId);
+    if (attempts.length > 1) return route.continue();
+    expect((await route.fetch()).status()).toBe(200);
+    await route.abort("connectionreset");
+  });
   await page.getByRole("button", { name: "Save perspective", exact: true }).click();
-  await page.getByRole("button", { name: savedName, exact: true }).click();
+  const editor = page.getByRole("dialog", { name: "Edit perspective" });
+  await editor.getByRole("button", { name: "Retry same change" }).click();
+  await expect(editor).toHaveCount(0);
+  expect(attempts).toHaveLength(2);
+  expect(attempts[1]).toBe(attempts[0]);
+  await page.getByRole("group", { name: "Saved perspectives" })
+    .getByRole("button", { name: savedName, exact: true }).click();
   await page.getByLabel("Search tasks", { exact: true }).fill("Bench");
   const result = page.getByRole("button", { name: title, exact: true });
   await expect(result).toHaveAttribute("data-item-id", original);
@@ -87,7 +109,8 @@ test("AT-14/15/16/25/32 · capture, forecast, focus, annotate and review a priva
 
   await openPlanning(page, "Review");
   await page.getByLabel("Review scope", { exact: true }).selectOption("all");
-  await page.getByRole("button", { name: project, exact: true }).click();
+  await page.getByRole("group", { name: "Review queue" })
+    .getByRole("button", { name: project, exact: true }).click();
   const marked = page.waitForResponse(/\/commands\/mark-reviewed$/);
   await page.getByRole("button", {name:"Mark reviewed", exact:true}).click();
   expect((await marked).status()).toBe(200);
@@ -104,8 +127,15 @@ test("AT-14/15/16/25/32 · capture, forecast, focus, annotate and review a priva
     const reopened = second.getByRole("dialog", { name: "Notes and files" });
     await expect(reopened.locator("strong")).toHaveText(note);
   });
+  await sidebarDestination(page, project).click();
+  const row = task(page, title);
+  const complete = row.getByRole("button", { name: "Complete " + title, exact: true });
+  await complete.click();
+  await expect(row.getByRole("button", { name: "Reopen " + title, exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Undo", exact: true }).click();
+  await expect(complete).toBeVisible();
   await page.reload();
   await sidebarDestination(page, project).click();
-  await expect(task(page, title)).toHaveAttribute("data-task-id", original);
-  await expect(task(page, title).getByRole("button",{name: "Complete " + title, exact:true})).toBeVisible();
+  await expect(row).toHaveAttribute("data-task-id", original);
+  await expect(complete).toBeVisible();
 });

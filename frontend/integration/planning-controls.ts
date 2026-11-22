@@ -15,18 +15,27 @@ export async function applyDay(
   value: string,
 ) {
   await task(page, title).getByText(title, { exact: true }).click();
-  await inspector(page).getByRole("button", { name: "Schedule…", exact: true }).click();
+  await inspector(page)
+    .getByRole("button", { name: "Schedule…", exact: true })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Edit schedule" });
   await dialog.getByLabel("Date field").selectOption(field);
   await dialog.getByLabel("Date input").fill(value);
-  await dialog.getByRole("button", { name: "Preview date", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Preview date", exact: true })
+    .click();
   await expect(dialog.getByRole("status")).toContainText(value);
   const acknowledgement = page.waitForResponse(/\/commands\/set-schedule$/);
   await dialog.getByRole("button", { name: "Apply date", exact: true }).click();
   expect((await acknowledgement).status()).toBe(200);
 }
 
-export function forecastItem(page: Page, date: string, section: string, title: string) {
+export function forecastItem(
+  page: Page,
+  date: string,
+  section: string,
+  title: string,
+) {
   return page
     .getByRole("region", { name: date, exact: true })
     .getByRole("region", { name: section, exact: true })
@@ -37,6 +46,8 @@ export async function focusProject(page: Page, name: string) {
   await page.getByRole("button", { name: "Focus…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Focus", exact: true });
   await dialog.getByRole("checkbox", { name, exact: true }).check();
-  await dialog.getByRole("button", { name: "Apply focus", exact: true }).click();
+  await dialog
+    .getByRole("button", { name: "Apply focus", exact: true })
+    .click();
   await expect(dialog).not.toBeVisible();
 }

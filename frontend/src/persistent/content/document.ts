@@ -40,7 +40,12 @@ function collect(items: TextRun[]): NoteDocument {
       if (!text) return;
       const last = paragraphs[paragraphs.length - 1];
       const before = last[last.length - 1];
-      if (before && before.bold === run.bold && before.italic === run.italic && before.link === run.link)
+      if (
+        before &&
+        before.bold === run.bold &&
+        before.italic === run.italic &&
+        before.link === run.link
+      )
         before.text += text;
       else last.push({ ...run, text });
     });
@@ -48,15 +53,34 @@ function collect(items: TextRun[]): NoteDocument {
   return { paragraphs };
 }
 
+// Textarea selections and string slices use UTF-16 offsets.
+function splitsCodePoint(text: string, offset: number) {
+  return (text.codePointAt(offset - 1) ?? 0) > 0xffff;
+}
+
 export function replaceText(note: NoteDocument, replacement: string) {
   const original = plainText(note);
   let left = 0;
-  while (left < original.length && left < replacement.length && original[left] === replacement[left]) left++;
+  while (
+    left < original.length &&
+    left < replacement.length &&
+    original[left] === replacement[left]
+  )
+    left++;
+  if (splitsCodePoint(original, left)) left--;
   let oldEnd = original.length;
   let newEnd = replacement.length;
-  while (oldEnd > left && newEnd > left && original[oldEnd - 1] === replacement[newEnd - 1]) {
+  while (
+    oldEnd > left &&
+    newEnd > left &&
+    original[oldEnd - 1] === replacement[newEnd - 1]
+  ) {
     oldEnd--;
     newEnd--;
+  }
+  if (splitsCodePoint(original, oldEnd)) {
+    oldEnd++;
+    newEnd++;
   }
   const segments = runs(note);
   return collect([
@@ -66,17 +90,31 @@ export function replaceText(note: NoteDocument, replacement: string) {
   ]);
 }
 
-export function applyMark(note: NoteDocument, start: number, end: number, key: "bold" | "italic" | "link", url?: string) {
+export function applyMark(
+  note: NoteDocument,
+  start: number,
+  end: number,
+  key: "bold" | "italic" | "link",
+  url?: string,
+) {
   if (end <= start) return note;
+  const text = plainText(note);
+  if (splitsCodePoint(text, start)) start--;
+  if (splitsCodePoint(text, end)) end++;
   const segments = runs(note);
   const selection = sliceRuns(segments, start, end);
-  const remove = key !== "link" && selection.every((run) => run[key]);
-  for (const run of selection) {
+  const textRuns = selection.filter((run) => run.text !== "\n");
+  const remove = key !== "link" && textRuns.every((run) => run[key]);
+  for (const run of textRuns) {
     if (key === "link") {
       if (url) run.link = url;
       else delete run.link;
     } else if (remove) delete run[key];
     else run[key] = true;
   }
-  return collect([...sliceRuns(segments, 0, start), ...selection, ...sliceRuns(segments, end, Infinity)]);
+  return collect([
+    ...sliceRuns(segments, 0, start),
+    ...selection,
+    ...sliceRuns(segments, end, Infinity),
+  ]);
 }

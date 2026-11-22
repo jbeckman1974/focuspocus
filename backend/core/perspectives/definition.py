@@ -3,6 +3,7 @@
 from datetime import date
 
 from core.commands.validation import CommandError, fields, identifier, title
+from core.scheduling.dates import MAX_DURATION_MINUTES
 
 
 AVAILABILITY = ("remaining", "available", "first-available", "blocked")
@@ -41,7 +42,7 @@ def day(value):
 
 
 def duration(value):
-    if type(value) is not int or not 0 <= value <= 5_256_000:
+    if type(value) is not int or not 0 <= value <= MAX_DURATION_MINUTES:
         raise CommandError("Expected a duration in whole minutes.")
     return value
 

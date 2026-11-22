@@ -26,13 +26,19 @@ export class PreferenceResource<T, P extends object> {
 
   constructor(options: Options<T, P>) {
     this.options = options;
-    this.state = { values: options.initial, message: "Loading preferences…", failed: false };
+    this.state = {
+      values: options.initial,
+      message: "Loading preferences…",
+      failed: false,
+    };
   }
 
   snapshot = () => this.state;
   subscribe = (notify: () => void) => {
     this.listeners.add(notify);
-    return () => { this.listeners.delete(notify); };
+    return () => {
+      this.listeners.delete(notify);
+    };
   };
 
   private emit(message: string, failed = false) {
@@ -46,12 +52,16 @@ export class PreferenceResource<T, P extends object> {
 
   change = (patch: P) => {
     this.queued = this.queued ? this.options.merge(this.queued, patch) : patch;
-    this.emit(this.state.failed ? this.state.message : "Saving preferences…", this.state.failed);
+    this.emit(
+      this.state.failed ? this.state.message : "Saving preferences…",
+      this.state.failed,
+    );
     if (!this.state.failed) void this.flush();
   };
 
   refresh = async () => {
-    if (this.working || this.queued || this.state.failed || this.stopped) return;
+    if (this.working || this.queued || this.state.failed || this.stopped)
+      return;
     this.base = undefined;
     await this.flush();
   };
@@ -71,12 +81,17 @@ export class PreferenceResource<T, P extends object> {
       this.emit("");
     } catch (error) {
       if (this.sending) {
-        this.queued = this.queued ? this.options.merge(this.sending, this.queued) : this.sending;
+        this.queued = this.queued
+          ? this.options.merge(this.sending, this.queued)
+          : this.sending;
         this.sending = undefined;
       }
-      this.emit(error instanceof HttpError && error.status === 409
-        ? "Another browser changed these preferences. Reload them or reapply your edits."
-        : "Preferences could not be saved or loaded.", true);
+      this.emit(
+        error instanceof HttpError && error.status === 409
+          ? "Another browser changed these preferences. Reload them or reapply your edits."
+          : "Preferences could not be saved or loaded.",
+        true,
+      );
     } finally {
       this.working = false;
     }
@@ -90,5 +105,7 @@ export class PreferenceResource<T, P extends object> {
     void this.flush();
   };
 
-  stop() { this.stopped = true; }
+  stop() {
+    this.stopped = true;
+  }
 }

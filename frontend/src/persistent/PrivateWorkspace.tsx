@@ -27,13 +27,9 @@ import { useRuleOutline } from "./useRuleOutline.ts";
 import { BulkInspector } from "./preferences/BulkInspector.tsx";
 import { usePersonalPreferences } from "./preferences/usePersonalPreferences.ts";
 import { ContentTools } from "./content/ContentTools.tsx";
-import { Review } from "./planning/Review.tsx";
-import { Forecast } from "./planning/Forecast.tsx";
-import { Perspectives } from "./planning/Perspectives.tsx";
-import { Focus, PersonalNotice } from "./planning/Focus.tsx";
-import { planningLinks } from "./planning/links.ts";
+import { PlanningArea } from "./planning/PlanningArea.tsx";
+import { usePlanningNavigation } from "./planning/usePlanningNavigation.ts";
 import { useCatalog } from "./planning/useCatalog.ts";
-import "./planning/planning.css";
 import { WriteNotice } from "./WriteNotice.tsx";
 
 interface Props {
@@ -86,10 +82,8 @@ function ConnectedOutline({
 }: Props & { channel: WorkspaceChannel }) {
   const state = useSyncExternalStore(channel.subscribe, channel.getSnapshot);
   const snapshot = state.snapshot;
-  const [planning, setPlanning] = useState<string | null>(null);
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
-  const [perspectiveId,setPerspectiveId] = useState("");
-  const [planningSelection, setPlanningSelection] = useState<string[]>([]);
+  const planning = usePlanningNavigation(catalog.data);
   const [currentView, setView] = useState<View>(inbox);
   const view =
     snapshot && viewExists(snapshot, currentView) ? currentView : inbox;
@@ -118,6 +112,7 @@ function ConnectedOutline({
   }, [channel, viewZone]);
   const projection = useRuleOutline(
     snapshot,
+    actorId,
     view,
     availability,
     viewZone,
@@ -137,12 +132,15 @@ function ConnectedOutline({
     cleanupEpoch,
   });
 
-  const selection = planning ? planningSelection.filter((id) => snapshot?.tasks.some((item) => item.id === id)) : visibleSelection(rows, selected[key] ?? []);
-  const settings=usePersonalPreferences(id,actorId,csrf);
-  const showInspector=settings.device.inspectorOpen??window.innerWidth>850;
-  const setShowInspector=(open:boolean)=>settings.setDevice({inspectorOpen:open});
-  const mode=settings.account.editMode;
-  const setMode=(editMode:"inline"|"inspector")=>settings.setAccount({editMode});
+  const outlineSelection = visibleSelection(rows, selected[key] ?? []);
+  const taskIds = new Set(snapshot?.tasks.map((item) => item.id));
+  const selection = planning.page ? planning.selection.filter((id) => taskIds.has(id)) : outlineSelection;
+  const settings = usePersonalPreferences(id, actorId, csrf);
+  const showInspector = settings.device.inspectorOpen ?? window.innerWidth > 850;
+  const setShowInspector = (open: boolean) => settings.setDevice({ inspectorOpen: open });
+  const mode = settings.account.editMode;
+  const setMode = (editMode: "inline" | "inspector") => settings.setAccount({ editMode });
+  const mutationsDisabled = readOnly || state.phase !== "ready";
   const [capture, setCapture] = useState(0);
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
@@ -214,7 +212,7 @@ function ConnectedOutline({
   }
 
   const choose = (ids: string[]) => {
-    if (planning) return setPlanningSelection(ids);
+    if (planning.page) return planning.select(ids);
     setSelected((previous) => ({ ...previous, [key]: ids }));
   };
 
@@ -226,7 +224,7 @@ function ConnectedOutline({
       : undefined;
   function showSource(id: string) {
     if (!snapshot) return;
-    setPlanning(null);
+    planning.close();
     if (snapshot.tags.some((item) => item.id === id))
       return setView({ kind: "tag", id });
     if (snapshot.projects.some((item) => item.id === id))
@@ -266,13 +264,14 @@ function ConnectedOutline({
     return (
       <ItemTools
         key={entry.id}
+        actorId={actorId}
         showSource={showSource}
         entry={entry}
         kind={kind}
         snapshot={snapshot!}
         channel={channel}
         pending={pending}
-        disabled={state.phase !== "ready"}
+        disabled={mutationsDisabled}
       />
     );
   }
@@ -288,49 +287,43 @@ function ConnectedOutline({
     selection.length === 1
       ? snapshot.tasks.find((t) => t.id === selection[0])
       : undefined;
-  const planningSession = {snapshot, actorId, refresh:channel.refresh, zone:viewZone};
-  const planningActions = { selected: selection, select: choose, open: showSource };
-  const version = catalog.data?.personalVersion ?? 0;
-  function openPlanning(target: string) {
-    const saved = target.startsWith("saved-");
-    setPlanning(saved ? "perspectives" : target);
-    if(saved) setPerspectiveId(target.slice(6));
-    setPlanningSelection([]);
+  function leaveInbox() {
+    if (!planning.page && view.kind === "inbox" && !mutationsDisabled && snapshot && hasEligibleFiling(snapshot)) {
+      channel.run({ type: "lifecycle", change: { name: "file-inbox", payload: {} } }, snapshot);
+    }
   }
+  function openPlanning(target: string) {
+    leaveInbox();
+    planning.open(target, projection.result?.matchIds ?? [], outlineSelection);
+  }
+  const inspectorTools = task ? (
+    <>{controls(task, task.kind)}
+      <ContentTools key={task.id} snapshot={snapshot} itemId={task.id} readOnly={mutationsDisabled} actorId={actorId}/>
+    </>
+  ) : selection.length > 1 ? (
+    <BulkInspector snapshot={snapshot} ids={selection} channel={channel} disabled={mutationsDisabled}/>
+  ) : undefined;
   return (
     <div {...drafts.bindings}>
       <Frame
         standardViews
         personalPreferences={settings}
-        planning={{active: planning==="perspectives" && perspectiveId && catalog.data?.perspectives.some((p)=>p.id===perspectiveId&&p.favorite) ? "saved-"+perspectiveId : planning, links: planningLinks(catalog.data), open: openPlanning}}
-        inspectorTools={task ? <>{controls(task, task.kind)}<ContentTools key={task.id} snapshot={snapshot} itemId={task.id} readOnly={readOnly || state.phase!=="ready"} actorId={actorId}/></> : selection.length>1 ? <BulkInspector snapshot={snapshot} ids={selection} channel={channel} disabled={readOnly || state.phase!=="ready"}/> : undefined}
-        mutationsDisabled={state.phase !== "ready"}
+        planning={{ active: planning.active, links: planning.links, open: openPlanning }}
+        inspectorTools={inspectorTools}
+        mutationsDisabled={mutationsDisabled}
         pendingTag={pendingTag}
         workspace={snapshot}
         view={view}
         onView={(next) => {
-          setPlanning(null);
-          if (
-            view.kind === "inbox" &&
-            next.kind !== "inbox" &&
-            state.phase === "ready" &&
-            hasEligibleFiling(snapshot)
-          ) {
-            channel.run(
-              {
-                type: "lifecycle",
-                change: { name: "file-inbox", payload: {} },
-              },
-              snapshot,
-            );
-          }
+          if (next.kind !== "inbox") leaveInbox();
+          planning.close();
           setView(next);
         }}
         selection={selection}
         onSelect={choose}
         run={run}
         onCapture={() => {
-          setPlanning(null);
+          planning.close();
           setView(inbox);
           if (window.innerWidth <= 850) setShowInspector(false);
           setCapture((n) => n + 1);
@@ -338,6 +331,7 @@ function ConnectedOutline({
         workspaceLabel={username}
         accountControls={
           <WorkspaceActions
+            actorId={actorId}
             channel={channel}
             state={state}
             snapshot={snapshot}
@@ -357,13 +351,10 @@ function ConnectedOutline({
         message={state.message}
       >
         <WriteNotice state={state} channel={channel} />
-        <div className="planning-tools"><Focus snapshot={snapshot} catalog={catalog}/>
-          {planning!=="perspectives" && <button onClick={()=>{setPerspectiveId("");openPlanning("perspectives")}}>Search…</button>}
-          {planning && selection.length===1 && <button onClick={()=>showSource(selection[0])}>Show in project</button>}
-        </div>
-        <PersonalNotice catalog={catalog}/>
-        {planning === "forecast" ? <Forecast session={planningSession} personalVersion={version} {...planningActions} /> : planning === "review" ? <Review session={planningSession} channel={channel} disabled={state.phase!=="ready"} personalVersion={version} {...planningActions} /> : planning==="perspectives" ? <Perspectives session={planningSession} catalog={catalog} choice={perspectiveId} setChoice={setPerspectiveId} hereIds={projection.result?.matchIds??[]} {...planningActions}/> : <Outline
-          mutationsDisabled={state.phase !== "ready"}
+        <PlanningArea session={{snapshot, actorId, refresh:channel.refresh, zone:viewZone}} channel={channel}
+          navigation={planning} catalog={catalog} disabled={mutationsDisabled} openSource={showSource} search={() => openPlanning("perspectives")}>
+          <Outline
+          mutationsDisabled={mutationsDisabled}
           rows={rows}
           count={projection.result?.count}
           retainedCount={Math.max(0, rows.length - matches.length)}
@@ -419,7 +410,8 @@ function ConnectedOutline({
               document.getElementById("inspector-title")?.focus(),
             );
           }}
-        />}
+        />
+        </PlanningArea>
       </Frame>
     </div>
   );

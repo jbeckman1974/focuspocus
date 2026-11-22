@@ -10,6 +10,24 @@ from core.tests.reference_outline import fixture_id
 
 
 class PersonalPlanningIsolationTests(ReferenceWorkspaceCase):
+    def test_workspace_routes_reject_a_stale_tab_before_reading_the_new_members_private_state(self):
+        task = self.ids["A18"]
+        reader = get_user_model().objects.create_user(username="other-planning-tab")
+        Membership.objects.create(workspace=self.space, user=reader, role="viewer")
+        self.client.force_login(reader)
+        stale = {"X-FocusPocus-Actor": str(self.owner.pk)}
+        for route in ("snapshot", "outline?view=inbox", "changes", "date-preview?field=due&text=today",
+                      f"content/items/{task}", f"content/items/{task}/files/{uuid4()}/preview"):
+            with self.subTest(route=route):
+                result = self.client.get(self.base + route, headers=stale)
+                self.assertEqual(result.status_code, 403)
+                self.assertEqual(set(result.json()), {"error"})
+                self.assertIn("no-store", result["Cache-Control"])
+        self.assertEqual(self.client.get(self.base + "snapshot",
+                                         headers={"X-FocusPocus-Actor": str(reader.pk)}).status_code, 200)
+        self.client.logout()
+        self.assertEqual(self.client.get(self.base + "snapshot", headers=stale).status_code, 401)
+
     def post_json(self, route, body, status=200):
         response = self.client.post(self.base + route, body, content_type="application/json")
         self.assertEqual(response.status_code, status, response.content)

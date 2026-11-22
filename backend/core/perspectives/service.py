@@ -77,11 +77,12 @@ def write(user, workspace, body):
                 "operation_id": identifier(body["operationId"])}
     signature = json.dumps(["personal-perspective-v1", body], sort_keys=True, separators=(",", ":"))
     fingerprint = hashlib.sha256(signature.encode()).hexdigest()
-    prior = Receipt.objects.filter(**identity).first()
-    if prior:
-        if prior.fingerprint != fingerprint:
+    recorded = Receipt.objects.filter(**identity).values_list("fingerprint", flat=True).first()
+    if recorded is not None:
+        if recorded != fingerprint:
             raise CommandError("Operation identifier already used.", 409)
-        return prior.result
+        # A different tab may have renamed or deleted the view since the original write.
+        return serialize(personal_state(user, workspace))
     state, _ = PerspectiveState.objects.get_or_create(user=user, workspace=workspace)
     expected = body["expectedVersion"]
     if type(expected) is not int or expected < 0:
@@ -91,6 +92,5 @@ def write(user, workspace, body):
     if apply(state, body["action"], body["payload"]):
         state.version += 1
         state.save(update_fields=["focus_ids", "version"])
-    result = serialize(state)
-    Receipt.objects.create(**identity, fingerprint=fingerprint, result=result)
-    return result
+    Receipt.objects.create(**identity, fingerprint=fingerprint, result={"personalVersion": state.version})
+    return serialize(state)

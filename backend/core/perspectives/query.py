@@ -26,6 +26,8 @@ def query(user, workspace, body):
     text = body.get("text", "")
     if not isinstance(text, str) or len(text) > 500:
         raise CommandError("Search text is limited to 500 characters.")
+    if "\x00" in text or any(0xD800 <= ord(char) <= 0xDFFF for char in text):
+        raise CommandError("Search text contains an unsupported character.")
     needle = text.strip().casefold()
     scope = choice(body.get("scope", "here"), ("here", "remaining", "everything"), "search scope")
     selected = set(id_list(body["hereIds"], 5000)) if "hereIds" in body else None

@@ -79,7 +79,10 @@ export function AccountApp() {
     <PrivateWorkspace
       key={session.user.id + ":" + privateId}
       id={privateId}
-      readOnly={session.workspaces.find((space) => space.id === privateId)?.role === "viewer"}
+      readOnly={
+        session.workspaces.find((space) => space.id === privateId)?.role ===
+        "viewer"
+      }
       actorId={session.user.id}
       username={session.user.username}
       csrf={session.csrfToken}

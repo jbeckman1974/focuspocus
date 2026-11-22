@@ -1,8 +1,10 @@
 from datetime import datetime
 from unittest.mock import patch
 
+from django.contrib.auth import get_user_model
+
 from core.tests.reference_api import ReferenceWorkspaceCase
-from core.models import Workspace
+from core.models import Membership, Workspace
 from core.tests.reference_outline import FIXTURE_TIME, fixture_id
 
 
@@ -71,3 +73,15 @@ class ForecastApiTests(ReferenceWorkspaceCase):
                 self.assertEqual(self.client.get(self.base + "planning/forecast", params).status_code, status)
         self.client.logout()
         self.assertEqual(self.client.get(self.base + "planning/forecast").status_code, 401)
+
+    def test_forecast_and_review_refuse_stale_tab_for_a_shared_workspace(self):
+        other = get_user_model().objects.create_user(username="planning-viewer")
+        Membership.objects.create(workspace=self.space, user=other, role="viewer")
+        self.client.force_login(other)
+        for route in ("planning/forecast", "planning/review"):
+            with self.subTest(route=route):
+                stale = self.client.get(self.base + route, HTTP_X_FOCUSPOCUS_ACTOR=str(self.owner.pk))
+                self.assertEqual(stale.status_code, 403)
+                self.assertEqual(set(stale.json()), {"error"})
+                accepted = self.client.get(self.base + route, HTTP_X_FOCUSPOCUS_ACTOR=str(other.pk))
+                self.assertEqual(accepted.status_code, 200)

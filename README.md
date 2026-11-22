@@ -1,5 +1,7 @@
 # focuspocus
 
+WARNING:  This project is under active autonomous development.  It is not recommended to use until after this warning is removed.
+
 self hostable task manager
 
 The first implementation milestone is a desktop-style task outline. Open the sample Inbox, capture a few tasks, and move them between projects. The inspector edits dates and tags, and the tag view shows the same tasks. Edits stay in the browser tab for the session. Use the sample reset to start again.
@@ -23,3 +25,9 @@ The production target is openSUSE Tumbleweed x64. Each release must publish both
 ## Persistent workspace
 
 Open `/app/` for the session-authenticated workspace. Each provisioned account starts with a private Inbox. The sample at `/sample/` uses synthetic, in-memory tasks. The [Mac development steps](docs/OPERATIONS.md#daily-development-on-the-macbook) cover setup and account creation.
+
+## License
+
+FocusPocus is licensed under the GNU General Public License, version 3 only (`GPL-3.0-only`). Third-party components retain their respective licenses. [Full license text](LICENSE)
+
+For the FocusPocus source and build instructions corresponding to a release image, read its `org.opencontainers.image.revision` label and open that commit in this repository. The image includes the license at `/usr/share/licenses/focuspocus/LICENSE`.

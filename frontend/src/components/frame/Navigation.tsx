@@ -73,16 +73,30 @@ export function Rail({
             key={label}
             type="button"
             className="fp-rail-button"
-            aria-current={!planning?.active && view.kind === target.kind ? "page" : undefined}
+            aria-current={
+              !planning?.active && view.kind === target.kind
+                ? "page"
+                : undefined
+            }
             onClick={() => onView(view.kind === target.kind ? view : target)}
           >
             <Icon name={icon} size={21} />
             {label}
           </button>
         ))}
-        {planning?.links.map((item) => <button key={item.id} type="button" className="fp-rail-button" aria-label={item.label} aria-current={planning.active === item.id ? "page" : undefined} onClick={() => planning.open(item.id)}>
-          <Icon name={item.icon} size={21} />{item.label}
-        </button>)}
+        {planning?.links.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            className="fp-rail-button"
+            aria-label={item.label}
+            aria-current={planning.active === item.id ? "page" : undefined}
+            onClick={() => planning.open(item.id)}
+          >
+            <Icon name={item.icon} size={21} />
+            {item.label}
+          </button>
+        ))}
       </div>
       <button
         className="fp-rail-button"
@@ -118,7 +132,9 @@ export function Sidebar({
       type="button"
       className="fp-nav-link"
       aria-label={label}
-      aria-current={!planning?.active && isCurrent(view, target) ? "page" : undefined}
+      aria-current={
+        !planning?.active && isCurrent(view, target) ? "page" : undefined
+      }
       onClick={() => onView(target)}
     >
       <Icon name={icon} size={16} />
@@ -166,7 +182,19 @@ export function Sidebar({
             {standardViews &&
               perspectives.map((p) => link(p.label, p.icon, p.target))}
             {link("All tasks", "all", { kind: "all" })}
-            {planning?.links.map((item) => <button key={item.id} type="button" className="fp-nav-link" aria-label={item.label} aria-current={planning.active === item.id ? "page" : undefined} onClick={() => planning.open(item.id)}><Icon name={item.icon} size={16} />{item.label}</button>)}
+            {planning?.links.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className="fp-nav-link"
+                aria-label={item.label}
+                aria-current={planning.active === item.id ? "page" : undefined}
+                onClick={() => planning.open(item.id)}
+              >
+                <Icon name={item.icon} size={16} />
+                {item.label}
+              </button>
+            ))}
           </section>
         )}
         <section aria-label="Projects">

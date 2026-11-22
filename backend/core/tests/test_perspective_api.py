@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 from core.commands.context import issue_context
 from core.content.models import ItemNote
-from core.models import Change, Membership
+from core.models import Change, Membership, Receipt
 from core.tests.reference_api import ReferenceWorkspaceCase
 from core.tests.reference_outline import fixture_id
 
@@ -78,6 +78,35 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.post("commands", body, 404)
         self.post("query", {"perspectiveId": payload["id"]}, 404)
 
+    def test_receipts_keep_the_acknowledged_version_and_replay_the_current_catalog(self):
+        payload = self.save_body()
+        create = self.put("save", payload, 0)
+        original = self.post("commands", create)
+        receipt = Receipt.objects.get(workspace=self.space, actor=self.owner, operation_id=create["operationId"])
+        self.assertEqual(receipt.result, {"personalVersion": 1})
+        renamed = self.post("commands", self.put("save", {**payload, "name": "Revised field plan"}, 1))
+        self.assertEqual(self.post("commands", create), renamed)
+        # A receipt left by an older M4 build is also replayable before its data migration.
+        Receipt.objects.filter(pk=receipt.pk).update(result=original)
+        current = self.post("commands", self.put("delete", {"id": payload["id"]}, 2))
+        self.assertEqual(self.post("commands", create), {"personalVersion": 3, "focusIds": [], "perspectives": []})
+        self.assertEqual(self.read("perspectives/"), current)
+        self.assertEqual(Receipt.objects.filter(workspace=self.space, actor=self.owner).count(), 3)
+
+    def test_actor_pinned_browser_requests_reject_shared_workspace_account_switch(self):
+        viewer = get_user_model().objects.create_user(username="perspective-shared-reader")
+        Membership.objects.create(workspace=self.space, user=viewer, role="viewer")
+        self.client.force_login(viewer)
+        self.post("commands", self.put("save", self.save_body(), 0, actor=viewer))
+        wrong = {"HTTP_X_FOCUSPOCUS_ACTOR": str(self.owner.pk)}
+        base = self.base + "perspectives/"
+        self.assertEqual(self.client.get(base, **wrong).status_code, 403)
+        self.assertEqual(self.client.post(base + "query", {}, content_type="application/json", **wrong).status_code, 403)
+        command = self.put("focus", {"ids": [self.ids["P06"]]}, 1, actor=viewer)
+        self.assertEqual(self.client.post(base + "commands", command, content_type="application/json", **wrong).status_code, 403)
+        own = self.client.get(base, HTTP_X_FOCUSPOCUS_ACTOR=str(viewer.pk)).json()
+        self.assertEqual((own["personalVersion"], own["focusIds"]), (1, []))
+
     def test_cross_workspace_reference_rejected_and_stale_focus_does_not_broaden(self):
         foreign = {"field": "contains", "value": self.private_id}
         self.post("query", {"definition": {"version": 1, "expression": foreign}}, 404)
@@ -88,6 +117,7 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
 
     def test_invalid_input_and_undoable_shared_history_unchanged(self):
         for bad in ({"scope": "private"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
+                    {"text": "bad\x00text"}, {"text": "\ud800"},
                     {"definition": {"version": 99, "expression": {"all": []}}},
                     {"definition": {"version": 1, "expression": {"sql": "arbitrary"}}}):
             self.post("query", bad, 422)

@@ -2,7 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { HttpError, jsonRequest, readSession } from "../api.ts";
 import { PreferenceResource } from "./resource.ts";
 import type { Versioned } from "./resource.ts";
-import { initialAccount, initialDevice } from "./types.ts";
+import { applyAccountChanges, mergeAccountChanges, initialAccount, initialDevice } from "./types.ts";
 import type { AccountPatch, AccountSettings, DeviceSettings, PersonalSettings } from "./types.ts";
 
 let fallbackDevice: string | undefined;
@@ -17,12 +17,6 @@ function browserDevice(): string {
   } catch {
     return (fallbackDevice ??= crypto.randomUUID());
   }
-}
-
-function mergeAccount<T extends AccountPatch>(old: T, patch: AccountPatch): T {
-  const result = { ...old, ...patch };
-  if (patch.dateDefaults) result.dateDefaults = { ...old.dateDefaults, ...patch.dateDefaults };
-  return result;
 }
 
 function resources(id: string, actorId: number, csrf: string) {
@@ -50,7 +44,7 @@ function resources(id: string, actorId: number, csrf: string) {
   }
   const account = new PreferenceResource<AccountSettings, AccountPatch>({
     ...endpoint<AccountSettings, AccountPatch>("account"), initial: initialAccount,
-    apply: mergeAccount, merge: mergeAccount,
+    apply: applyAccountChanges, merge: mergeAccountChanges,
   });
   const device = new PreferenceResource<DeviceSettings, Partial<DeviceSettings>>({
     ...endpoint<DeviceSettings, Partial<DeviceSettings>>("device/" + browserDevice()), initial: initialDevice,

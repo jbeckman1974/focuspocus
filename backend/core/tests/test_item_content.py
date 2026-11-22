@@ -1,6 +1,9 @@
 import base64
 import hashlib
 from uuid import uuid4
+from datetime import timedelta
+
+from django.utils import timezone
 
 from django.db import IntegrityError, connection, transaction
 from django.test import TestCase, override_settings
@@ -125,6 +128,15 @@ class PrivateContentTests(FileApiMixin, TestCase):
         self.assertEqual(self.download(item, headers["X-File-Id"]).status_code, 404)
         self.command("restore", {"ids": [item]})
         self.assertEqual(self.download(item, headers["X-File-Id"]).content, raw)
+        self.assertEqual(AttachmentBody.objects.count(), 1)
+        self.command("complete", {"ids": [item]})
+        self.command("archive", {"ids": [item], "before": (timezone.now().date() + timedelta(days=2)).isoformat()})
+        self.assertEqual(self.metadata(item).status_code, 404)
+        restored = self.command("retrieve", {"ids": [item]})["selection"][0]
+        self.assertNotEqual(restored, item)
+        archived_copy = self.metadata(restored).json()
+        self.assertEqual(archived_copy["document"], NOTE)
+        self.assertEqual(self.download(restored, archived_copy["files"][0]["id"]).content, raw)
         self.assertEqual(AttachmentBody.objects.count(), 1)
 
     @override_settings(ATTACHMENT_MAX_BYTES=6, WORKSPACE_ATTACHMENT_MAX_BYTES=6)

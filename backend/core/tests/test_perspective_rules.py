@@ -5,6 +5,7 @@ from core.perspectives.definition import validate_definition
 from core.perspectives.evaluate import Evaluation
 from core.perspectives.presentation import grouping, ordered
 from core.queries.outline import tree_order
+from core.scheduling.dates import MAX_DURATION_MINUTES, duration_minutes
 
 
 def item(key, name, **values):
@@ -14,6 +15,16 @@ def item(key, name, **values):
 
 
 class PerspectiveRuleTests(unittest.TestCase):
+    def test_duration_filter_accepts_the_largest_storable_estimate(self):
+        estimate = duration_minutes(MAX_DURATION_MINUTES)
+        row = item("x", "Long assignment", durationMinutes=estimate)
+        evaluator = Evaluation([row], [], tree_order([row], None), {}, "UTC")
+        definition = {"version": 1, "expression": {"field": "duration", "value": {"min": estimate, "max": estimate}}}
+        valid, _ = validate_definition(definition)
+        self.assertTrue(evaluator.predicate(valid["expression"])(row))
+        with self.assertRaises(CommandError):
+            validate_definition({**definition, "expression": {"field": "duration", "value": {"min": estimate + 1}}})
+
     def test_ranges_sort_stably_and_leave_undated_last(self):
         rows = [item("x", "Photo 12", durationMinutes=8), item("y", "Photo 2", durationMinutes=4),
                 item("z", "Other")]

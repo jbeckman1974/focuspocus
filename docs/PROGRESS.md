@@ -1,5 +1,9 @@
 # Implementation progress
 
+## November 22, 2026 · Owner decisions
+
+Joe selected GNU GPL version 3 for the project and confirmed private release images. The README carries his warning until testing is complete. The application image includes the project license. Private registry provisioning, the physical x64 deployment and Joe's pilot each still need evidence. Joe manually applied one usage reset and authorized continued automated testing.
+
 ## November 21, 2026
 
 | Step | Result and evidence | Next action |
@@ -109,3 +113,5 @@ The Forecast reader and browser agree on a bounded range of calendar days, displ
 The first M4 server integration registers the four schema changes for review, perspectives, SQL content and preferences. It routes personal settings separately from shared task commands. Forecast and Review read the same scoped task records as the outline. Content commands fingerprint attachment metadata while immutable bytes live in PostgreSQL. The integration includes HTTP tests for Forecast, Review, saved perspectives and private access. Internal Python module paths resolved locally. Native migration/application results will be recorded on PR #8.
 
 The first M4 server run reached 120 PostgreSQL tests. A stale-focus fixture had bypassed the actual trash command and an invalid timezone assertion expected 400 instead of the existing 422. The revised cases exercise the actual command and preserve the public validation contract. The integrated browser now includes Forecast, Review, focused personal perspectives, rich notes, file transfers and bulk changes. Fifty-three frontend unit tests passed locally. Cross-account visibility, quotas, content checksums and restore are exercised by the next native run. [First M4 stack run](https://github.com/jbeckman1974/focuspocus/actions/runs/44984587178)
+
+The November 22 audit found an account-switch gap on workspace reads, hidden edits after a failed note comparison, two Unicode and multiline formatting defects, and incomplete selection wiring in the three planning views. The fixes pin requests to the active account and keep a note draft recoverable while access is rechecked. The Mac ran 65 frontend unit tests and 31 backend domain tests. CI on the preceding revision reached 138 database tests on AMD64 and exposed an ambiguous browser selector in the daily planning journey. The new revision exercises that journey again on both native architectures.

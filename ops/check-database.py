@@ -43,9 +43,15 @@ def check_planning_fixture():
         raise RuntimeError("The planning journey's reviewed project is missing")
     if not ItemNote.objects.filter(item_id=attachment.item_id, plain_text__contains="monument").exists():
         raise RuntimeError("The attachment's indexed task note is missing")
-    if not SavedPerspective.objects.filter(state__workspace_id=workspace, favorite=True,
-                                           name="Field work this week").exists():
-        raise RuntimeError("The planning journey's saved perspective is missing")
+    saved = SavedPerspective.objects.select_related("state").get(state__workspace_id=workspace,
+                                                                 favorite=True, name="Field work this week")
+    if saved.state.focus_ids != [str(attachment.item.parent_id)]:
+        raise RuntimeError("The planning journey's perspective lost its project focus")
+    if not AccountPreference.objects.filter(user_id=saved.state.user_id, values__density="compact").exists():
+        raise RuntimeError("The planning account's row density was lost")
+    if not DevicePreference.objects.filter(workspace_id=workspace, user_id=saved.state.user_id,
+                                           values__inspectorOpen=False).exists():
+        raise RuntimeError("The planning account's device layout was lost")
 
 
 def hash_bodies(digest):
