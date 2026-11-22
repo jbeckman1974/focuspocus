@@ -2,7 +2,7 @@
 
 Joe wants to capture a task at home, organize it at the office, and return to the same outline in another browser. The reference is native OmniFocus 4.10.1 on Mac, including Pro workflows. The product will have its own implementation, identity, and artwork.
 
-**Status on November 21, 2026.** The repository planning package passed independent review and merged. **M1 is the first implementation milestone**. Its sample outline is in development on the milestone branch. The Mac container build and personal walkthrough have their own evidence entries in [progress](PROGRESS.md). M2 takes that workflow through private accounts, PostgreSQL, two browsers, native AMD64 CI and a versioned image for both Linux architectures.
+**Status on November 21, 2026.** The planning package and the first implementation milestone, the interactive sample outline, are on `main`. M2 connects the outline to private accounts and PostgreSQL. Automated tests exercise edits from two browsers and the Tumbleweed image on native AMD64 and ARM64. The current test results, image publication status and outstanding Mac walkthrough are in [progress](PROGRESS.md).
 
 ## Maintained specification
 

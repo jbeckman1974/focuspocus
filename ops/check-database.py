@@ -32,6 +32,8 @@ def content_digest():
     digest = hashlib.sha256()
     for model in (Workspace, Item, Tag, ItemTag):
         for row in model.objects.order_by("pk").values().iterator():
+            if model is Workspace:
+                row.pop("generation")  # A restored workspace deliberately receives a new generation.
             digest.update(json.dumps(row, sort_keys=True, default=str).encode("utf-8"))
             digest.update(b"\n")
     return digest.hexdigest()

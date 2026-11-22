@@ -8,8 +8,19 @@ psql -X --set ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB
 \getenv app_password FP_APP_PASSWORD
 \getenv migrate_password FP_MIGRATE_PASSWORD
 BEGIN;
-CREATE ROLE fpapp LOGIN PASSWORD :'app_password';
-CREATE ROLE fpmigrate LOGIN PASSWORD :'migrate_password';
+SELECT format('CREATE ROLE fpapp LOGIN PASSWORD %L', :'app_password')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fpapp') \gexec
+SELECT format('CREATE ROLE fpmigrate LOGIN PASSWORD %L', :'migrate_password')
+ WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fpmigrate') \gexec
+DO $roles$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('fpapp','fpmigrate')
+               AND (rolsuper OR rolcreaterole OR rolbypassrls OR NOT rolcanlogin))
+       OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fpapp' AND rolcreatedb)
+    THEN RAISE EXCEPTION 'Unexpected pre-existing database role attributes';
+    END IF;
+END
+$roles$;
 REVOKE ALL ON DATABASE :"db" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"db" TO fpapp, fpmigrate;
 REVOKE ALL ON SCHEMA public FROM PUBLIC;

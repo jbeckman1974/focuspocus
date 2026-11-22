@@ -38,6 +38,7 @@ image_id=$(docker image inspect --format '{{.Id}}' "$FOCUSPOCUS_IMAGE")
 test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$FOCUSPOCUS_IMAGE")" = "linux/$EXPECTED_ARCH"
 docker run --rm "$image_id" python /srv/ops/check-runtime.py
 dc up --wait --wait-timeout 120 -d db test-db
+dc exec -T db sh /docker-entrypoint-initdb.d/10-roles.sh
 dc run --rm --no-deps migrate
 dc run --rm --no-deps migrate python manage.py migrate --check
 dc run --rm --no-deps migrate
@@ -50,6 +51,8 @@ for service in web worker; do
 done
 
 bash ops/qa-browser.sh
+dc exec -T web python - < ops/check-worker.py
+python3 -B ops/qa-replacement.py before "$scratch/probe-checkpoint"
 before=$(dc exec -T web python - < ops/check-database.py)
 web_id=$(dc ps -q web)
 worker_id=$(dc ps -q worker)
@@ -57,6 +60,10 @@ dc up -d --no-deps --wait --wait-timeout 120 --force-recreate web worker
 test "$(dc ps -q web)" != "$web_id"
 test "$(dc ps -q worker)" != "$worker_id"
 test "$(dc exec -T web python - < ops/check-database.py)" = "$before"
+python3 -B ops/qa-replacement.py after "$scratch/probe-checkpoint"
+dc exec -T worker python manage.py worker_health
+dc exec -T web python - < ops/check-worker.py
+saved=$(dc exec -T web python - < ops/check-database.py)
 
 # The test-db volume is independent of the live fixture and has matching precreated roles.
 dc exec -T db pg_dump -U postgres --format=custom focuspocus > "$scratch/fixture.dump"
@@ -65,5 +72,8 @@ dc exec -T test-db pg_restore -U fpmigrate --single-transaction --exit-on-error 
     -d restored_fixture < "$scratch/fixture.dump"
 dc run --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture migrate
 restore_digest=$(dc run -T --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python - < ops/check-database.py)
-test "$restore_digest" = "$before"
+test "$restore_digest" = "$saved"
+dc run --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python manage.py fence_restored_database
+restore_digest=$(dc run -T --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python - < ops/check-database.py)
+test "$restore_digest" = "$saved"
 echo "Verified $image_id on linux/$EXPECTED_ARCH including replacement and clean database restore."

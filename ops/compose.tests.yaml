@@ -5,6 +5,7 @@ services:
     image: docker.io/library/postgres:18-bookworm@sha256:194e55feb2597b1465dbee81cc9fd8d204566cd2eb42c8d22fd6c931a38781b1
     networks: [database]
     environment:
+      POSTGRES_USER: postgres
       POSTGRES_DB: focuspocus
       POSTGRES_PASSWORD_FILE: /run/secrets/database-admin
       FOCUSPOCUS_TEST_CLUSTER: "1"

@@ -19,3 +19,7 @@ Open [the sample workspace](http://127.0.0.1:5173/). The architecture check shou
 Start with the [project plan and milestone gates](docs/PROJECT_PLAN.md). It links to the maintained requirements, architecture, verification plan, operations guide, and decision log.
 
 The production target is openSUSE Tumbleweed x64. Each release must publish both ARM64 and AMD64 application images under one version after native AMD64 application, startup and migration checks in GitHub Actions. The [Mac development workflow](docs/OPERATIONS.md#daily-development-on-the-macbook), [production host checks](docs/OPERATIONS.md#controlled-host-update) and [current progress](docs/PROGRESS.md) describe the evidence for each stage.
+
+## Persistent workspace
+
+Open `/app/` for the session-authenticated workspace. Each provisioned account starts with a private Inbox. The sample at `/sample/` uses synthetic, in-memory tasks. The [Mac development steps](docs/OPERATIONS.md#daily-development-on-the-macbook) cover setup and account creation.
