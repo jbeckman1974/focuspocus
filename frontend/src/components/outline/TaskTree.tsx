@@ -29,7 +29,7 @@ interface TreeProps {
   multiple: boolean;
   collapsed: ReadonlySet<string>;
   toggle: (id: string) => void;
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   edit: (task: Task) => void;
   draft?: EditDraft;
   changeDraft: (value: string) => void;

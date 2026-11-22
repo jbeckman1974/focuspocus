@@ -11,7 +11,7 @@ interface Props {
   manualOrder: boolean;
   workspace: Workspace;
   selection: string[];
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   open: (panel: OutlinePanel) => void;
   close: () => void;
   edit: () => void;
@@ -45,8 +45,8 @@ export function ActionDialog(props: Props) {
     return () => dialog?.close();
   }, []);
 
-  function submit(command: Command) {
-    if (props.run(command)) {
+  async function submit(command: Command) {
+    if (await props.run(command)) {
       props.close();
     } else {
       setError(

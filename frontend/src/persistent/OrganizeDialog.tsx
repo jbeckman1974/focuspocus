@@ -26,7 +26,7 @@ export function OrganizeDialog({
   snapshot: Snapshot;
   view: View;
   selection: string[];
-  run: (intent: Intent, base: Snapshot) => boolean;
+  run: (intent: Intent, base: Snapshot) => boolean | Promise<boolean>;
   close: () => void;
   travel: boolean;
   deviceZone: string;
@@ -49,8 +49,8 @@ export function OrganizeDialog({
     element?.showModal();
     return () => element?.close();
   }, []);
-  function submit(change: LifecycleChange, revision = base.revision) {
-    if (run({ type: "lifecycle", change }, { ...base, revision })) {
+  async function submit(change: LifecycleChange, revision = base.revision) {
+    if (await run({ type: "lifecycle", change }, { ...base, revision })) {
       if (change.name === "file-inbox") cleanUp();
       close();
     } else
@@ -116,9 +116,9 @@ export function OrganizeDialog({
             </label>
             <button
               disabled={!filename.trim()}
-              onClick={() => {
+              onClick={async () => {
                 if (
-                  run(
+                  await run(
                     {
                       type: "folder",
                       title: filename.trim(),
@@ -176,8 +176,8 @@ export function OrganizeDialog({
           </label>
           <DateDefaultsForm
             base={base}
-            submit={(intent) => {
-              if (run(intent, base)) close();
+            submit={async (intent) => {
+              if (await run(intent, base)) close();
             }}
           />
           {view.kind === "inbox" && (

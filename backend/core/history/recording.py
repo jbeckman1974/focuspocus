@@ -37,6 +37,18 @@ def row_values(obj):
     return values
 
 
+def removed_from_outline(inverse):
+    removed = []
+    for row in inverse.get("journal", {}).get("rows", []):
+        if row["model"] not in ("item", "tag"):
+            continue
+        before, after = row["before"], row["after"]
+        if before is not None and before.get("shelf", "active") == "active":
+            if after is None or after.get("shelf", "active") != "active":
+                removed.append(row["id"])
+    return sorted(removed)
+
+
 def cursor(workspace):
     latest = (Receipt.objects.filter(workspace=workspace, result__revision=workspace.revision,
                                      inverse__journal__isnull=False)

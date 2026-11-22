@@ -2,13 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { actorRequest, HttpError, type Snapshot } from "../api.ts";
 import { emptyNote, type NoteDocument } from "./document.ts";
 import { NoteEditor } from "./NoteEditor.tsx";
+import { describeUpload, sendContentRequest, type OfflineContent, type StageContent } from "./offlineContent.ts";
+import { useTrustedItem } from "./useTrustedItem.ts";
 import {
   ContentReadOnly,
   contentUrl,
-  fileWrite,
   identity,
-  noteWrite,
-  unlinkWrite,
   type Attachment,
   type Content,
 } from "./transport.ts";
@@ -18,10 +17,13 @@ type Props = {
   itemId: string;
   readOnly: boolean;
   actorId: number;
+  stageContent?: StageContent;
 };
 type PendingWrite = {
-  send: (csrf: string, signal: AbortSignal) => Promise<unknown>;
-  action: "save" | "upload" | "remove";
+  change: OfflineContent;
+  bytes: Blob | null;
+  base: Snapshot;
+  envelope: {context:string; operationId:string; expectedRevision:number};
 };
 
 export function ContentTools(props: Props) {
@@ -33,9 +35,7 @@ export function ContentTools(props: Props) {
       </button>
       {open && (
         <ContentDialog
-          key={[props.actorId, props.snapshot.workspaceId, props.itemId].join(
-            "/",
-          )}
+          key={[props.actorId, props.snapshot.workspaceId, props.itemId, props.stageContent ? "trusted" : "online"].join("/")}
           {...props}
           close={() => setOpen(false)}
         />
@@ -50,8 +50,13 @@ function ContentDialog({
   readOnly,
   actorId,
   close,
+  stageContent,
 }: Props & { close: () => void }) {
-  const [content, setContent] = useState<Content>();
+  const [online, setContent] = useState<Content>();
+  const trusted = Boolean(stageContent);
+  const {item:saved,error:storageError} = useTrustedItem(trusted, actorId, snapshot, itemId);
+  const content = trusted ? saved?.base : online;
+  const noteBase = useRef<Content | undefined>(undefined);
   const [note, setNote] = useState<NoteDocument>(emptyNote);
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<Attachment>();
@@ -73,7 +78,12 @@ function ContentDialog({
   }, []);
   const base = contentUrl(snapshot.workspaceId, itemId);
 
+  useEffect(() => {
+    if (trusted && !noteBase.current) setNote(saved?.draft ?? emptyNote);
+  }, [saved, trusted]);
+
   function hide() {
+    noteBase.current = undefined;
     setDenied(true);
     setNote(emptyNote);
     setContent(undefined);
@@ -103,9 +113,9 @@ function ContentDialog({
         }
       }
     }
-    void load();
+    if (!trusted) void load();
     return () => controller.abort();
-  }, [actorId, base, snapshot.workspaceId]);
+  }, [actorId, base, snapshot.workspaceId, trusted]);
 
   function handleAccessFailure(error: unknown) {
     if (error instanceof HttpError && [401, 403, 404].includes(error.status)) {
@@ -132,6 +142,11 @@ function ContentDialog({
     }
   }
 
+  function prepare(change:OfflineContent, bytes: Blob | null = null): PendingWrite {
+    const revision = (change.action === "save" ? noteBase.current : undefined)?.revision ?? content!.revision;
+    return {change,bytes,base:{...snapshot,revision},envelope:{context:snapshot.context,operationId:crypto.randomUUID(),expectedRevision:revision}};
+  }
+
   async function write(make: () => Promise<PendingWrite> | PendingWrite) {
     const signal = life.current?.signal;
     if (
@@ -151,21 +166,36 @@ function ContentDialog({
     let attempt: PendingWrite | undefined;
     try {
       attempt = await make();
+      if (stageContent) {
+        await stageContent(attempt.change, attempt.bytes, attempt.base);
+        if (signal.aborted) return;
+        if (attempt.change.action === "save") noteBase.current = undefined;
+        if (attempt.change.action === "upload") {
+          setFile(null);
+          if (fileInput.current) fileInput.current.value = "";
+        }
+        setMessage(attempt.change.action === "upload" ? "File saved on this device for sync." : "Change saved on this device for sync.");
+        return;
+      }
       const csrf = await identity(snapshot.workspaceId, actorId, signal, true);
-      await attempt.send(csrf, signal);
+      await sendContentRequest(actorId,snapshot.workspaceId,attempt.change,attempt.bytes,attempt.envelope,csrf,signal);
       const current = await actorRequest<Content>(actorId, base, { signal });
       if (signal.aborted) return;
       setContent(current);
-      if (attempt.action === "save") setNote(current.document);
-      if (attempt.action === "upload") {
+      if (attempt.change.action === "save") { noteBase.current = undefined; setNote(current.document); }
+      if (attempt.change.action === "upload") {
         setFile(null);
         if (fileInput.current) fileInput.current.value = "";
       }
-      if (attempt.action === "remove") setPreview(undefined);
+      if (attempt.change.action === "remove") setPreview(undefined);
       setRetry(undefined);
       setMessage("Saved.");
     } catch (error) {
       if (signal.aborted) return;
+      if (trusted) {
+        setMessage(error instanceof Error ? error.message : "The change could not be saved on this device.");
+        return;
+      }
       if (
         error instanceof HttpError &&
         (error.status === 401 || error.status === 403 || error.status === 404)
@@ -209,6 +239,7 @@ function ContentDialog({
       const current = await actorRequest<Content>(actorId, base, { signal });
       if (!signal.aborted) {
         setContent(current);
+        noteBase.current = current;
         setConflict(false);
         setMessage("Latest version loaded. Review your draft before saving.");
       }
@@ -230,7 +261,8 @@ function ContentDialog({
     >
       <h3>Notes and files</h3>
       {message && <p role="status">{message}</p>}
-      {denied ? (
+      {storageError && <p role="alert">{storageError}</p>}
+      {denied || storageError ? (
         <p>Item content is unavailable.</p>
       ) : masked ? (
         <button
@@ -243,16 +275,14 @@ function ContentDialog({
         </button>
       ) : content ? (
         <>
-          <NoteEditor value={note} change={setNote} disabled={disabled} />
+          {trusted && saved && !saved.known && <p>Connect to load the existing note and file list. You can attach a file now.</p>}
+          <NoteEditor value={note} change={(value) => {noteBase.current ??= content;setNote(value);}} disabled={disabled || (trusted && !saved?.known)} />
           <button
             type="button"
-            disabled={disabled}
-            onClick={() =>
-              void write(() => ({
-                send: noteWrite(actorId, snapshot, itemId, content, note),
-                action: "save",
-              }))
-            }
+            disabled={disabled || (trusted && !saved?.known)}
+            onClick={() => void write(() => prepare({
+              action:"save",itemId,itemVersion:(noteBase.current ?? content).itemVersion,document:note,
+            }))}
           >
             Save note
           </button>
@@ -267,6 +297,12 @@ function ContentDialog({
               <NoteEditor value={content.document} change={() => {}} disabled />
             </details>
           )}
+          {saved && saved.pending.length > 0 && <ul aria-label="Content changes on this device">
+            {saved.pending.map(({id,content:change,state,reason}) => <li key={id}>
+              {change?.action === "upload" ? change.name : change?.action === "save" ? "Note" : "Attachment removal"}
+              {" · "}{state === "conflict" ? reason : "Awaiting sync"}
+            </li>)}
+          </ul>}
           <h4>Attachments</h4>
           <ul>
             {content.files.map((attachment) => {
@@ -289,18 +325,9 @@ function ContentDialog({
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() =>
-                      void write(() => ({
-                        send: unlinkWrite(
-                          actorId,
-                          snapshot,
-                          itemId,
-                          content,
-                          attachment.id,
-                        ),
-                        action: "remove",
-                      }))
-                    }
+                    onClick={() => void write(() => prepare({
+                      action:"remove",itemId,itemVersion:content.itemVersion,fileId:attachment.id,
+                    }))}
                   >
                     Remove {attachment.name}
                   </button>
@@ -341,16 +368,9 @@ function ContentDialog({
             disabled={disabled || !file || file.size > content.maxFileBytes}
             onClick={() => {
               if (file)
-                void write(async () => ({
-                  send: await fileWrite(
-                    actorId,
-                    snapshot,
-                    itemId,
-                    content,
-                    file,
-                  ),
-                  action: "upload",
-                }));
+                void write(async () => prepare(
+                  await describeUpload(itemId,content.itemVersion,file,content.maxFileBytes),file,
+                ));
             }}
           >
             Upload file

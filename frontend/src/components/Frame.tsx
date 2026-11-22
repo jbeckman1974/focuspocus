@@ -21,7 +21,7 @@ interface FrameProps {
   onView: (view: View) => void;
   selection: string[];
   onSelect: (ids: string[]) => void;
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   onCapture: () => void;
   onReset?: () => void;
   workspaceLabel?: string;
@@ -206,7 +206,12 @@ export function Frame({
             <span>{workspaceLabel ?? "Sample workspace"}</span>
           </div>
           <div className="fp-top-actions">
-            {accountControls}
+            {width <= 600 && accountControls ? (
+              <details className="fp-workspace-menu">
+                <summary>Workspace</summary>
+                <div>{accountControls}</div>
+              </details>
+            ) : accountControls}
             {compact && (
               <button
                 ref={browseToggle}

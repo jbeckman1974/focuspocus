@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { actorRequest, HttpError } from "../api.ts";
 import { PrivateWorkspace } from "../PrivateWorkspace.tsx";
+import { useOfflineIdentity } from "../offline/TrustedDevice.tsx";
+import { markOfflineActive, pruneOfflineDirectory } from "../offline/store.ts";
 
 export interface WorkspaceInfo {
   id: string;
@@ -21,8 +23,10 @@ export function WorkspaceRouter({
   onLostAccess: () => void;
   onSignOut: () => void;
 }) {
-  const [spaces, setSpaces] = useState<WorkspaceInfo[]>();
-  const [active, setActive] = useState("");
+  const { epoch, initialSpace } = useOfflineIdentity();
+  const [spaces, setSpaces] = useState<WorkspaceInfo[] | undefined>(()=>initialSpace ? [initialSpace] : undefined);
+  const [active, setActive] = useState(initialSpace?.id ?? "");
+  const selectedId = useRef(active);
   const [error, setError] = useState("");
   const [switching, setSwitching] = useState(false);
   const [failedTarget, setFailedTarget] = useState<string>();
@@ -47,15 +51,20 @@ export function WorkspaceRouter({
         );
         if (signal.aborted || order !== sequence.current) return;
         const target = result.workspaces.find((s) => s.id === requested);
+        const selected = target ?? result.workspaces.find((s) => s.id === selectedId.current) ??
+          result.workspaces.find((s) => s.private) ?? result.workspaces[0];
+        try {
+          await pruneOfflineDirectory(actorId, result.workspaces, epoch);
+          if (signal.aborted || order !== sequence.current) return;
+          if (selected && selected.id !== selectedId.current) await markOfflineActive(actorId,selected.id,epoch);
+        } catch {
+          if (!signal.aborted && order === sequence.current) onLostAccess();
+          return;
+        }
+        if (signal.aborted || order !== sequence.current) return;
+        selectedId.current = selected?.id ?? "";
         setSpaces(result.workspaces);
-        setActive(
-          (current) =>
-            target?.id ??
-            result.workspaces.find((s) => s.id === current)?.id ??
-            result.workspaces.find((s) => s.private)?.id ??
-            result.workspaces[0]?.id ??
-            "",
-        );
+        setActive(selectedId.current);
         if (requested && !target) throw new Error("Workspace access changed.");
         setError("");
       } catch (e) {
@@ -76,7 +85,7 @@ export function WorkspaceRouter({
         }
       }
     },
-    [actorId, onLostAccess],
+    [actorId, epoch, onLostAccess],
   );
   useEffect(() => {
     const abort = new AbortController();

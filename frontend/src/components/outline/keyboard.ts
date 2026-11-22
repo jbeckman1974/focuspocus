@@ -18,7 +18,7 @@ interface KeyActions {
   rows: OutlineRow[];
   collapsed: ReadonlySet<string>;
   toggle: (id: string) => void;
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   edit: (task: Task) => void;
   panel: (panel: OutlinePanel) => void;
   undo: () => void;

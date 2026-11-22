@@ -11,8 +11,10 @@ import {
 } from "../workspace/viewState.ts";
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
-import { workspaceApi } from "./api.ts";
-import { WorkspaceChannel } from "./channel.ts";
+import type { WorkspaceChannel } from "./channel.ts";
+import { useWorkspaceChannel } from "./offline/useWorkspaceChannel.ts";
+import { TrustDeviceControl } from "./offline/TrustedDevice.tsx";
+import { OfflineChanges } from "./offline/OfflineChanges.tsx";
 import { WorkspaceActions } from "./WorkspaceActions.tsx";
 import { hasEligibleFiling } from "./lifecycle.ts";
 import { AvailabilityFilter } from "./RuleControls.tsx";
@@ -49,29 +51,9 @@ interface Props {
 }
 
 export function PrivateWorkspace(props: Props) {
-  const [channel, setChannel] = useState<WorkspaceChannel>();
-  const { id, actorId, csrf, onLostAccess } = props;
-  useEffect(() => {
-    const abort = new AbortController();
-    const instance = new WorkspaceChannel(
-      workspaceApi(id, actorId, csrf, abort.signal),
-      onLostAccess,
-    );
-    setChannel(instance);
-    void instance.tick();
-    const interval = window.setInterval(instance.tick, 1500);
-    window.addEventListener("focus", instance.tick);
-    window.addEventListener("online", instance.tick);
-    return () => {
-      instance.stop();
-      abort.abort();
-      window.clearInterval(interval);
-      window.removeEventListener("focus", instance.tick);
-      window.removeEventListener("online", instance.tick);
-    };
-  }, [id, actorId, csrf, onLostAccess]);
-  return channel ? (
-    <ConnectedOutline {...props} channel={channel} />
+  const connection = useWorkspaceChannel(props.id, props.actorId,props.csrf,props.onLostAccess);
+  return connection ? (
+    <ConnectedOutline {...props} channel={connection.channel} trusted={Boolean(connection.lease)} />
   ) : (
     <p role="status">Opening workspace…</p>
   );
@@ -89,7 +71,8 @@ function ConnectedOutline({
   switchTo,
   onSignOut,
   channel,
-}: Props & { channel: WorkspaceChannel }) {
+  trusted,
+}: Props & { channel: WorkspaceChannel; trusted:boolean }) {
   const state = useSyncExternalStore(channel.subscribe, channel.getSnapshot);
   const snapshot = state.snapshot;
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
@@ -128,6 +111,7 @@ function ConnectedOutline({
     viewZone,
     channel.refresh,
     catalog.data?.personalVersion ?? 0,
+    trusted && (state.offline || state.queue.length > 0),
   );
   const matches =
     snapshot && projection.result
@@ -161,32 +145,29 @@ function ConnectedOutline({
   const observed = useRef<string | null>(null);
   useEffect(() => {
     const change = state.lastChange;
-    if (
-      !snapshot ||
-      !change ||
-      snapshot.revision < change.receipt.revision ||
-      observed.current === change.receipt.operationId
-    )
-      return;
-    observed.current = change.receipt.operationId;
-    const ids = change.receipt.selection;
+    const staged = state.lastStaged;
+    const navigation = staged ?? (change && snapshot && snapshot.revision >= change.receipt.revision
+      ? { ...change.receipt, intent:change.intent } : null);
+    if (!snapshot || !navigation || observed.current === navigation.operationId) return;
+    observed.current = navigation.operationId;
+    const ids = navigation.selection;
     if (!ids.length) return;
-    if (change.intent.type === "project") {
+    if (navigation.intent.type === "project") {
       setView({ kind: "project", id: ids[0] });
       return;
     }
-    if (change.intent.type === "folder") {
+    if (navigation.intent.type === "folder") {
       setView({ kind: "folder", id: ids[0] });
       return;
     }
-    if (change.intent.type === "tag") {
+    if (navigation.intent.type === "tag") {
       setView({ kind: "tag", id: ids[0] });
       return;
     }
     if (
-      change.intent.type === "set-properties" ||
-      (change.intent.type === "lifecycle" &&
-        change.intent.change.name === "file-inbox")
+      navigation.intent.type === "set-properties" ||
+      (navigation.intent.type === "lifecycle" &&
+        navigation.intent.change.name === "file-inbox")
     )
       return;
     const first = ids.find((id) =>
@@ -199,14 +180,14 @@ function ConnectedOutline({
       "group",
       "indent",
       "outdent",
-    ].includes(change.intent.type);
+    ].includes(navigation.intent.type);
     const destination =
       relocating && !containsSelection(snapshot, view, ids)
         ? homeView(snapshot, first)
         : view;
     setView(destination);
     setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
-  }, [state.lastChange, snapshot, view]);
+  }, [state.lastChange, state.lastStaged, snapshot, view]);
 
   if (!snapshot)
     return (
@@ -219,9 +200,9 @@ function ConnectedOutline({
       </main>
     );
 
-  function run(command: Command) {
+  async function run(command: Command) {
     const draft = drafts.forCommand(command);
-    const accepted = channel.run(command, draft.base);
+    const accepted = trusted ? await channel.runDurable(command,draft.base) : channel.run(command, draft.base);
     if (accepted) draft.clear();
     return accepted;
   }
@@ -329,6 +310,7 @@ function ConnectedOutline({
         itemId={task.id}
         readOnly={mutationsDisabled}
         actorId={actorId}
+        stageContent={trusted ? channel.stageContent : undefined}
       />
     </>
   ) : selection.length > 1 ? (
@@ -371,6 +353,7 @@ function ConnectedOutline({
         workspaceLabel={activeSpace.private ? username : activeSpace.name}
         accountControls={
           <>
+            <TrustDeviceControl actor={{id:actorId,username}} space={activeSpace} snapshot={snapshot}/>
             <WorkspaceTools
               actorId={actorId}
               csrf={csrf}
@@ -407,6 +390,7 @@ function ConnectedOutline({
         message={state.message}
       >
         <WriteNotice state={state} channel={channel} />
+        {trusted && <OfflineChanges state={state} channel={channel}/>}
         <PlanningArea
           session={{
             snapshot,

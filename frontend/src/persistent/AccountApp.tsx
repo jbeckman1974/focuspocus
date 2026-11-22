@@ -1,201 +1,104 @@
-import { useCallback, useEffect, useState } from "react";
-import type { FormEvent } from "react";
-import { HttpError, jsonPost, jsonRequest, readSession } from "./api.ts";
-import type { Session } from "./api.ts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { SignIn } from "./AccountSignIn.tsx";
 import { WorkspaceRouter } from "./tools/WorkspaceRouter.tsx";
+import { OfflineIdentityContext } from "./offline/TrustedDevice.tsx";
+import { openAccount, type AccountState } from "./offline/accountIdentity.ts";
+import { beginLogout, offlineEvents, pendingSpaces } from "./offline/store.ts";
 import "./persistent.css";
 
 export function AccountApp() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [error, setError] = useState("");
-  const [reload, setReload] = useState(0);
-  const reconnect = useCallback(() => {
-    setSession(null);
-    setError("");
-    setReload((n) => n + 1);
-  }, []);
-
-  useEffect(() => {
+  const [account,setAccount] = useState<AccountState|null>(null);
+  const [error,setError] = useState("");
+  const [reload,setReload] = useState(0);
+  const [prompt,setPrompt] = useState(false);
+  const [syncing,setSyncing] = useState(false);
+  const [remaining,setRemaining] = useState("");
+  const allowOffline = useRef(true);
+  const signOutBusy = useRef(false);
+  const reconnect = useCallback((offline=false)=>{
+    allowOffline.current=offline;
+    setAccount(null);setError("");setPrompt(false);setSyncing(false);setRemaining("");
+    setReload(n=>n+1);
+  },[]);
+  const lostAccess = useCallback(()=>reconnect(false),[reconnect]);
+  useEffect(()=>{
     const request = new AbortController();
-    readSession(request.signal)
-      .then((value) => {
-        if (!request.signal.aborted) setSession(value);
-      })
-      .catch(() => {
-        if (!request.signal.aborted)
-          setError("The account service is unavailable.");
-      });
-    return () => request.abort();
-  }, [reload]);
-
-  if (!session)
-    return (
-      <main className="account-page">
-        <section className="account-card">
-          <h1>Task workspace</h1>
-          <p role="status">{error || "Connecting…"}</p>
-          {error && (
-            <button type="button" onClick={reconnect}>
-              Retry connection
-            </button>
-          )}
-        </section>
-      </main>
-    );
-  if (!session.user) return <SignIn session={session} onSession={setSession} />;
-  const signOut = async () => {
-    try {
-      const current = await readSession();
-      if (current.user?.id !== session.user?.id) {
-        setSession(current);
-        return;
-      }
-      setSession(
-        await jsonRequest<Session>(
-          "/api/v1/logout",
-          jsonPost(current.csrfToken, {}),
-        ),
-      );
-      setError("");
-    } catch {
-      reconnect();
+    void openAccount(request.signal,allowOffline.current).then(value=>{
+      if(!request.signal.aborted)setAccount(value);
+    }).catch(cause=>{
+      if(!request.signal.aborted)setError(cause instanceof Error && !(cause instanceof TypeError) ? cause.message : "The account service is unavailable.");
+    });
+    return ()=>request.abort();
+  },[reload]);
+  useEffect(()=>{
+    const unsubscribe=offlineEvents((kind,remote)=>{if(remote && kind==="identity") reconnect(false);});
+    const online=()=>{if(!account || account.offlineBootstrap)reconnect(false);};
+    window.addEventListener("online",online);
+    return ()=>{unsubscribe();window.removeEventListener("online",online);};
+  },[account,reconnect]);
+  useEffect(()=>{
+    if(!account?.offlineBootstrap || !account.expiresAt)return;
+    const expiry=account.expiresAt;
+    let timer=0;
+    function check() {
+      const left=expiry-Date.now();
+      if(left<=0){reconnect(false);return;}
+      timer=window.setTimeout(check,Math.min(left,2_000_000_000));
     }
-  };
-  return (
-    <WorkspaceRouter
-      key={session.user.id}
-      actorId={session.user.id}
-      username={session.user.username}
-      csrf={session.csrfToken}
-      onSignOut={signOut}
-      onLostAccess={reconnect}
-    />
-  );
+    check();
+    return ()=>window.clearTimeout(timer);
+  },[account,reconnect]);
+
+  const requestLogout = useCallback(async(discard=false)=>{
+    const actor=account?.session.user;
+    if(!actor || signOutBusy.current)return;
+    signOutBusy.current=true;
+    try {
+      const result=await beginLogout(actor.id,account.epoch,discard);
+      if(result==="pending"){setPrompt(true);return;}
+      reconnect(false);
+    } catch(cause){setError(cause instanceof Error?cause.message:"Sign-out could not finish.");}
+    finally {signOutBusy.current=false;}
+  },[account,reconnect]);
+  useEffect(()=>{
+    const actor=account?.session.user;
+    if(!syncing || !actor || !account)return;
+    let active=true;
+    async function check(){
+      try {
+        const rows=await pendingSpaces(actor!.id,account!.epoch);
+        if(!active)return;
+        if(!rows.length){await requestLogout();return;}
+        setRemaining(rows.map(row=>row.name+" ("+row.count+")").join(", "));
+      } catch {if(active)reconnect(false);}
+    }
+    void check();
+    const unsub=offlineEvents(()=>void check());
+    return ()=>{active=false;unsub();};
+  },[syncing,account,requestLogout,reconnect]);
+
+  if(!account)return <main className="account-page"><section className="account-card">
+    <h1>Task workspace</h1><p role="status">{error || "Connecting…"}</p>
+    {error && <button type="button" onClick={()=>reconnect(allowOffline.current)}>Retry connection</button>}
+  </section></main>;
+  const {session}=account;
+  if(!session.user)return <SignIn session={session} onSession={lostAccess}/>;
+  return <OfflineIdentityContext.Provider value={{epoch:account.epoch,actorId:session.user.id,initialSpace:account.initialSpace,offlineBootstrap:account.offlineBootstrap}}>
+    {error && <p role="alert">{error}</p>}
+    {syncing && <aside role="status">Open each pending workspace while connected to sync before signing out. {remaining} <button onClick={()=>setSyncing(false)}>Cancel sign-out</button></aside>}
+    {prompt && <PendingLogout onCancel={()=>setPrompt(false)} onDiscard={()=>void requestLogout(true)} onSync={()=>{setPrompt(false);setSyncing(true);}}/>}
+    <WorkspaceRouter key={session.user.id} actorId={session.user.id} username={session.user.username} csrf={session.csrfToken}
+      onSignOut={()=>void requestLogout()} onLostAccess={lostAccess}/>
+  </OfflineIdentityContext.Provider>;
 }
 
-function SignIn({
-  session,
-  onSession,
-}: {
-  session: Session;
-  onSession: (value: Session) => void;
-}) {
-  const [recovery, setRecovery] = useState(false);
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  if (session.authMode === "oidc")
-    return (
-      <main className="account-page">
-        <section className="account-card">
-          <h1>Private task workspace</h1>
-          {new URLSearchParams(window.location.search).get("signin") ===
-            "failed" && (
-            <p role="alert">
-              Provider sign-in failed. Check your account and second factor,
-              then try again.
-            </p>
-          )}
-          <form action="/api/v1/oidc/start" method="post">
-            <input
-              type="hidden"
-              name="csrfmiddlewaretoken"
-              value={session.csrfToken}
-            />
-            <button type="submit">Sign in with identity provider</button>
-          </form>
-        </section>
-      </main>
-    );
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (busy) return;
-    const form = event.currentTarget;
-    const fields = new FormData(form);
-    const password = String(fields.get("password") ?? "");
-    const payload = recovery
-      ? { token: String(fields.get("token") ?? ""), password }
-      : { username: String(fields.get("username") ?? ""), password };
-    setBusy(true);
-    setMessage("");
-    try {
-      const path = recovery ? "/api/v1/recover" : "/api/v1/login";
-      const result = await jsonRequest<Session>(
-        path,
-        jsonPost(session.csrfToken, payload),
-      );
-      form.reset();
-      if (recovery) {
-        setRecovery(false);
-        setMessage("Password updated. Sign in with your new password.");
-        onSession(await readSession());
-      } else onSession(result);
-    } catch (error) {
-      setMessage(
-        error instanceof HttpError
-          ? error.message
-          : "Unable to reach the account service.",
-      );
-      if (error instanceof HttpError && error.status === 403) {
-        try {
-          onSession(await readSession());
-        } catch {
-          /* A new submit will contact the service again. */
-        }
-      }
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <main className="account-page">
-      <section className="account-card">
-        <h1>{recovery ? "Recover access" : "Private task workspace"}</h1>
-        <form onSubmit={submit} key={String(recovery)}>
-          {recovery ? (
-            <label>
-              Recovery token
-              <input name="token" type="password" autoComplete="off" required />
-            </label>
-          ) : (
-            <label>
-              Username
-              <input
-                name="username"
-                autoComplete="username"
-                required
-                autoCapitalize="none"
-              />
-            </label>
-          )}
-          <label>
-            {recovery ? "New password" : "Password"}
-            <input
-              name="password"
-              type="password"
-              autoComplete={recovery ? "new-password" : "current-password"}
-              required
-            />
-          </label>
-          <button type="submit" disabled={busy}>
-            {recovery ? "Reset password" : "Sign in"}
-          </button>
-        </form>
-        <p role="status">{message}</p>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => {
-            setRecovery(!recovery);
-            setMessage("");
-          }}
-        >
-          {recovery ? "Back to sign in" : "Use a recovery token"}
-        </button>
-        <a href="/sample/">Open the sample workspace</a>
-      </section>
-    </main>
-  );
+function PendingLogout({onCancel,onDiscard,onSync}:{onCancel:()=>void;onDiscard:()=>void;onSync:()=>void}){
+  const ref=useRef<HTMLDialogElement>(null);
+  useEffect(()=>{const dialog=ref.current;dialog?.showModal();return ()=>dialog?.close();},[]);
+  return <dialog ref={ref} aria-label="Pending offline changes" onCancel={onCancel}>
+    <h2>Pending offline changes</h2><p>Signing out clears this account’s drafts and files from this browser.</p>
+    <button type="button" onClick={onSync}>Sync before signing out</button>
+    <button type="button" onClick={onDiscard}>Discard changes and sign out</button>
+    <button type="button" onClick={onCancel}>Cancel</button>
+  </dialog>;
 }

@@ -71,7 +71,7 @@ def changes_since(workspace, user, token, limit):
     changes = list(
         Change.objects.filter(workspace=workspace, revision__gt=after, revision__lte=end)
         .order_by("revision")
-        .values("revision", "affected")
+        .values("revision", "affected", "removed")
     )
     if [row["revision"] for row in changes] != list(range(after + 1, end + 1)):
         raise StaleCursor

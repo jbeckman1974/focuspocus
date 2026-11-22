@@ -28,7 +28,7 @@ interface OutlineProps {
   view: View;
   selection: string[];
   onSelect: (ids: string[]) => void;
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   collapsed: ReadonlySet<string>;
   onToggle: (id: string) => void;
   undo: () => void;
@@ -99,10 +99,10 @@ export function Outline(props: OutlineProps) {
     focusTree();
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (
       draft &&
-      props.run({ type: "rename", id: draft.id, title: draft.title })
+      await props.run({ type: "rename", id: draft.id, title: draft.title })
     )
       cancelEdit();
   }

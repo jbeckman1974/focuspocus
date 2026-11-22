@@ -93,7 +93,7 @@ export function WorkspaceActions({
           initialTitle={entry.target?.title}
           onClose={() => setEntry(undefined)}
           onCreate={(title) =>
-            channel.run(
+            channel.runDurable(
               entry.target
                 ? { type: "rename", id: entry.target.id, title }
                 : {
@@ -118,7 +118,7 @@ export function WorkspaceActions({
           snapshot={snapshot}
           view={organize.view}
           selection={organize.selection}
-          run={(intent, base) => channel.run(intent, base)}
+          run={(intent, base) => channel.runDurable(intent, base)}
           close={() => setOrganize(undefined)}
         />
       )}

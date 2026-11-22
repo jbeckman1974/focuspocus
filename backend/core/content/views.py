@@ -8,6 +8,7 @@ from django.views.decorators.http import require_GET, require_POST
 from core.commands.service import execute, scoped_workspace
 from core.commands.state import Outline
 from core.commands.validation import CommandError, identifier
+from core.sync.grants import descriptor, grant_id
 
 from .commands import changed, versioned_item
 from .files import file_limit, detected_type, file_name, read_upload, store_upload
@@ -25,6 +26,7 @@ def item_content(request, workspace_id, item_id):
             note = ItemNote.objects.filter(workspace=space, item=item).values_list("document", flat=True).first()
             links = AttachmentLink.objects.filter(workspace=space, item=item).select_related("blob").order_by("filename", "id")
             return JsonResponse({
+                "generation": str(space.generation), "offlineGrant": descriptor(grant_id(space, request.user)),
                 "revision": space.revision, "itemVersion": item.version, "document": note or EMPTY_NOTE,
                 "maxFileBytes": file_limit(),
                 "files": [{"id": str(link.pk), "name": link.filename, "size": link.blob.size,

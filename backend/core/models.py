@@ -132,6 +132,7 @@ class Change(models.Model):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     revision = models.PositiveBigIntegerField()
     affected = models.JSONField(default=list)
+    removed = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
