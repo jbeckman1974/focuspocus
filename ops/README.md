@@ -79,6 +79,26 @@ The check signs in twice as the first synthetic account and once as the second, 
 
 ## Automated release-candidate checks
 
+### Private Tumbleweed x64 test server
+
+From a clean checkout on the designated test server, check out the exact commit to exercise and pass its full 40-character hash. The runner requires Git, Python 3.10+, Bash, a local Docker Engine socket and Compose. It checks the native architecture and host OS, then builds both the application and browser runner from that checkout.
+
+```sh
+python3 -B ops/test-host.py "$(git rev-parse HEAD)"
+```
+
+The runner exercises frontend formatting, type checks, unit and browser tests, then runs the persistent stack verification below. Its web port uses an ephemeral loopback binding. The database and worker stay on a project-private network. Leave the test project out of the reverse proxy. Testing requires outbound access to fetch pinned build dependencies. Use separate evidence for production deployment.
+
+The host runner identifies the existing container data parent from sibling bind mounts used by two different containers or Compose projects. It looks beneath the operating user's home directory and at existing mount parents named `docker`, `containers` or `appdata`. For an ambiguous layout or another path, set `FOCUSPOCUS_TEST_DATA_PARENT` to the existing absolute parent. The runner verifies that directory against the same mount evidence. It creates two distinct database directories under `focuspocus/qa-<run-id>/` there. The application and restore test both use those bind mounts.
+
+Discovery recognizes direct bind mounts and named volumes that use Docker's local driver to bind a host directory. Regular engine-managed named volumes do not identify a shared host-data parent. Each run's enclosing directory is owner-only. The database process can traverse its own mount to reach PostgreSQL's versioned data directory.
+
+After Compose stops, the runner checks the run marker, host inode identities and remaining container references before cleaning either database. A restricted helper can remove PostgreSQL-owned files within the verified cluster directory. Other runs and existing application data stay in place. Keep the ownership journal in `build/host-data/` for interrupted runs. If Compose could not stop the generated QA project, inspect and stop that project first, then retry with the same checkout and data parent.
+
+Each run uses unique, labeled application and browser image tags and removes those tags on exit. Before the next run from this checkout, it rechecks interrupted runs under `build/test-host/`. It keeps images used by any container and tags whose ownership changed. Operator resources, shared base images and daemon build caches remain outside this cleanup.
+
+### Verify a prebuilt candidate
+
 Use a native Linux Docker engine and a prebuilt, locally loaded application image. Export `EXPECTED_ARCH` as `amd64` or `arm64` and `FOCUSPOCUS_IMAGE` as its local tag. Run the command from the candidate’s checkout.
 
 ```sh
