@@ -131,3 +131,5 @@ The private test-host runner is being developed in a separate operations branch.
 ## M5 · Portability, sharing and integrations
 
 The milestone branch starts from the M4 merge. The first slice stages TaskPaper or CSV against synthetic work, discloses field losses, then commits once with a guarded rollback. Parallel work covers a complete portable bundle, owner-managed sharing and scoped capture, and personal calendar, reminder and location workflows. The acceptance checks preserve later edits, deny access after membership revocation and restore exact attachment bytes in a clean workspace. The LAN test host and Joe's representative export retain separate field checks.
+
+The first import parser tests cover UTF-16 and UTF-8 input, quoted multiline fields, repeated identities, malformed rows, task hierarchy and repeat decoding. Four local tests passed. Staging, committing and rollback require database tests in the next step. [M5 PR](https://github.com/jbeckman1974/focuspocus/pull/10)
