@@ -13,6 +13,8 @@ This register defines the target. The [verification plan](VERIFICATION_PLAN.md) 
 
 ## Owner outcomes
 
+M5 verified synthetic import, guarded rollback, clean bundle restoration, workspace membership, scoped capture, provider sign-in and personal integrations on both Linux architectures. The browser compared the restored copy with its source, rolled back the source and read the copy again. A representative owner export, production identity-provider enrollment and physical push delivery still require their respective environments. [M5 acceptance](https://github.com/jbeckman1974/focuspocus/pull/10)
+
 M4 verified Forecast, Review, saved and focused perspectives, rich notes, file access, mixed edits and personal preferences through authenticated journeys on both Linux architectures. Native CI also restored the PostgreSQL data and verified attachment contents. The original application's review cadence and Joe's Mac interaction preferences retain their separate observation cases. [M4 acceptance](https://github.com/jbeckman1974/focuspocus/pull/8)
 
 Joe approved the six outcomes in the original handoff. Each row identifies the evidence an owner can inspect as well as the detailed requirements that deliver it. [Maintained scope](PROJECT_PLAN.md#scope-and-release-boundaries)
