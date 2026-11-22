@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import subprocess
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
@@ -38,36 +37,25 @@ def management_visibility(owner, name):
     return data["visibility"]
 
 
-def push_empty_marker(ref):
-    # A Dockerfile-only build has no checkout files and no application layers.
-    dockerfile = "FROM scratch\nLABEL org.opencontainers.image.title=package-visibility-check\n"
-    subprocess.run(["docker", "build", "--tag", ref, "-"], input=dockerfile, text=True, check=True)
-    subprocess.run(["docker", "push", "--platform", "linux/amd64", ref], check=True)
-
-
-def check_package(owner, name, *, bootstrap=False):
+def check_package(owner, name):
+    """The owner prepares a private marker before allowing repository Actions to write."""
     package = f"{owner}/{name}"
+    # GitHub's /users/{name}/packages endpoint documents only public personal packages.
+    # A missing entry alone says nothing about whether this workflow can pull a private image.
     visibility = management_visibility(owner, name)
+    if visibility is not None and visibility != "private":
+        raise ValueError(f"GitHub reports {package} is {visibility}; private publication is required")
     marker = "ghcr.io/" + package + ":visibility-check"
-    if visibility is None and bootstrap:
-        verify_private(package)
-        push_empty_marker(marker)
-        visibility = management_visibility(owner, name)
-    if visibility != "private":
-        raise ValueError(f"GitHub must confirm {package} is private (reported {visibility or 'unavailable'})")
+    digest = inspect_digest(marker, optional=True)
+    if not digest:
+        raise ValueError("A pre-provisioned private package marker and Actions read access are required")
+    immutable = "ghcr.io/" + package + "@" + digest
+    if inspect_digest(immutable) != digest:
+        raise ValueError("Authenticated access to the immutable marker could not be verified")
     verify_private(package)
-    if bootstrap:
-        digest = inspect_digest(marker, optional=True)
-        if not digest:
-            push_empty_marker(marker)
-            digest = inspect_digest(marker)
-        verify_private(package, digest)
-    print(f"GitHub confirms {package} is private and anonymous package access was denied.")
+    verify_private(package, digest)
+    print(f"Authenticated read of {package}'s marker succeeded; anonymous reads were denied.")
 
 
 if __name__ == "__main__":
-    import sys
-
-    if sys.argv[1:] not in ([], ["--bootstrap"]):
-        raise SystemExit("Use --bootstrap only on the trusted release preflight")
-    check_package(*identity(), bootstrap=bool(sys.argv[1:]))
+    check_package(*identity())

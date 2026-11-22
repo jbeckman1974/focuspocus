@@ -17,13 +17,13 @@ jobs:
     timeout-minutes: 8
     permissions:
       contents: read
-      packages: write
+      packages: read
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Confirm the private package using an empty image
+      - name: Verify access to the owner-provisioned private marker
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -31,7 +31,7 @@ jobs:
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$(cat release/version)"; fi
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
-          python3 tools/release/package_access.py --bootstrap
+          python3 tools/release/package_access.py
   qualify:
     needs: package-access
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
