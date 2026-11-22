@@ -85,7 +85,8 @@ export function TaskRow(props: RowProps) {
     >
       <span id={`${props.id}-details`} className="outline-visually-hidden">
         {props.context && "Ancestor. "}
-        {task.effective?.reason} {task.effective?.flagged && "Flagged."} {props.done ? "Completed." : "Active."} {props.tags.join(", ")}{" "}
+        {task.effective?.reason} {task.effective?.flagged && "Flagged."}{" "}
+        {props.done ? "Completed." : "Active."} {props.tags.join(", ")}{" "}
         {task.due && `Due ${task.due}.`}
       </span>
       {props.hasChildren ? (
@@ -165,7 +166,14 @@ export function TaskRow(props: RowProps) {
           </span>
           <span className="outline-fields">
             {task.effective?.flagged && <span aria-label="Flagged">⚑</span>}
-            {task.effective?.blocked && <span className="outline-blocked" title={task.effective.reason ?? undefined}>Blocked</span>}
+            {task.effective?.blocked && (
+              <span
+                className="outline-blocked"
+                title={task.effective.reason ?? undefined}
+              >
+                Blocked
+              </span>
+            )}
             {props.tags.length > 0 && (
               <span className="outline-tags">{props.tags.join(" · ")}</span>
             )}

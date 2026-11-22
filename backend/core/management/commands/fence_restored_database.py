@@ -5,7 +5,7 @@ from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
 
-from core.models import Job, PasswordRecovery, WorkerHeartbeat, Workspace
+from core.models import Job, PasswordRecovery, Receipt, WorkerHeartbeat, Workspace
 
 
 class Command(BaseCommand):
@@ -18,6 +18,9 @@ class Command(BaseCommand):
             workspace.generation = uuid.uuid4()
             workspace.save(update_fields=["generation"])
             count += 1
+        # Legacy completion inverses do not identify their original database
+        # generation. Keep their receipts but retire compensation across restoration.
+        Receipt.objects.exclude(inverse={}).filter(inverse__journal__isnull=True).update(inverse={})
         Session.objects.all().delete()
         PasswordRecovery.objects.all().delete()
         WorkerHeartbeat.objects.all().delete()

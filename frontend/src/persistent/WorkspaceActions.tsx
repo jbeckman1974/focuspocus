@@ -26,7 +26,7 @@ export function WorkspaceActions({
   travel: boolean;
   deviceZone: string;
   setTravel: (value: boolean) => void;
-  cleanUp:()=>void;
+  cleanUp: () => void;
 }) {
   const [entry, setEntry] = useState<{
     kind: "tag" | "project";

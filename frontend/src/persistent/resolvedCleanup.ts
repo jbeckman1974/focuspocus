@@ -18,7 +18,11 @@ function isResolved(task: CurrentTask) {
   return status === "completed" || status === "dropped" || task.done;
 }
 
-function collapsedAncestor(task: CurrentTask, tasks: Map<string, CurrentTask>, collapsed: ReadonlySet<string>) {
+function collapsedAncestor(
+  task: CurrentTask,
+  tasks: Map<string, CurrentTask>,
+  collapsed: ReadonlySet<string>,
+) {
   let parent = task.parentId;
   const seen = new Set<string>();
   while (tasks.has(parent) && !seen.has(parent)) {
@@ -38,7 +42,7 @@ export function resolvedRows(
   collapsed: ReadonlySet<string>,
   immediate: boolean,
 ) {
-  const tasks = new Map(snapshot.tasks.map(task => [task.id, task]));
+  const tasks = new Map(snapshot.tasks.map((task) => [task.id, task]));
   const present = new Map(base.map((row, index) => [row.task.id, index]));
   const held = new Map<number, OutlineRow[]>();
   let nextVisible = base.length;
@@ -51,11 +55,23 @@ export function resolvedRows(
         continue;
       }
       const task = tasks.get(old.id);
-      if (!task || task.parentId !== old.parentId || !isResolved(task) ||
-          (old.resolved && !old.retained) || collapsedAncestor(task, tasks, collapsed)) continue;
-      const insert = nextVisible < base.length ? nextVisible : Math.min(i, base.length);
+      if (
+        !task ||
+        task.parentId !== old.parentId ||
+        !isResolved(task) ||
+        (old.resolved && !old.retained) ||
+        collapsedAncestor(task, tasks, collapsed)
+      )
+        continue;
+      const insert =
+        nextVisible < base.length ? nextVisible : Math.min(i, base.length);
       const bucket = held.get(insert) ?? [];
-      bucket.push({task, depth: old.depth, hasChildren: old.hasChildren, context: old.context});
+      bucket.push({
+        task,
+        depth: old.depth,
+        hasChildren: old.hasChildren,
+        context: old.context,
+      });
       held.set(insert, bucket);
     }
   }
@@ -65,9 +81,16 @@ export function resolvedRows(
     if (bucket) rows.push(...bucket.reverse());
     if (i < base.length) rows.push(base[i]);
   }
-  const memory = rows.map(({task, depth, hasChildren, context}): RowMemory => ({
-    id: task.id, parentId: task.parentId, resolved: isResolved(tasks.get(task.id)!),
-    retained: !present.has(task.id), depth, hasChildren, context,
-  }));
-  return {rows, memory};
+  const memory = rows.map(
+    ({ task, depth, hasChildren, context }): RowMemory => ({
+      id: task.id,
+      parentId: task.parentId,
+      resolved: isResolved(tasks.get(task.id)!),
+      retained: !present.has(task.id),
+      depth,
+      hasChildren,
+      context,
+    }),
+  );
+  return { rows, memory };
 }

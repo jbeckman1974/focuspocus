@@ -60,6 +60,8 @@ export function ItemTools({
       )}
       {editor?.type === "repeat" && (
         <RepeatDialog
+          revision={editor.base.revision}
+          preview={channel.previewRepeat}
           entry={editor.item}
           close={() => setEditor(undefined)}
           apply={(change) =>

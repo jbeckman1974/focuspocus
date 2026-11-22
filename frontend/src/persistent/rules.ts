@@ -6,7 +6,8 @@ import type { Schedule, EffectiveDate, DateField } from "./schedule.ts";
 
 export type Mode = "parallel" | "sequential" | "single-action";
 export type ItemStatus = "active" | "held" | "completed" | "dropped";
-export type Availability = "everything" | "remaining" | "available" | "first-available" | "blocked";
+export type Availability =
+  "everything" | "remaining" | "available" | "first-available" | "blocked";
 
 export interface Properties {
   mode?: Mode | null;
@@ -22,7 +23,7 @@ export interface RuleFields extends Properties {
   parentId?: string;
   effective?: {
     status: ItemStatus;
-    schedule?: Partial<Record<DateField, EffectiveDate|null>>;
+    schedule?: Partial<Record<DateField, EffectiveDate | null>>;
     flagged: boolean;
     flagSource: string | null;
     remaining: boolean;
@@ -64,13 +65,24 @@ export function outlineQuery(view: View, availability: Availability) {
   return query.toString();
 }
 
-export function projectedRows(snapshot: Snapshot, result: OutlineResult, collapsed: ReadonlySet<string>): OutlineRow[] {
-  const tasks = new Map(snapshot.tasks.map(task => [task.id, task]));
-  const present = new Map(result.rows.filter(row => tasks.has(row.id)).map(row => [row.id, row]));
+export function projectedRows(
+  snapshot: Snapshot,
+  result: OutlineResult,
+  collapsed: ReadonlySet<string>,
+): OutlineRow[] {
+  const tasks = new Map(snapshot.tasks.map((task) => [task.id, task]));
+  const present = new Map(
+    result.rows.filter((row) => tasks.has(row.id)).map((row) => [row.id, row]),
+  );
   if (result.view === "changed" || result.view === "completed") {
-    return Array.from(present.values(), row => ({task:tasks.get(row.id)!,depth:0,hasChildren:false,context:false}));
+    return Array.from(present.values(), (row) => ({
+      task: tasks.get(row.id)!,
+      depth: 0,
+      hasChildren: false,
+      context: false,
+    }));
   }
-  const parents = new Set(Array.from(present.values(), row => row.parentId));
+  const parents = new Set(Array.from(present.values(), (row) => row.parentId));
   // Cache ancestor depths so deeply nested selections scale with the number of rows.
   const depths = new Map<string, number | null>();
   function depthOf(row: QueryRow) {
@@ -83,8 +95,11 @@ export function projectedRows(snapshot: Snapshot, result: OutlineResult, collaps
     let depth: number | null = current ? (depths.get(current.id) ?? null) : -1;
     while (stack.length) {
       const node = stack.pop()!;
-      depth = depth === null || (present.has(node.parentId) && collapsed.has(node.parentId))
-        ? null : depth + 1;
+      depth =
+        depth === null ||
+        (present.has(node.parentId) && collapsed.has(node.parentId))
+          ? null
+          : depth + 1;
       depths.set(node.id, depth);
     }
     return depths.get(row.id) ?? null;
@@ -93,13 +108,18 @@ export function projectedRows(snapshot: Snapshot, result: OutlineResult, collaps
   for (const row of present.values()) {
     const depth = depthOf(row);
     if (depth !== null) {
-      outline.push({ task: tasks.get(row.id)!, depth, hasChildren: parents.has(row.id), context: row.context });
+      outline.push({
+        task: tasks.get(row.id)!,
+        depth,
+        hasChildren: parents.has(row.id),
+        context: row.context,
+      });
     }
   }
   return outline;
 }
 
 export function visibleSelection(rows: OutlineRow[], ids: string[]) {
-  const included = new Set(rows.map(row => row.task.id));
-  return ids.filter(id => included.has(id));
+  const included = new Set(rows.map((row) => row.task.id));
+  return ids.filter((id) => included.has(id));
 }

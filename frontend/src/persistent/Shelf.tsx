@@ -119,8 +119,9 @@ export function Shelf({
                   }
                 />
                 {item.title}
+                {Boolean(item.descendantCount) && ` (includes ${item.descendantCount} descendants)`}
               </label>
-            ) : (
+            ) : item.shelfRootId === item.id ? (
               <button
                 onClick={() =>
                   submit(
@@ -137,6 +138,8 @@ export function Shelf({
               >
                 {page === "trash" ? "Restore" : "Retrieve"} {item.title}
               </button>
+            ) : (
+              <span>{item.title} · included with its removed parent</span>
             )}
           </li>
         ))}

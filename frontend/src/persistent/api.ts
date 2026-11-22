@@ -1,3 +1,4 @@
+import type { RepeatRule,RepeatPreviewResult } from "./repeat.ts";
 import type { Entry, Task } from "../outline/index.ts";
 
 import type { DateDefaults } from "./schedule.ts";
@@ -95,6 +96,11 @@ export function workspaceApi(
   const base = "/api/v1/workspaces/" + encodeURIComponent(id);
   return {
     setViewZone(value:string) { viewZone=value; },
+    previewRepeat: (item:string,rule:RepeatRule,completedAt:string|undefined,callerSignal:AbortSignal) =>
+      jsonRequest<RepeatPreviewResult>(base+"/repeat-preview",{
+        ...jsonPost(csrf,{id:item,rule,...(completedAt ? {completedAt}:{})}),
+        signal:AbortSignal.any([signal,callerSignal])
+      }),
     async verifySession() {
       const session = await readSession(signal);
       const membership = session.workspaces.find((space) => space.id === id);

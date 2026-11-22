@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from .calendar_slots import date_slots
 from .dates import UTC, DateIntent, calendar_zone, direct_dates, wall_instant
@@ -81,6 +81,11 @@ def shifted_dates(current, old, new, zone, context, *, subday, anchor=None):
     wall_delta = new.astimezone(zone).replace(tzinfo=None) - old.astimezone(zone).replace(tzinfo=None)
     result = {}
     for field, value in current.items():
+        if subday and value.kind == "date":
+            day_shift = new.astimezone(context.zone).date() - old.astimezone(context.zone).date()
+            day = date.fromisoformat(value.value) + day_shift
+            result[field] = DateIntent("date", day.isoformat(), default_time=value.default_time).wire()
+            continue
         previous = value.instant(field, context)
         if field == anchor or subday:
             target = previous + elapsed
@@ -133,8 +138,8 @@ def next_occurrence(rule, schedule, context, *, completed_at=None, origin=None, 
     if rule.catch_up:
         threshold = max(old, completed)
     subday = rule.unit in ("minute", "hour")
-    if subday and any(value.kind == "date" for value in current.values()):
-        raise ValueError("Assign explicit times for sub-day repeats.")
+    if subday and current[anchor].kind == "date":
+        raise ValueError("Assign an explicit time to the anchor for a sub-day repeat.")
     try:
         if subday:
             new = subday_slot(rule, seed, threshold, completed, zone)

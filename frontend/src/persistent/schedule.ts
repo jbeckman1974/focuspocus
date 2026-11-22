@@ -28,20 +28,34 @@ export interface DateChanges {
 
 export function describeDate(value: DateIntent | null | undefined) {
   if (!value) return "Unscheduled";
-  return [value.value, value.zone, value.kind === "date" ? value.defaultTime : undefined].filter(Boolean).join(" · ");
+  return [
+    value.value,
+    value.zone,
+    value.kind === "date" ? value.defaultTime : undefined,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-export function previewQuery(field:DateField, input:string, kind:TimeKind, zone:string, fold:0|1, viewZone?:string) {
-  const query = new URLSearchParams({field,text:input.trim(),kind});
-  if(kind !== "instant") query.set("fold",String(fold));
-  if(viewZone) query.set("viewZone",viewZone);
-  if(kind === "zoned") query.set("zone",zone);
+export function previewQuery(
+  field: DateField,
+  input: string,
+  kind: TimeKind,
+  zone: string,
+  fold: 0 | 1,
+  viewZone?: string,
+) {
+  const query = new URLSearchParams({ field, text: input.trim(), kind });
+  if (kind !== "instant") query.set("fold", String(fold));
+  if (viewZone) query.set("viewZone", viewZone);
+  if (kind === "zoned") query.set("zone", zone);
   return query.toString();
 }
 
-export function durationMinutes(raw:string): number | null {
+export function durationMinutes(raw: string): number | null {
   const value = raw.trim();
   if (!value) return null;
-  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) throw new Error("Enter a whole number of minutes.");
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value)))
+    throw new Error("Enter a whole number of minutes.");
   return Number(value);
 }

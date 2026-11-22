@@ -106,6 +106,15 @@ class RepeatCalendarTests(unittest.TestCase):
         result = self.advance({"schedule": "regular", "unit": "day"}, initial)
         self.assertEqual(result.schedule["due"]["value"], "2027-03-15T02:30")
 
+    def test_hourly_anchored_task_keeps_other_calendar_day_assignments(self):
+        current = {"due": stamp("2027-01-04T08:30"), "planned": day("2027-01-04")}
+        result = self.advance({"schedule": "regular", "unit": "hour"}, current)
+        self.assertEqual(result.schedule["due"]["value"], "2027-01-04T09:30")
+        self.assertEqual(result.schedule["planned"], day("2027-01-04"))
+        current["due"] = stamp("2027-01-04T23:30")
+        result = self.advance({"schedule": "regular", "unit": "hour"}, current)
+        self.assertEqual(result.schedule["planned"], day("2027-01-05"))
+
     def test_validation_and_unrepresentable_final_year(self):
         base = {"schedule": "regular", "unit": "day"}
         for changes in ({"unit": "hour", "weekdays": [1]}, {"unit": "week", "weekdays": [1, True]},

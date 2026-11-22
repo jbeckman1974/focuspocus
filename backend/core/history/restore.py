@@ -53,6 +53,34 @@ def restore_fields(obj, values, revision):
             setattr(obj, field.attname, parser.to_python(values[field.attname]))
 
 
+def check_destinations(rows, workspace):
+    """An original foreign-key destination must still accept the restored edge."""
+    planned = {(model, entry["id"]): entry["before"] for model, _, entry in rows}
+    for model, _, entry in rows:
+        original = entry["before"]
+        if original is None:
+            continue
+        for field in model._meta.concrete_fields:
+            if not field.is_relation or field.name == "workspace":
+                continue
+            target_id = original.get(field.attname)
+            if target_id is None:
+                continue
+            target = field.related_model
+            target_key = (target, str(target_id))
+            if target_key in planned:
+                destination = planned[target_key]
+            else:
+                row = target.objects.filter(workspace=workspace, pk=target_id).first()
+                destination = row_values(row) if row else None
+            if destination is None:
+                raise conflict()
+            if model is Item and field.name == "parent" and original["shelf"] == "active":
+                allowed = {"folder"} if original["kind"] in {"folder", "project"} else {"project", "group"}
+                if destination["shelf"] != "active" or destination["kind"] not in allowed:
+                    raise conflict()
+
+
 def check_inbound(rows, workspace):
     # Django's SET_NULL uses a bulk update. Check incoming edges explicitly so
     # a later child, proposed filing, tag or occurrence cannot be silently detached.
@@ -117,6 +145,7 @@ def reverse(tree, user, name, payload, legacy):
             or journal["end"] != frame.initial or (name == "redo") != (journal["command"] == "undo")):
         raise conflict()
     rows = checked_rows(workspace, journal, receipt.result["revision"])
+    check_destinations(rows, workspace)
     check_inbound(rows, workspace)
     result = Changes(receipt.result["selection"])
     for model, obj, entry in rows:

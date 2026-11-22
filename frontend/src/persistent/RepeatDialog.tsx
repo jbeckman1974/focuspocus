@@ -1,3 +1,5 @@
+import { RepeatPreview } from "./RepeatPreview.tsx";
+import type { RepeatPreviewRequest } from "./repeat.ts";
 import { useEffect, useRef, useState } from "react";
 import type { Entry } from "../outline/index.ts";
 import { dateFields } from "./schedule.ts";
@@ -11,10 +13,14 @@ export function RepeatDialog({
   entry,
   apply,
   close,
+  preview,
+  revision,
 }: {
   entry: Entry & RuleFields;
   apply: (change: RepeatChange) => boolean;
   close: () => void;
+  preview:RepeatPreviewRequest;
+  revision:number;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const occurrence = entry.repeat;
@@ -224,7 +230,8 @@ export function RepeatDialog({
               />
             </label>
           )}
-          <button
+          <RepeatPreview id={entry.id} rule={rule} revision={revision} read={preview}/>
+        <button
             type="submit"
             disabled={
               Boolean(patternError) ||

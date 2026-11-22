@@ -36,7 +36,6 @@ export function effectiveDone(workspace: Workspace, id: string): boolean {
   return false;
 }
 
-
 export function canReorder(view: View) {
   return ["all", "inbox", "project", "folder", "projects"].includes(view.kind);
 }

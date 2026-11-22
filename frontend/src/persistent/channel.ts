@@ -1,3 +1,4 @@
+import type { RepeatPreviewRequest } from "./repeat.ts";
 import { CommandHistory } from "./history.ts";
 import { HttpError } from "./api.ts";
 import type { Receipt, Snapshot, WorkspaceApi } from "./api.ts";
@@ -32,7 +33,8 @@ export class WorkspaceChannel {
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
-  private refreshRequested = false;
+  private requestedSnapshot = 0;
+  private finishedSnapshot = 0;
   private epoch = 0;
   private accessCheck: { write: Write; status: number; reason: string } | null =
     null;
@@ -87,19 +89,29 @@ export class WorkspaceChannel {
     return false;
   }
 
+  previewRepeat: RepeatPreviewRequest = async (id,rule,completedAt,signal) => {
+    try {
+      return await this.api.previewRepeat(id,rule,completedAt,signal);
+    } catch(error) {
+      if(error instanceof HttpError && [401,403,404].includes(error.status)) await this.refresh();
+      throw error;
+    }
+  };
+
   setViewZone = async (zone:string) => {
     this.api.setViewZone(zone);
     await this.refresh();
   };
 
   refresh = async () => {
-    this.refreshRequested = true;
+    this.requestedSnapshot++;
     await this.tick();
   };
 
   tick = async () => {
     if (!this.active || this.polling || this.state.phase === "sending") return;
     const epoch = this.epoch;
+    const request = this.requestedSnapshot;
     this.polling = true;
     try {
       const { snapshot, phase } = this.state;
@@ -121,7 +133,7 @@ export class WorkspaceChannel {
         return;
       }
       let refresh =
-        this.refreshRequested ||
+        request !== this.finishedSnapshot ||
         !snapshot ||
         phase === "acknowledged" ||
         (phase === "conflict" && !this.state.conflictFresh);
@@ -153,7 +165,8 @@ export class WorkspaceChannel {
         next.revision < (this.state.lastChange?.receipt.revision ?? 0)
       )
         return;
-      this.refreshRequested = false;
+      if (request !== this.requestedSnapshot) return;
+      this.finishedSnapshot = request;
       this.update({ snapshot: next, conflictFresh: phase === "conflict" });
       if (phase === "acknowledged") {
         const restored = next.generation !== snapshot?.generation;

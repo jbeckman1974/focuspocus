@@ -142,19 +142,61 @@
   gap: 0.65rem;
   align-items: center;
 }
-.organize-dialog header { justify-content: space-between; }
+.organize-dialog header {
+  justify-content: space-between;
+}
 .organize-dialog fieldset,
-.organize-dialog section { margin: 1rem 0 0; padding: 0.75rem; }
-.organize-dialog label { display: grid; gap: 0.3rem; }
+.organize-dialog section {
+  margin: 1rem 0 0;
+  padding: 0.75rem;
+}
+.organize-dialog label {
+  display: grid;
+  gap: 0.3rem;
+}
 .organize-dialog select,
-.organize-dialog input { color: inherit; background: var(--surface); }
-.organize-dialog li { margin-block: 0.4rem; }
-.schedule-dialog { max-height: 88dvh; overflow: auto; }
-.schedule-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
-.schedule-dialog label { display: grid; gap: 0.25rem; margin-bottom: 0.65rem; }
+.organize-dialog input {
+  color: inherit;
+  background: var(--surface);
+}
+.organize-dialog li {
+  margin-block: 0.4rem;
+}
+.schedule-dialog {
+  max-height: 88dvh;
+  overflow: auto;
+}
+.schedule-dialog header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.schedule-dialog label {
+  display: grid;
+  gap: 0.25rem;
+  margin-bottom: 0.65rem;
+}
 .schedule-dialog input,
-.schedule-dialog select { color: var(--ink); background: var(--surface); font: inherit; }
-.item-tools { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-.directory-links { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-.outline-blocked { color: var(--muted); }
-.private-outline-tools { padding-inline: var(--outline-pad); }
+.schedule-dialog select {
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+}
+.item-tools {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.directory-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.outline-blocked {
+  color: var(--muted);
+}
+.private-outline-tools {
+  padding-inline: var(--outline-pad);
+}

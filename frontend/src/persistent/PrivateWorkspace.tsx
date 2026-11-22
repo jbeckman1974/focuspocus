@@ -81,10 +81,13 @@ function ConnectedOutline({
   const collapsed = collapsedRows[key] ?? new Set<string>();
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
-  const [cleanupEpoch,setCleanupEpoch]=useState(0);
-  const cleanUp=()=>setCleanupEpoch(value=>value+1);
+  const [cleanupEpoch, setCleanupEpoch] = useState(0);
+  const cleanUp = () => setCleanupEpoch((value) => value + 1);
   const [travel, setTravel] = useState(false);
-  const deviceZone = useClockRefresh(snapshot?.nextDateBoundary, channel.refresh);
+  const deviceZone = useClockRefresh(
+    snapshot?.nextDateBoundary,
+    channel.refresh,
+  );
   const viewZone = travel ? deviceZone : "";
   const previousZone = useRef("");
   useEffect(() => {
@@ -93,8 +96,17 @@ function ConnectedOutline({
       void channel.setViewZone(viewZone);
     }
   }, [channel, viewZone]);
-  const projection = useRuleOutline(snapshot, view, availability, viewZone, channel.refresh);
-  const matches = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
+  const projection = useRuleOutline(
+    snapshot,
+    view,
+    availability,
+    viewZone,
+    channel.refresh,
+  );
+  const matches =
+    snapshot && projection.result
+      ? projectedRows(snapshot, projection.result, collapsed)
+      : [];
   const rows = useResolvedRows({
     snapshot,
     result: projection.result,
@@ -129,22 +141,34 @@ function ConnectedOutline({
       return;
     }
     if (change.intent.type === "folder") {
-      setView({kind:"folder",id:ids[0]});
+      setView({ kind: "folder", id: ids[0] });
       return;
     }
     if (change.intent.type === "tag") {
       setView({ kind: "tag", id: ids[0] });
       return;
     }
-    if (change.intent.type === "set-properties" || (change.intent.type === "lifecycle" && change.intent.change.name === "file-inbox")) return;
+    if (
+      change.intent.type === "set-properties" ||
+      (change.intent.type === "lifecycle" &&
+        change.intent.change.name === "file-inbox")
+    )
+      return;
     const first = ids.find((id) =>
       snapshot.tasks.some((task) => task.id === id),
     );
     if (!first) return;
-    const relocating = ["move", "capture", "group", "indent", "outdent"].includes(change.intent.type);
-    const destination = relocating && !containsSelection(snapshot, view, ids)
-      ? homeView(snapshot, first)
-      : view;
+    const relocating = [
+      "move",
+      "capture",
+      "group",
+      "indent",
+      "outdent",
+    ].includes(change.intent.type);
+    const destination =
+      relocating && !containsSelection(snapshot, view, ids)
+        ? homeView(snapshot, first)
+        : view;
     setView(destination);
     setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
   }, [state.lastChange, snapshot, view]);
@@ -177,14 +201,42 @@ function ConnectedOutline({
     ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase)
       ? tagIntent
       : undefined;
-  function controls(entry: Entry & RuleFields, kind: "project" | "group" | "action" | "folder") {
-    const pending = tagIntent?.type === "set-properties" && tagIntent.ids.includes(entry.id) &&
-      ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase) ? tagIntent.properties : undefined;
-    return <ItemTools key={entry.id} entry={entry} kind={kind} snapshot={snapshot!} channel={channel} pending={pending} disabled={state.phase !== "ready"} />;
+  function controls(
+    entry: Entry & RuleFields,
+    kind: "project" | "group" | "action" | "folder",
+  ) {
+    const pending =
+      tagIntent?.type === "set-properties" &&
+      tagIntent.ids.includes(entry.id) &&
+      ["sending", "acknowledged", "uncertain", "retryable"].includes(
+        state.phase,
+      )
+        ? tagIntent.properties
+        : undefined;
+    return (
+      <ItemTools
+        key={entry.id}
+        entry={entry}
+        kind={kind}
+        snapshot={snapshot!}
+        channel={channel}
+        pending={pending}
+        disabled={state.phase !== "ready"}
+      />
+    );
   }
-  const project = view.kind === "project" ? snapshot.projects.find(p => p.id === view.id) : undefined;
-  const folder = view.kind === "folder" ? snapshot.folders?.find(f => f.id === view.id) : undefined;
-  const task = selection.length === 1 ? snapshot.tasks.find(t => t.id === selection[0]) : undefined;
+  const project =
+    view.kind === "project"
+      ? snapshot.projects.find((p) => p.id === view.id)
+      : undefined;
+  const folder =
+    view.kind === "folder"
+      ? snapshot.folders?.find((f) => f.id === view.id)
+      : undefined;
+  const task =
+    selection.length === 1
+      ? snapshot.tasks.find((t) => t.id === selection[0])
+      : undefined;
   return (
     <div {...drafts.bindings}>
       <Frame
@@ -194,9 +246,20 @@ function ConnectedOutline({
         pendingTag={pendingTag}
         workspace={snapshot}
         view={view}
-        onView={next=>{
-          if(view.kind==="inbox" && next.kind!=="inbox" && state.phase==="ready" && hasEligibleFiling(snapshot)) {
-            channel.run({type:"lifecycle",change:{name:"file-inbox",payload:{}}},snapshot);
+        onView={(next) => {
+          if (
+            view.kind === "inbox" &&
+            next.kind !== "inbox" &&
+            state.phase === "ready" &&
+            hasEligibleFiling(snapshot)
+          ) {
+            channel.run(
+              {
+                type: "lifecycle",
+                change: { name: "file-inbox", payload: {} },
+              },
+              snapshot,
+            );
           }
           setView(next);
         }}
@@ -209,7 +272,20 @@ function ConnectedOutline({
           setCapture((n) => n + 1);
         }}
         workspaceLabel={username}
-        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut} travel={travel} deviceZone={deviceZone} setTravel={setTravel} cleanUp={cleanUp}/>}
+        accountControls={
+          <WorkspaceActions
+            channel={channel}
+            state={state}
+            snapshot={snapshot}
+            view={view}
+            selection={selection}
+            onSignOut={onSignOut}
+            travel={travel}
+            deviceZone={deviceZone}
+            setTravel={setTravel}
+            cleanUp={cleanUp}
+          />
+        }
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}
@@ -220,14 +296,31 @@ function ConnectedOutline({
         <Outline
           rows={rows}
           count={projection.result?.count}
-          retainedCount={Math.max(0, rows.length-matches.length)}
-          tools={<div className="private-outline-tools">
-            <AvailabilityFilter value={availability} change={value => setFilters(current => ({...current, [key]:value}))}/>
-            <DirectoryLinks snapshot={snapshot} view={view} result={projection.result} choose={setView}/>
-            {project && controls(project, "project")}
-            {folder && controls(folder, "folder")}
-            {projection.message && <p role="alert">{projection.message} <button onClick={projection.retry}>Retry outline</button></p>}
-          </div>}
+          retainedCount={Math.max(0, rows.length - matches.length)}
+          tools={
+            <div className="private-outline-tools">
+              <AvailabilityFilter
+                value={availability}
+                change={(value) =>
+                  setFilters((current) => ({ ...current, [key]: value }))
+                }
+              />
+              <DirectoryLinks
+                snapshot={snapshot}
+                view={view}
+                result={projection.result}
+                choose={setView}
+              />
+              {project && controls(project, "project")}
+              {folder && controls(folder, "folder")}
+              {projection.message && (
+                <p role="alert">
+                  {projection.message}{" "}
+                  <button onClick={projection.retry}>Retry outline</button>
+                </p>
+              )}
+            </div>
+          }
           workspace={snapshot}
           view={view}
           selection={selection}
@@ -243,7 +336,9 @@ function ConnectedOutline({
           undo={() => {
             if (state.undo) channel.run({ type: "undo", receipt: state.undo });
           }}
-          redo={() => { if(state.redo) channel.run({type:"redo",receipt:state.redo}); }}
+          redo={() => {
+            if (state.redo) channel.run({ type: "redo", receipt: state.redo });
+          }}
           canUndo={Boolean(state.undo) && state.phase === "ready"}
           canRedo={Boolean(state.redo) && state.phase === "ready"}
           captureSignal={capture}

@@ -32,4 +32,3 @@ export function directoryRows<T extends FolderEntry>(
   }
   return result;
 }
-

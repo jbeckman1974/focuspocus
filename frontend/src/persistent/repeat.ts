@@ -1,4 +1,4 @@
-import type { DateField } from "./schedule.ts";
+import type { DateField,Schedule } from "./schedule.ts";
 
 export const repeatUnits = [
   "minute",
@@ -68,3 +68,11 @@ export function withFrequency(rule: RepeatRule, unit: RepeatUnit) {
   }
   return next;
 }
+
+export interface RepeatPreviewResult {
+  revision:number;
+  next:Schedule|null;
+  remaining:number|null;
+}
+
+export type RepeatPreviewRequest = (id:string,rule:RepeatRule,completedAt:string|undefined,signal:AbortSignal)=>Promise<RepeatPreviewResult>;

@@ -125,6 +125,12 @@ Serialize revision allocation through the locked workspace row until commit. A d
 
 HTTP's strong `If-Match` supports conditional editing. The compound preconditions, error bodies and operation receipts are application contracts. [HTTP semantics, section 13.1.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1)
 
+### Filing and resolved rows
+
+Each account chooses whether a newly completed or dropped row leaves a filtered outline immediately or remains visible until Clean Up or a perspective change. The current browser retains only identities of rows already visible in that view. The server retains the tasks and continues to supply current values. A reload, scope change, account switch or lost access clears the temporary row state. The workspace’s separate Inbox filing rule uses project assignment by default. Changing a personal display preference leaves task order, filing destinations and the shared workspace revision intact. [Reference Organization settings](https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/settings/)
+
+Archive preview and commit use midnight at the start of the chosen date in the workspace timezone. A completed record needs a known completion time before that boundary. A dropped record qualifies by its last content change. Archiving retains the original subtree and direct values. Retrieval creates an independent copy. Restoring a deletion reuses the original identities. If an original parent is unavailable, the operator selects an active compatible destination.
+
 ### Outline undo and redo
 
 A reversible command stores its changed item, tag, assignment, series and occurrence rows in a private SQL receipt. This records the small set of modified rows for a title edit. A subtree operation records all rows it changes. Workspace, account and permission settings have separate authorization paths and do not enter this history.
