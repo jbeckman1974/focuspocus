@@ -14,6 +14,20 @@ The [project plan](PROJECT_PLAN.md) assigns the milestones. The [architecture](A
 | Tumbleweed compatibility | An emulated x86_64 openSUSE Tumbleweed VM on the Mac tests the guest OS, package, Docker and Compose workflow. Store the disposable instance under ignored `build/vm/`. | Record the refreshed Tumbleweed snapshot, kernel, guest architecture and Docker versions. Native AMD64 qualification is a separate CI run. |
 | Deployment | The actual AMD/Intel x64 openSUSE Tumbleweed Docker host pulls the approved index by digest. | Verify the selected AMD64 image, migration, web, worker, proxy and persisted task operation on that host for each deployment. |
 
+## Local reference copies and disposable Tumbleweed guest
+
+Publisher copies, capture history and the local catalog belong under `build/OmniFocus/`. The two supplied briefs are in its `project/` subdirectory. Run `python3 -B tools/references/archive.py` from the checkout to capture the listed publisher pages. Open `build/OmniFocus/index.html` to see exactly which originals are available. A failed download is recorded individually. [Archive instructions](../tools/references/README.md)
+
+For a disposable x86_64 Tumbleweed environment on Apple Silicon, run the launcher's `doctor` check, then `up`. It verifies the cloud image, uses a private Lima home under `build/vm/`, starts a QEMU guest and checks the installed Docker engine and Compose. Use `verify` for another guest check or `stop` to preserve the instance for later. [VM instructions](../tools/vm/README.md)
+
+```sh
+python3 -B tools/vm/tumbleweed.py doctor
+python3 -B tools/vm/tumbleweed.py up
+python3 -B tools/vm/tumbleweed.py verify
+```
+
+Only the small utilities, their tests and the public source catalog belong in Git. The repository checks verify that Git ignores the reference archive and guest disks and tracks no path beneath `build/`.
+
 ## Daily development on the MacBook
 
 Use Git, an editor, Docker Desktop for Apple Silicon (or an equivalent native ARM64 Linux Docker VM), and a browser on macOS. Pin the development services in the Mac-specific Compose file to `linux/arm64`. Keep the shared Dockerfile and production Compose configuration usable on both target platforms. Confirm the active context points to the local VM with `docker context show` and `docker info --format '{{.OSType}}/{{.Architecture}}'`. Expect Linux and `aarch64` or `arm64` from the daemon. [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) · [Docker Desktop virtual machine options](https://docs.docker.com/desktop/features/vmm/)
@@ -50,6 +64,8 @@ The following commands define the local workflow to implement. Provide `compose.
    ```
 
 **Dependency builds.** From M1, pin npm with the frontend toolchain and run `npm ci` against the committed lockfile inside a Linux Node stage. From M2, resolve/install Python dependencies and build any native wheels in a Linux builder stage for each target CPU. Install needed system libraries inside the images. Compile frontend assets there and copy them and the matching Python environment into the release image. Start with Node 24 LTS, Python 3.13, Django 5.2 LTS, compatible DRF and Psycopg 3, Gunicorn WSGI and PostgreSQL 18. Serve the compiled assets from the application image and user attachments through the authorized API.
+
+Target openSUSE Tumbleweed for the web and worker release image on both CPU architectures. Use the same pinned Tumbleweed snapshot and Python ABI in the native wheel builder and runtime. Record the snapshot and RPM sources alongside the image digest, then inspect the OS and architecture inside each candidate. The frontend build stage can use the official Node toolchain image because only browser assets enter the application image. PostgreSQL runs as its own service. [openSUSE container registry](https://registry.opensuse.org/cgi-bin/cooverview)
 
 For a dependency update, open a one-shot development container with the checkout mounted at a separate work path, generate the updated manifests and locks there, and review and commit those files on the Mac. Keep installed dependencies and binary caches inside Docker. Pin base images to digests covering both platforms and verify platform-specific packages resolve against those locks on both native builders. Exclude host `node_modules`, virtual environments, wheels, compiled assets and database files from the Docker build context. Mount source so it cannot hide the Linux dependency directories. Key binary build caches by OS, architecture and lock hash. Rebuild after a lock or base-image change.
 

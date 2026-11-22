@@ -75,3 +75,4 @@ lima-install	Lima · Installation	https://lima-vm.io/docs/installation/
 lima-qemu	Lima · QEMU driver	https://lima-vm.io/docs/config/vmtype/qemu/
 lima-plain	Lima · Plain mode	https://lima-vm.io/docs/config/plain/
 compose-plugin	Docker · Linux Compose plugin	https://docs.docker.com/compose/install/linux/
+opensuse-registry	openSUSE · Official container image registry	https://registry.opensuse.org/cgi-bin/cooverview
