@@ -181,7 +181,11 @@ export function Review({
         loading={!queue.data}
       />
       {queue.data && !queue.data.projects.length && (
-        <p>{scope === "due" ? "No projects due for review." : "No projects to review."}</p>
+        <p>
+          {scope === "due"
+            ? "No projects due for review."
+            : "No projects to review."}
+        </p>
       )}
       <div className="planning-controls" role="group" aria-label="Review queue">
         {queue.data?.projects.map((entry) => (
@@ -259,11 +263,7 @@ export function Review({
             loading={!outline.data}
           />
           {outline.data && (
-            <ResultList
-              {...actions}
-              entries={entries}
-              ids={visible ?? []}
-            />
+            <ResultList {...actions} entries={entries} ids={visible ?? []} />
           )}
         </section>
       )}

@@ -118,7 +118,15 @@ test("Escape leaves the focused task available for navigation and clears every e
     navigate() {},
   };
 
-  function press(key: string, shortcut = "x", modifiers: { ctrlKey?: boolean; metaKey?: boolean; target?: EventTarget } = {}) {
+  function press(
+    key: string,
+    shortcut = "x",
+    modifiers: {
+      ctrlKey?: boolean;
+      metaKey?: boolean;
+      target?: EventTarget;
+    } = {},
+  ) {
     handleTreeKey(
       {
         key,

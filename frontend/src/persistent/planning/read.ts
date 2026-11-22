@@ -62,9 +62,13 @@ export function usePlanningRead<T>(
     async function load() {
       try {
         const result = await (serialized === undefined
-          ? actorRequest<T>(actorId, workspacePath(snapshot.workspaceId, path!), {
-              signal: controller.signal,
-            })
+          ? actorRequest<T>(
+              actorId,
+              workspacePath(snapshot.workspaceId, path!),
+              {
+                signal: controller.signal,
+              },
+            )
           : personalPost<T>(
               snapshot.workspaceId,
               actorId,

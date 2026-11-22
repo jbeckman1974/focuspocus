@@ -156,7 +156,9 @@ export function workspaceApi(
         changes: unknown[];
         perspectiveVersion?: number;
         resolvedCleanup?: "immediate" | "on-cleanup";
-      }>(actorId, base + "/changes?after=" + encodeURIComponent(cursor), { signal }),
+      }>(actorId, base + "/changes?after=" + encodeURIComponent(cursor), {
+        signal,
+      }),
     submit: (name: string, envelope: object) =>
       actorRequest<Receipt>(actorId, base + "/commands/" + name, {
         ...jsonPost(csrf, envelope),

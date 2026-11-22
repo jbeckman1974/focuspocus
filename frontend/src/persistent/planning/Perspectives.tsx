@@ -225,9 +225,13 @@ export function Perspectives({
               type="checkbox"
               checked={selectionFilter !== undefined}
               onChange={(e) => {
-                setSelectionFilter(e.target.checked
-                  ? (actions.selected.length ? actions.selected : source.selected)
-                  : undefined);
+                setSelectionFilter(
+                  e.target.checked
+                    ? actions.selected.length
+                      ? actions.selected
+                      : source.selected
+                    : undefined,
+                );
                 setOffset(0);
               }}
             />

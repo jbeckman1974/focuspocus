@@ -77,7 +77,12 @@ export function Focus({
                 </label>
               ))}
             </fieldset>
-            {catalog.pending && <PersonalNotice catalog={catalog} onApplied={() => setDraft(undefined)} />}
+            {catalog.pending && (
+              <PersonalNotice
+                catalog={catalog}
+                onApplied={() => setDraft(undefined)}
+              />
+            )}
             <div className="planning-actions">
               <button type="submit" disabled={!!catalog.pending}>
                 Apply focus
@@ -92,7 +97,13 @@ export function Focus({
     </div>
   );
 }
-export function PersonalNotice({ catalog, onApplied }: { catalog: CatalogActions; onApplied?: () => void }) {
+export function PersonalNotice({
+  catalog,
+  onApplied,
+}: {
+  catalog: CatalogActions;
+  onApplied?: () => void;
+}) {
   const entry = catalog.pending;
   if (!entry && !catalog.error) return null;
   async function retry() {

@@ -90,7 +90,13 @@ export function OrganizeDialog({
       </nav>
       {message && <p role="alert">{message}</p>}
       {page !== "selection" ? (
-        <Shelf key={page} actorId={actorId} page={page} snapshot={snapshot} submit={submit} />
+        <Shelf
+          key={page}
+          actorId={actorId}
+          page={page}
+          snapshot={snapshot}
+          submit={submit}
+        />
       ) : (
         <>
           <SelectionActions

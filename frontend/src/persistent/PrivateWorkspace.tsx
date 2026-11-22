@@ -134,12 +134,17 @@ function ConnectedOutline({
 
   const outlineSelection = visibleSelection(rows, selected[key] ?? []);
   const taskIds = new Set(snapshot?.tasks.map((item) => item.id));
-  const selection = planning.page ? planning.selection.filter((id) => taskIds.has(id)) : outlineSelection;
+  const selection = planning.page
+    ? planning.selection.filter((id) => taskIds.has(id))
+    : outlineSelection;
   const settings = usePersonalPreferences(id, actorId, csrf);
-  const showInspector = settings.device.inspectorOpen ?? window.innerWidth > 850;
-  const setShowInspector = (open: boolean) => settings.setDevice({ inspectorOpen: open });
+  const showInspector =
+    settings.device.inspectorOpen ?? window.innerWidth > 850;
+  const setShowInspector = (open: boolean) =>
+    settings.setDevice({ inspectorOpen: open });
   const mode = settings.account.editMode;
-  const setMode = (editMode: "inline" | "inspector") => settings.setAccount({ editMode });
+  const setMode = (editMode: "inline" | "inspector") =>
+    settings.setAccount({ editMode });
   const mutationsDisabled = readOnly || state.phase !== "ready";
   const [capture, setCapture] = useState(0);
   const drafts = useDraftBases(snapshot, selection);
@@ -288,8 +293,17 @@ function ConnectedOutline({
       ? snapshot.tasks.find((t) => t.id === selection[0])
       : undefined;
   function leaveInbox() {
-    if (!planning.page && view.kind === "inbox" && !mutationsDisabled && snapshot && hasEligibleFiling(snapshot)) {
-      channel.run({ type: "lifecycle", change: { name: "file-inbox", payload: {} } }, snapshot);
+    if (
+      !planning.page &&
+      view.kind === "inbox" &&
+      !mutationsDisabled &&
+      snapshot &&
+      hasEligibleFiling(snapshot)
+    ) {
+      channel.run(
+        { type: "lifecycle", change: { name: "file-inbox", payload: {} } },
+        snapshot,
+      );
     }
   }
   function openPlanning(target: string) {
@@ -297,18 +311,34 @@ function ConnectedOutline({
     planning.open(target, projection.result?.matchIds ?? [], outlineSelection);
   }
   const inspectorTools = task ? (
-    <>{controls(task, task.kind)}
-      <ContentTools key={task.id} snapshot={snapshot} itemId={task.id} readOnly={mutationsDisabled} actorId={actorId}/>
+    <>
+      {controls(task, task.kind)}
+      <ContentTools
+        key={task.id}
+        snapshot={snapshot}
+        itemId={task.id}
+        readOnly={mutationsDisabled}
+        actorId={actorId}
+      />
     </>
   ) : selection.length > 1 ? (
-    <BulkInspector snapshot={snapshot} ids={selection} channel={channel} disabled={mutationsDisabled}/>
+    <BulkInspector
+      snapshot={snapshot}
+      ids={selection}
+      channel={channel}
+      disabled={mutationsDisabled}
+    />
   ) : undefined;
   return (
     <div {...drafts.bindings}>
       <Frame
         standardViews
         personalPreferences={settings}
-        planning={{ active: planning.active, links: planning.links, open: openPlanning }}
+        planning={{
+          active: planning.active,
+          links: planning.links,
+          open: openPlanning,
+        }}
         inspectorTools={inspectorTools}
         mutationsDisabled={mutationsDisabled}
         pendingTag={pendingTag}
@@ -351,66 +381,80 @@ function ConnectedOutline({
         message={state.message}
       >
         <WriteNotice state={state} channel={channel} />
-        <PlanningArea session={{snapshot, actorId, refresh:channel.refresh, zone:viewZone}} channel={channel}
-          navigation={planning} catalog={catalog} disabled={mutationsDisabled} openSource={showSource} search={() => openPlanning("perspectives")}>
+        <PlanningArea
+          session={{
+            snapshot,
+            actorId,
+            refresh: channel.refresh,
+            zone: viewZone,
+          }}
+          channel={channel}
+          navigation={planning}
+          catalog={catalog}
+          disabled={mutationsDisabled}
+          openSource={showSource}
+          search={() => openPlanning("perspectives")}
+        >
           <Outline
-          mutationsDisabled={mutationsDisabled}
-          rows={rows}
-          count={projection.result?.count}
-          retainedCount={Math.max(0, rows.length - matches.length)}
-          tools={
-            <div className="private-outline-tools">
-              <AvailabilityFilter
-                value={availability}
-                change={(value) =>
-                  setFilters((current) => ({ ...current, [key]: value }))
-                }
-              />
-              <DirectoryLinks
-                snapshot={snapshot}
-                view={view}
-                result={projection.result}
-                choose={setView}
-              />
-              {project && controls(project, "project")}
-              {folder && controls(folder, "folder")}
-              {projection.message && (
-                <p role="alert">
-                  {projection.message}{" "}
-                  <button onClick={projection.retry}>Retry outline</button>
-                </p>
-              )}
-            </div>
-          }
-          workspace={snapshot}
-          view={view}
-          selection={selection}
-          onSelect={choose}
-          run={run}
-          collapsed={collapsed}
-          onToggle={(id) => {
-            const next = new Set(collapsed);
-            if (next.has(id)) next.delete(id);
-            else next.add(id);
-            setCollapsed((previous) => ({ ...previous, [key]: next }));
-          }}
-          undo={() => {
-            if (state.undo) channel.run({ type: "undo", receipt: state.undo });
-          }}
-          redo={() => {
-            if (state.redo) channel.run({ type: "redo", receipt: state.redo });
-          }}
-          canUndo={Boolean(state.undo) && state.phase === "ready"}
-          canRedo={Boolean(state.redo) && state.phase === "ready"}
-          captureSignal={capture}
-          editMode={mode}
-          onInspect={() => {
-            setShowInspector(true);
-            requestAnimationFrame(() =>
-              document.getElementById("inspector-title")?.focus(),
-            );
-          }}
-        />
+            mutationsDisabled={mutationsDisabled}
+            rows={rows}
+            count={projection.result?.count}
+            retainedCount={Math.max(0, rows.length - matches.length)}
+            tools={
+              <div className="private-outline-tools">
+                <AvailabilityFilter
+                  value={availability}
+                  change={(value) =>
+                    setFilters((current) => ({ ...current, [key]: value }))
+                  }
+                />
+                <DirectoryLinks
+                  snapshot={snapshot}
+                  view={view}
+                  result={projection.result}
+                  choose={setView}
+                />
+                {project && controls(project, "project")}
+                {folder && controls(folder, "folder")}
+                {projection.message && (
+                  <p role="alert">
+                    {projection.message}{" "}
+                    <button onClick={projection.retry}>Retry outline</button>
+                  </p>
+                )}
+              </div>
+            }
+            workspace={snapshot}
+            view={view}
+            selection={selection}
+            onSelect={choose}
+            run={run}
+            collapsed={collapsed}
+            onToggle={(id) => {
+              const next = new Set(collapsed);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              setCollapsed((previous) => ({ ...previous, [key]: next }));
+            }}
+            undo={() => {
+              if (state.undo)
+                channel.run({ type: "undo", receipt: state.undo });
+            }}
+            redo={() => {
+              if (state.redo)
+                channel.run({ type: "redo", receipt: state.redo });
+            }}
+            canUndo={Boolean(state.undo) && state.phase === "ready"}
+            canRedo={Boolean(state.redo) && state.phase === "ready"}
+            captureSignal={capture}
+            editMode={mode}
+            onInspect={() => {
+              setShowInspector(true);
+              requestAnimationFrame(() =>
+                document.getElementById("inspector-title")?.focus(),
+              );
+            }}
+          />
         </PlanningArea>
       </Frame>
     </div>

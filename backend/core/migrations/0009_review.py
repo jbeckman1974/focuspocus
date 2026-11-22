@@ -46,7 +46,11 @@ class Migration(migrations.Migration):
             SELECT item.id, item.workspace_id, 1, 'week',
                    (coalesce(item.created_at,current_timestamp) AT TIME ZONE workspace.time_zone)::date + 7, 1
               FROM core_item AS item JOIN core_workspace AS workspace ON workspace.id = item.workspace_id
-             WHERE item.kind = 'project'
+             WHERE item.kind = 'project';
+
+            -- Django emits the remaining foreign keys and indexes when its schema
+            -- editor closes. Finish the populated backfill's FK checks before that DDL.
+            SET CONSTRAINTS ALL IMMEDIATE;
             """,
             migrations.RunSQL.noop,
         ),

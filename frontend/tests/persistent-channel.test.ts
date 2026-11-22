@@ -360,13 +360,22 @@ test("repeat previews send one versionless read with the current CSRF token", as
 });
 
 test("workspace snapshots, changes and writes bind the account that opened the tab", async (t) => {
-  const api = workspaceApi("shared", 17, crypto.randomUUID(), new AbortController().signal);
+  const api = workspaceApi(
+    "shared",
+    17,
+    crypto.randomUUID(),
+    new AbortController().signal,
+  );
   const calls: string[] = [];
-  t.mock.method(globalThis, "fetch", async (url: RequestInfo | URL, init?: RequestInit) => {
-    assert.equal(new Headers(init?.headers).get("X-FocusPocus-Actor"), "17");
-    calls.push(String(url));
-    return Response.json({});
-  });
+  t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: RequestInfo | URL, init?: RequestInit) => {
+      assert.equal(new Headers(init?.headers).get("X-FocusPocus-Actor"), "17");
+      calls.push(String(url));
+      return Response.json({});
+    },
+  );
   await api.snapshot();
   await api.changes("checkpoint");
   await api.submit("set-title", {});

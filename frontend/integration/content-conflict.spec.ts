@@ -3,7 +3,8 @@ import { inspector, task } from "../e2e/controls.ts";
 import { signIn, submitCapture, withProfile } from "./account.ts";
 
 test("a note draft survives a failed conflict comparison until access is verified", async ({
-  page, browser,
+  page,
+  browser,
 }) => {
   const title = "Note comparison fixture";
   const draft = "Draft from the first browser";
@@ -11,21 +12,29 @@ test("a note draft survives a failed conflict comparison until access is verifie
   await signIn(page, "neighbor");
   await submitCapture(page, title);
   await task(page, title).getByText(title, { exact: true }).click();
-  await inspector(page).getByRole("button", { name: "Notes and files…" }).click();
+  await inspector(page)
+    .getByRole("button", { name: "Notes and files…" })
+    .click();
   const dialog = page.getByRole("dialog", { name: "Notes and files" });
   const note = dialog.getByRole("textbox", { name: "Note text" });
   await note.fill(draft);
 
   await withProfile(browser, "neighbor", async (second) => {
     await task(second, title).getByText(title, { exact: true }).click();
-    await inspector(second).getByRole("button", { name: "Notes and files…" }).click();
+    await inspector(second)
+      .getByRole("button", { name: "Notes and files…" })
+      .click();
     const editor = second.getByRole("dialog", { name: "Notes and files" });
     await editor.getByRole("textbox", { name: "Note text" }).fill(update);
-    await editor.getByRole("button", { name: "Save note", exact: true }).click();
+    await editor
+      .getByRole("button", { name: "Save note", exact: true })
+      .click();
     await expect(editor.getByRole("status")).toHaveText("Saved.");
   });
   await dialog.getByRole("button", { name: "Save note", exact: true }).click();
-  const compare = dialog.getByRole("button", { name: "Compare latest version" });
+  const compare = dialog.getByRole("button", {
+    name: "Compare latest version",
+  });
   await expect(compare).toBeVisible();
   const metadata = /\/content\/items\/[^/]+$/;
   await page.route(metadata, (route) => route.abort("failed"), { times: 1 });
