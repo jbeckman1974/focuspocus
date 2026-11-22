@@ -1,0 +1,17 @@
+# Working in focuspocus
+
+Joe has authorized implementation of the maintained plan, its tests, milestone branches, pushes, PR review and merges into the private repository. Start with [progress](docs/PROGRESS.md) and the [project plan](docs/PROJECT_PLAN.md). On resuming a session or after context compaction, reread this file and progress, inspect the current branch, working tree, remote PRs and test evidence, then resume the first unfinished step. Preserve Joe's local work.
+
+## Development
+
+- Work from this project directory. Keep reference copies, VM images, SSH material, caches, local configuration and other generated build artifacts under the ignored root `build/`. Keep real data and credentials out of commits, image layers, test fixtures, example commands and logs. Verify ignored paths and inspect the staged file list before every push.
+- Use named modules with one clear responsibility. Keep outline commands and their invariants separate from presentation, storage and transport. Organize UI components around user workflows. Pass dependencies explicitly. Split files when changes to unrelated behaviors become coupled. Choose clear domain names and keep database changes in reviewed migrations.
+- Use conventional TypeScript/React and Python formatting for their respective modules. Run the project's format check, static/type checks, tests and dependency checks as they become available. Test behavior through the same commands and endpoints the user will exercise. Include invalid input, cancellation, conflict/retry, isolation and recovery where relevant.
+- Develop in native Linux ARM64 containers on the MacBook and build dependencies inside their target containers. The disposable local x64 openSUSE Tumbleweed guest uses CPU emulation. Native AMD64 CI, both platform images and a verified Tumbleweed x64 production deployment have distinct evidence. See [operations](docs/OPERATIONS.md).
+
+## Steps and milestones
+
+1. At each independently reviewable step update the affected documentation and `docs/PROGRESS.md`, run the applicable checks, then commit and push that step to the milestone branch. Update these instructions whenever the workflow or conventions change.
+2. After each milestone start an independent sub-agent to audit the entire milestone against the specification and project conventions. Review authorization, private-data boundaries, secret handling, dependencies, migrations, concurrency, test gaps, naming, formatting, accessibility, error paths and maintainability as applicable. Record the revision, checks actually run, findings, fixes, and outstanding evidence. Do not reproduce secrets in a report. The auditor can propose corrective PRs.
+3. Inspect all related PRs, comments, review threads and checks. Fix actionable findings, test the fixes, commit and push, and have the original findings verified. Merge the reviewed milestone into `main` and start the next milestone branch from the merged head. Keep release publication and production deployment subject to their documented testing and recovery gates.
+4. Continue independently through reversible in-scope work. Record unavailable tests as pending. An actual host or access failure should name the operation that failed. Let Joe know if his action is required for a usage reset. He authorized at most two for this effort.

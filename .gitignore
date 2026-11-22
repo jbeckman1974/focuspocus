@@ -1,0 +1,13 @@
+/build/
+# Supplied local research originals. Maintained specifications live in docs/.
+/docs/CODEX_ASTRA_HANDOFF.md
+/docs/Self_Hosted_Task_Application_Work_Plan.docx
+.DS_Store
+__pycache__/
+*.py[cod]
+node_modules/
+dist/
+.venv/
+.env
+.env.*
+!.env.example
