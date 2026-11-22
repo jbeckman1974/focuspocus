@@ -1,6 +1,6 @@
 # Working in focuspocus
 
-Joe has authorized implementation of the maintained plan, its tests, milestone branches, pushes, PR review and merges into the private repository. Start with [progress](docs/PROGRESS.md) and the [project plan](docs/PROJECT_PLAN.md). On resuming a session or after context compaction, reread this file and progress, inspect the current branch, working tree, remote PRs and test evidence, then resume the first unfinished step. Preserve Joe's local work.
+Joe has authorized implementation of the maintained plan, its tests, milestone branches, pushes, PR review and merges into the public repository. Start with [progress](docs/PROGRESS.md) and the [project plan](docs/PROJECT_PLAN.md). On resuming a session or after context compaction, reread this file and progress, inspect the current branch, working tree, remote PRs and test evidence, then resume the first unfinished step. Preserve Joe's local work. Joe authorized automated testing while he is unavailable. Record Mac walkthroughs and preferences separately, and continue independent milestones when their automated checks and audit pass.
 
 ## Development
 
