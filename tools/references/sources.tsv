@@ -98,3 +98,5 @@ vite-build	Vite · Build options	https://vite.dev/config/build-options.html
 app-manifest	web.dev · Add a web app manifest	https://web.dev/articles/add-manifest
 sw-register	MDN · Register a scoped service worker	https://developer.mozilla.org/en-US/docs/Web/API/ServiceWorkerContainer/register
 cache-add-all	MDN · Install public resources with Cache.addAll	https://developer.mozilla.org/en-US/docs/Web/API/Cache/addAll
+playwright-browsers	Playwright · Browser engines and system dependencies	https://playwright.dev/docs/browsers
+wai-treeview	W3C WAI · Tree view keyboard interaction and semantics	https://www.w3.org/WAI/ARIA/apg/patterns/treeview/

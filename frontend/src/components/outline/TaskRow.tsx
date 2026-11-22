@@ -8,6 +8,8 @@ export interface EditDraft {
 }
 
 interface RowProps {
+  top?: number;
+  observe?: (row: HTMLDivElement | null) => void | (() => void);
   task: Task;
   id: string;
   depth: number;
@@ -50,6 +52,7 @@ export function TaskRow(props: RowProps) {
 
   return (
     <div
+      ref={props.observe}
       id={props.id}
       role="treeitem"
       aria-label={task.title}
@@ -65,7 +68,7 @@ export function TaskRow(props: RowProps) {
       data-context={props.context || undefined}
       data-drop-before={props.dropBefore}
       className="outline-row"
-      style={{ "--depth": props.depth } as CSSProperties}
+      style={{ "--depth": props.depth, top: props.top } as CSSProperties}
       draggable={!editing && !props.mutationsDisabled}
       onDragStart={props.dragStart}
       onDragOver={props.dragOver}

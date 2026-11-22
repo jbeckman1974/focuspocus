@@ -4,6 +4,7 @@ import { publicShell } from "./src/pwa/build.ts";
 export default defineConfig({
   plugins: [publicShell()],
   build: {
+    license: { fileName: "app/third-party-licenses.json" },
     rolldownOptions: {
       input: {
         index: "index.html",

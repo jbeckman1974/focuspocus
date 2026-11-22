@@ -6,6 +6,16 @@
   padding: 0.45rem 0 2rem;
 }
 
+.outline-window {
+  position: relative;
+  overflow-anchor: none;
+}
+
+.outline-window > .outline-row {
+  position: absolute;
+  inset-inline: 0;
+}
+
 .outline-tree:focus-visible {
   outline-offset: -2px;
 }

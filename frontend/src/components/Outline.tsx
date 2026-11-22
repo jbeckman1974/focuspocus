@@ -1,7 +1,7 @@
 import { canReorder } from "../outline/views.ts";
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
-import { INBOX, visibleRows } from "../outline/index.ts";
+import { INBOX, indexWorkspace, visibleRows } from "../outline/index.ts";
 import type {
   Command,
   Task,
@@ -61,7 +61,10 @@ export function Outline(props: OutlineProps) {
       : undefined;
   const activeDraft = useRef(draft);
   activeDraft.current = draft;
-  const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
+  const selectedTask =
+    selection.length === 1
+      ? indexWorkspace(workspace).byId.get(selection[0])
+      : undefined;
   const title = viewTitle(view, workspace);
   const count = props.count ?? rows.length;
 

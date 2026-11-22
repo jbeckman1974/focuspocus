@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import type { OutlineRow } from "../outline/index.ts";
 import type { Snapshot } from "./api.ts";
 import type { OutlineResult } from "./rules.ts";
@@ -36,20 +36,21 @@ export function useResolvedRows({
     result &&
     result.workspaceId === snapshot.workspaceId &&
     result.revision === snapshot.revision;
-  const previous = history.current?.key === key ? history.current.memory : [];
-  const candidate = ready
-    ? resolvedRows(
-        previous,
-        snapshot,
-        rows,
-        collapsed,
-        snapshot.resolvedCleanup === "immediate",
-      )
-    : null;
+  const candidate = useMemo(() => {
+    if (!ready) return null;
+    const previous = history.current?.key === key ? history.current.memory : [];
+    return resolvedRows(
+      previous,
+      snapshot,
+      rows,
+      collapsed,
+      snapshot.resolvedCleanup === "immediate",
+    );
+  }, [ready, snapshot, rows, collapsed, key]);
   useLayoutEffect(() => {
     if (candidate) history.current = { key, memory: candidate.memory };
     else if (!snapshot || history.current?.key !== key)
       history.current = undefined;
-  });
+  }, [candidate, key, snapshot]);
   return snapshot ? (candidate?.rows ?? rows) : [];
 }

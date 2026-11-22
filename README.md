@@ -36,4 +36,4 @@ For a private test on an existing Tumbleweed x64 Docker host, the test runner ve
 
 FocusPocus is licensed under the GNU General Public License, version 3 only (`GPL-3.0-only`). Third-party components retain their respective licenses. [Full license text](LICENSE)
 
-For the FocusPocus source and build instructions corresponding to a release image, read its `org.opencontainers.image.revision` label and open that commit in this repository. The image includes the license at `/usr/share/licenses/focuspocus/LICENSE`.
+For the FocusPocus source and build instructions corresponding to a release image, read its `org.opencontainers.image.revision` label and open that commit in this repository. The running application serves its bundled browser dependency notices at `/app/third-party-licenses.json`. The image includes the license at `/usr/share/licenses/focuspocus/LICENSE`.

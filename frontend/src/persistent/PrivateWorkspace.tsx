@@ -1,4 +1,10 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Frame } from "../components/Frame.tsx";
 import { Outline } from "../components/Outline.tsx";
 import {
@@ -35,6 +41,9 @@ import { useCatalog } from "./planning/useCatalog.ts";
 import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
 import type { WorkspaceInfo } from "./tools/WorkspaceRouter.tsx";
 import { WriteNotice } from "./WriteNotice.tsx";
+
+const expanded = new Set<string>();
+const noSelection: string[] = [];
 
 interface Props {
   id: string;
@@ -94,7 +103,7 @@ function ConnectedOutline({
   const [collapsedRows, setCollapsed] = useState<Record<string, Set<string>>>(
     {},
   );
-  const collapsed = collapsedRows[key] ?? new Set<string>();
+  const collapsed = collapsedRows[key] ?? expanded;
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
   const [cleanupEpoch, setCleanupEpoch] = useState(0);
@@ -122,10 +131,12 @@ function ConnectedOutline({
     catalog.data?.personalVersion ?? 0,
     trusted && (state.offline || state.queue.length > 0),
   );
-  const matches =
-    snapshot && projection.result
-      ? projectedRows(snapshot, projection.result, collapsed)
-      : [];
+  const result = projection.result;
+  const matches = useMemo(
+    () =>
+      snapshot && result ? projectedRows(snapshot, result, collapsed) : [],
+    [snapshot, result, collapsed],
+  );
   const rows = useResolvedRows({
     snapshot,
     result: projection.result,
@@ -135,10 +146,17 @@ function ConnectedOutline({
     cleanupEpoch,
   });
 
-  const outlineSelection = visibleSelection(rows, selected[key] ?? []);
-  const taskIds = new Set(snapshot?.tasks.map((item) => item.id));
+  const requested = selected[key] ?? noSelection;
+  const outlineSelection = useMemo(
+    () => visibleSelection(rows, requested),
+    [rows, requested],
+  );
+  const tasksById = useMemo(
+    () => new Map(snapshot?.tasks.map((task) => [task.id, task])),
+    [snapshot?.tasks],
+  );
   const selection = planning.page
-    ? planning.selection.filter((id) => taskIds.has(id))
+    ? planning.selection.filter((id) => tasksById.has(id))
     : outlineSelection;
   const settings = usePersonalPreferences(id, actorId, csrf);
   const showInspector =
@@ -183,9 +201,7 @@ function ConnectedOutline({
         navigation.intent.change.name === "file-inbox")
     )
       return;
-    const first = ids.find((id) =>
-      snapshot.tasks.some((task) => task.id === id),
-    );
+    const first = ids.find((id) => tasksById.has(id));
     if (!first) return;
     const relocating = [
       "move",
@@ -200,7 +216,7 @@ function ConnectedOutline({
         : view;
     setView(destination);
     setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
-  }, [state.lastChange, state.lastStaged, snapshot, view]);
+  }, [state.lastChange, state.lastStaged, snapshot, view, tasksById]);
 
   if (!snapshot)
     return (
@@ -252,7 +268,7 @@ function ConnectedOutline({
       return setView({ kind: "project", id });
     if (snapshot.folders?.some((item) => item.id === id))
       return setView({ kind: "folder", id });
-    if (!snapshot.tasks.some((item) => item.id === id)) return;
+    if (!tasksById.has(id)) return;
     const destination = homeView(snapshot, id);
     const destinationKey = viewKey(destination);
     const memory = revealSelection(
@@ -304,10 +320,7 @@ function ConnectedOutline({
     view.kind === "folder"
       ? snapshot.folders?.find((f) => f.id === view.id)
       : undefined;
-  const task =
-    selection.length === 1
-      ? snapshot.tasks.find((t) => t.id === selection[0])
-      : undefined;
+  const task = selection.length === 1 ? tasksById.get(selection[0]) : undefined;
   function leaveInbox() {
     if (
       !planning.page &&

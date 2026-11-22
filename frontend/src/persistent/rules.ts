@@ -121,7 +121,13 @@ export function projectedRows(
   return outline;
 }
 
+const visibleByOutline = new WeakMap<OutlineRow[], Set<string>>();
 export function visibleSelection(rows: OutlineRow[], ids: string[]) {
-  const included = new Set(rows.map((row) => row.task.id));
+  if (!ids.length) return ids;
+  let included = visibleByOutline.get(rows);
+  if (!included) {
+    included = new Set(rows.map((row) => row.task.id));
+    visibleByOutline.set(rows, included);
+  }
   return ids.filter((id) => included.has(id));
 }
