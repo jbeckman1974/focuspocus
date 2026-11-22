@@ -25,6 +25,15 @@ def focused_ids(workspace, user, rows):
     return descendants(rows, roots) if roots else None
 
 
+def snapshot_focus(workspace, user):
+    from .models import PerspectiveState
+
+    state = (PerspectiveState.objects.filter(workspace=workspace, user=user)
+             .values_list("version", "focus_ids").first())
+    version, roots = state or (0, [])
+    return {"perspectiveVersion": version, "focusScopeIds": roots}
+
+
 def perspective_version(workspace, user):
     from .models import PerspectiveState
 

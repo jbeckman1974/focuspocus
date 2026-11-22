@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { View } from "../outline/index.ts";
 import { actorRequest, HttpError } from "./api.ts";
 import type { Snapshot } from "./api.ts";
 import { outlineQuery } from "./rules.ts";
 import type { Availability, OutlineResult } from "./rules.ts";
+import { cachedOutline } from "./offline/cachedOutline.ts";
 
 export function useRuleOutline(
   snapshot: Snapshot | null,
@@ -13,6 +14,7 @@ export function useRuleOutline(
   viewZone: string,
   refresh: () => Promise<void>,
   personalVersion = 0,
+  useLocal = false,
 ) {
   const id = snapshot?.workspaceId;
   const revision = snapshot?.revision;
@@ -27,8 +29,18 @@ export function useRuleOutline(
     message?: string;
   }>();
   const [attempt, setAttempt] = useState(0);
+  const kind = view.kind;
+  const target = "id" in view ? view.id : "";
+  const local = useMemo(() => {
+    if (!snapshot || !useLocal) return undefined;
+    const scope: View =
+      kind === "project" || kind === "folder" || kind === "tag"
+        ? { kind, id: target }
+        : { kind };
+    return cachedOutline(snapshot, scope, availability);
+  }, [snapshot, useLocal, kind, target, availability]);
   useEffect(() => {
-    if (!id || revision === undefined) return;
+    if (useLocal || !id || revision === undefined) return;
     const abort = new AbortController();
     let timer: number | undefined;
     const fetchOutline = async () => {
@@ -75,11 +87,21 @@ export function useRuleOutline(
       abort.abort();
       window.clearTimeout(timer);
     };
-  }, [id, actorId, revision, generation, query, key, attempt, refresh]);
+  }, [
+    id,
+    actorId,
+    revision,
+    generation,
+    query,
+    key,
+    attempt,
+    refresh,
+    useLocal,
+  ]);
   const current = state?.key === key ? state : undefined;
   return {
-    result: current?.result,
-    message: current?.message,
+    result: local ?? current?.result,
+    message: local ? undefined : current?.message,
     retry: () => setAttempt((n) => n + 1),
   };
 }

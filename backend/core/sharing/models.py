@@ -33,3 +33,14 @@ class CaptureCredential(models.Model):
     generation = models.UUIDField()
     label = models.CharField(max_length=200)
     digest = models.CharField(max_length=64, unique=True)
+
+
+class CaptureAcknowledgement(models.Model):
+    """Keep credential-scoped duplicate protection after a detailed receipt expires."""
+    credential = models.ForeignKey(CaptureCredential, on_delete=models.CASCADE)
+    operation_id = models.UUIDField()
+    item_id = models.UUIDField()
+    fingerprint = models.CharField(max_length=64)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=["credential", "operation_id"], name="capture_ack_once")]

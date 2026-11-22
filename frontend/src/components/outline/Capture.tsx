@@ -5,7 +5,7 @@ interface CaptureProps {
   identity: string;
   destination: string;
   signal: number;
-  submit: (titles: string[]) => boolean;
+  submit: (titles: string[]) => boolean | Promise<boolean>;
 }
 
 export function Capture({
@@ -18,6 +18,7 @@ export function Capture({
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const input = useRef<HTMLTextAreaElement>(null);
   const lastSignal = useRef(signal);
+  const saving = useRef(false);
   const draft = drafts[identity] ?? "";
 
   useLayoutEffect(() => {
@@ -31,14 +32,25 @@ export function Capture({
     setDrafts((previous) => ({ ...previous, [identity]: value }));
   }
 
-  function addTasks() {
+  async function addTasks() {
     const titles = draft
       .split(/\r\n|\n|\r/)
       .map((line) => line.trim())
       .filter(Boolean);
-    if (!disabled && titles.length && submit(titles)) {
-      update("");
-      input.current?.focus();
+    if (disabled || saving.current || !titles.length) return;
+    saving.current = true;
+    try {
+      if (await submit(titles)) {
+        setDrafts((previous) =>
+          previous[identity] === draft
+            ? { ...previous, [identity]: "" }
+            : previous,
+        );
+        if (input.current?.form?.contains(document.activeElement))
+          input.current.focus();
+      }
+    } finally {
+      saving.current = false;
     }
   }
 

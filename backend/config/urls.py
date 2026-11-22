@@ -23,5 +23,6 @@ urlpatterns = [
     path("assets/<str:filename>", site.asset),
     path("", site.index),
     path("app/", site.index),
+    path("app/<str:filename>", site.shell_file),
     path("sample/", site.index),
 ]

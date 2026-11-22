@@ -86,5 +86,5 @@ def rollback(workspace, batch):
     ImportMapping.objects.filter(workspace=workspace, batch=batch).update(active=False)
     batch.conflicts, batch.status = [], "rolled_back"
     batch.save(update_fields=["status", "conflicts"])
-    advance(workspace, ids + tags)
+    advance(workspace, ids + tags, removed=True)
     return []

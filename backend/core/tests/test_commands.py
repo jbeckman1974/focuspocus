@@ -98,6 +98,8 @@ class OutlineApiTests(OutlineApiMixin, TestCase):
     def test_context_binding_expiry_and_restore_invalidate_even_receipt_replay(self):
         body = self.envelope({"items": [{"id": str(uuid4()), "title": "Original"}], "parentId": "inbox"})
         self.assertEqual(self.send("capture", body).status_code, 200)
+        Membership.objects.create(workspace=self.space, user=self.other, role="editor")
+        Membership.objects.create(workspace=self.foreign, user=self.owner, role="editor")
         for token in [issue_context(self.space, self.other), issue_context(self.foreign, self.owner), "invalid"]:
             self.assertEqual(self.send("capture", {**body, "context": token}).status_code, 410)
         from unittest.mock import patch

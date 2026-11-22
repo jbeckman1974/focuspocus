@@ -62,8 +62,12 @@ class SourceImportTests(OutlineApiMixin, TestCase):
         self.change(changed_file, "commit")
         action.refresh_from_db()
         self.assertEqual(action.title, "Café")
+        cursor = self.client.get(self.base + "snapshot").json()["cursor"]
+        removed = [str(project.pk), str(action.pk), str(action.tags.get().pk)]
         rollback = self.body()
         self.change(staged, "rollback", rollback)
+        page = self.client.get(self.base + "changes", {"after": cursor}).json()
+        self.assertCountEqual(page["changes"][0]["removed"], removed)
         self.assertEqual(self.change(staged, "rollback", rollback)["status"], "rolled_back")
         self.assertFalse(Item.objects.exists())
         self.assertFalse(Tag.objects.exists())

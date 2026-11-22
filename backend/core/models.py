@@ -24,6 +24,7 @@ class Membership(models.Model):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     role = models.CharField(max_length=12)
+    incarnation = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     class Meta:
         constraints = [
@@ -124,18 +125,21 @@ class Receipt(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["workspace", "actor", "context_id", "operation_id"], name="operation_once"),
         ]
+        indexes = [models.Index(fields=["created_at", "id"], name="receipt_expiry_order")]
 
 
 class Change(models.Model):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     revision = models.PositiveBigIntegerField()
     affected = models.JSONField(default=list)
+    removed = models.JSONField(default=list)
     created_at = models.DateTimeField(default=timezone.now)
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["workspace", "revision"], name="change_once"),
         ]
+        indexes = [models.Index(fields=["created_at", "id"], name="change_expiry_order")]
 
 
 class Job(models.Model):
@@ -186,4 +190,4 @@ from .planning.models import ProjectReview  # noqa: E402, F401
 from .portability.models import RestoredHistory, RestoredReviewer, RestoreReceipt  # noqa: E402, F401
 from .preferences.models import AccountPreference, DevicePreference  # noqa: E402, F401
 from .repeats.models import Occurrence, RepeatSeries  # noqa: E402, F401
-from .sharing.models import CaptureCredential, SharedWorkspace, WorkspaceInvitation  # noqa: E402, F401
+from .sharing.models import CaptureAcknowledgement, CaptureCredential, SharedWorkspace, WorkspaceInvitation  # noqa: E402, F401

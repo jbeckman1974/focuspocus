@@ -17,11 +17,13 @@ from .ordering import last_positions, sibling_orders
 from .staging import bindings
 
 
-def advance(workspace, affected):
+def advance(workspace, affected, *, removed=False):
     if affected:
         workspace.revision += 1
         workspace.save(update_fields=["revision"])
-        Change.objects.create(workspace=workspace, revision=workspace.revision, affected=sorted(str(i) for i in affected))
+        ids = sorted(str(i) for i in affected)
+        Change.objects.create(workspace=workspace, revision=workspace.revision, affected=ids,
+                              removed=ids if removed else [])
 
 
 def make_item(workspace, row, parent, position):

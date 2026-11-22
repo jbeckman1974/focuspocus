@@ -27,7 +27,7 @@ export function ScheduleDialog({
   actorId: number;
   entry: Entry & RuleFields;
   base: Snapshot;
-  apply: (changes: DateChanges) => boolean;
+  apply: (changes: DateChanges) => Promise<boolean>;
   close: () => void;
   showSource: (id: string) => void;
 }) {
@@ -82,8 +82,8 @@ export function ScheduleDialog({
         );
     }
   }
-  function submit(changes: DateChanges) {
-    if (apply(changes)) close();
+  async function submit(changes: DateChanges) {
+    if (await apply(changes)) close();
     else setMessage("Finish the pending change before editing this schedule.");
   }
   const current = entry.schedule?.[field];

@@ -9,7 +9,7 @@ from core.access import locked_membership
 from core import organization
 from core.content.commands import content_command
 from core.models import Change, Receipt
-from core.history.recording import recording
+from core.history.recording import recording, removed_from_outline
 from core.history.restore import reverse
 from core.planning import review
 from core.preferences.bulk import apply_bulk
@@ -119,7 +119,8 @@ def execute(user, workspace_id, name, body, *, item_id=None, if_match=None, comm
     if result.versions:
         workspace.revision += 1
         workspace.save(update_fields=["revision"])
-        Change.objects.create(workspace=workspace, revision=workspace.revision, affected=list(result.versions))
+        Change.objects.create(workspace=workspace, revision=workspace.revision, affected=list(result.versions),
+                              removed=removed_from_outline(result.inverse))
     response = {
         "operationId": str(op), "contextId": str(context), "revision": workspace.revision,
         "versions": result.versions, "selection": result.selection, "undoable": bool(result.inverse),

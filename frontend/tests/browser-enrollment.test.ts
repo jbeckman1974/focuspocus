@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { enrollSubscription } from "../src/persistent/tools/enrollment.ts";
+import {
+  enrollSubscription,
+  selectPushManager,
+} from "../src/persistent/tools/enrollment.ts";
 
 function fixture() {
   const key = Uint8Array.of(4, 5, 6);
@@ -99,4 +102,30 @@ test("a switched or expired session cannot release an existing browser endpoint"
     /lost access/,
   );
   assert.deepEqual(f.counts(), [0, 0]);
+});
+
+test("an older worker keeps its endpoint until the user confirms replacement under the verified account", async () => {
+  let removals = 0;
+  const prior = {
+    unsubscribe: async () => {
+      removals++;
+      return true;
+    },
+  };
+  const legacy = { getSubscription: async () => prior };
+  let newer: typeof prior | null = null;
+  const stable = { getSubscription: async () => newer };
+  const check = async () => {};
+  assert.equal(await selectPushManager(stable, legacy, false, check), legacy);
+  newer = prior;
+  assert.equal(await selectPushManager(stable, legacy, false, check), stable);
+  await assert.rejects(
+    selectPushManager(stable, legacy, true, async () => {
+      throw new Error("session changed");
+    }),
+    /session changed/,
+  );
+  assert.equal(removals, 0);
+  assert.equal(await selectPushManager(stable, legacy, true, check), stable);
+  assert.equal(removals, 1);
 });

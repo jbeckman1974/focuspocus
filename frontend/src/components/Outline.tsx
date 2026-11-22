@@ -28,7 +28,7 @@ interface OutlineProps {
   view: View;
   selection: string[];
   onSelect: (ids: string[]) => void;
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   collapsed: ReadonlySet<string>;
   onToggle: (id: string) => void;
   undo: () => void;
@@ -59,6 +59,8 @@ export function Outline(props: OutlineProps) {
     editId && Object.hasOwn(titles, editId)
       ? { id: editId, title: titles[editId]! }
       : undefined;
+  const activeDraft = useRef(draft);
+  activeDraft.current = draft;
   const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
   const title = viewTitle(view, workspace);
   const count = props.count ?? rows.length;
@@ -99,12 +101,17 @@ export function Outline(props: OutlineProps) {
     focusTree();
   }
 
-  function saveEdit() {
+  async function saveEdit() {
     if (
       draft &&
-      props.run({ type: "rename", id: draft.id, title: draft.title })
-    )
-      cancelEdit();
+      (await props.run({ type: "rename", id: draft.id, title: draft.title }))
+    ) {
+      if (
+        activeDraft.current?.id === draft.id &&
+        activeDraft.current?.title === draft.title
+      )
+        cancelEdit();
+    }
   }
 
   return (

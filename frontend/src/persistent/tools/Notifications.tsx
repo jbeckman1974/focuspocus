@@ -1,38 +1,11 @@
 import { useState } from "react";
 import { enrollSubscription } from "./enrollment.ts";
 import { WorkspaceFailure } from "./transport.ts";
-import workerUrl from "./notification-worker.ts?worker&url";
+import { notificationManager } from "../../pwa/push.ts";
 import { browserDevice } from "../preferences/device.ts";
 import { useAction, useResource } from "./hooks.ts";
 import type { WorkspaceClient } from "./transport.ts";
 
-async function activeWorker(reg: ServiceWorkerRegistration) {
-  if (reg.active) return;
-  const worker = reg.installing ?? reg.waiting;
-  if (!worker) throw new Error("The notification worker is unavailable.");
-  await new Promise<void>((resolve, reject) => {
-    const finish = (error?: Error) => {
-      window.clearTimeout(timer);
-      worker.removeEventListener("statechange", change);
-      if (error) reject(error);
-      else resolve();
-    };
-    const change = () => {
-      if (worker.state === "activated") finish();
-      else if (worker.state === "redundant")
-        finish(new Error("The notification worker could not activate."));
-    };
-    const timer = window.setTimeout(
-      () =>
-        finish(
-          new Error("The browser did not activate notifications in time."),
-        ),
-      15000,
-    );
-    worker.addEventListener("statechange", change);
-    change();
-  });
-}
 export function DeviceNotifications({
   client,
   publicKey,
@@ -61,19 +34,17 @@ export function DeviceNotifications({
       atob(publicKey.replaceAll("-", "+").replaceAll("_", "/")),
       (c) => c.charCodeAt(0),
     );
-    const reg = await navigator.serviceWorker.register(workerUrl, {
-      type: "module",
-    });
-    await activeWorker(reg);
+    const checkAccount = async () => {
+      await client.json(path);
+      client.signal.throwIfAborted();
+    };
+    const manager = await notificationManager(replace, checkAccount);
     client.signal.throwIfAborted();
     await enrollSubscription(
-      reg.pushManager,
+      manager,
       key,
       replace,
-      async () => {
-        await client.json(path);
-        client.signal.throwIfAborted();
-      },
+      checkAccount,
       async (endpoint) => {
         try {
           device.setData(

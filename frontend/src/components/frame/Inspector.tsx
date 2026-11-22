@@ -7,7 +7,7 @@ interface InspectorProps {
   tools?: ReactNode;
   workspace: Workspace;
   selection: string[];
-  run: (command: Command) => boolean;
+  run: (command: Command) => boolean | Promise<boolean>;
   onClose: () => void;
   pendingTag?: Extract<Command, { type: "setTag" }>;
   mutationsDisabled?: boolean;
@@ -75,15 +75,17 @@ export function Inspector({
     setDrafts((current) => ({ ...current, [field]: value }));
   }
 
-  function discard(field: string) {
+  function discard(field: string, savedValue?: string) {
     setDrafts((current) => {
+      if (savedValue !== undefined && current[field] !== savedValue)
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
     });
   }
 
-  function saveTitle(event: FormEvent) {
+  async function saveTitle(event: FormEvent) {
     event.preventDefault();
     const value = title.trim();
     if (!value || !first) return;
@@ -91,11 +93,12 @@ export function Inspector({
       ids.length > 1
         ? { type: "setTitle", ids, title: value }
         : { type: "rename", id: first.id, title: value };
-    if (run(command)) discard(titleKey);
+    if (await run(command)) discard(titleKey, title);
   }
 
-  function saveDate(value: string) {
-    if (run({ type: "setDue", ids, due: value || null })) discard(dateKey);
+  async function saveDate(value: string) {
+    if (await run({ type: "setDue", ids, due: value || null }))
+      discard(dateKey, drafts[dateKey] ?? "");
   }
 
   return (

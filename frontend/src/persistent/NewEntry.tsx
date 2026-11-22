@@ -8,7 +8,7 @@ export function NewEntry({
 }: {
   kind: "project" | "tag";
   initialTitle?: string;
-  onCreate: (title: string) => boolean;
+  onCreate: (title: string) => boolean | Promise<boolean>;
   onClose: () => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -32,9 +32,9 @@ export function NewEntry({
         {initialTitle === undefined ? "New" : "Rename"} {kind}
       </h2>
       <form
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
-          if (title.trim() && onCreate(title.trim())) onClose();
+          if (title.trim() && (await onCreate(title.trim()))) onClose();
         }}
       >
         <label>
