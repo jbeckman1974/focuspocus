@@ -1,6 +1,6 @@
 # Verification plan
 
-Planning baseline, November 21, 2026, America/New_York. **All acceptance cases below are planned.** This revision contains fixture definitions and expected results. Native runs, application runs, benchmarks, restore drills and pilot results still need evidence.
+The November 21, 2026 baseline defines fixtures and expected results. Each execution is recorded separately by build and environment. The [progress log](PROGRESS.md) links the completed M1 automated checks and M2 integration runs. Personal walkthroughs, target-host checks, benchmarks and pilot results have their own evidence requirements.
 
 Use the [parity register](FEATURE_PARITY.md) for requirement definitions, conformance categories and numbered observation tasks. The [architecture](ARCHITECTURE.md) defines the application contract, the [operations plan](OPERATIONS.md) defines operator procedures, and the [project plan](PROJECT_PLAN.md) assigns their milestones.
 
@@ -154,7 +154,7 @@ Proposed calibration uses a Linux stack with 4 vCPU, 8 GiB RAM and SSD, an Apple
 | Gate | Evidence needed to close it |
 | --- | --- |
 | M0 behavioral specification | All 20 FRs have acceptance coverage, a source or product contract, and staged delivery. The 42-item fixture and observation queue are defined. Every unresolved native outcome has a case and a milestone that needs it. |
-| M1 interactive prototype | Joe can perform AT-16's synthetic capture-to-undo route in the Mac browser with keyboard and pointer. Record the ARM64 development build and capture the walkthrough and preference deltas from AT-24/28. |
+| M1 interactive prototype | Run AT-16 in both input modes on native AMD64 and ARM64 CI. Record Joe’s Mac build, personal walkthrough and AT-24/28 preference observations independently when available. |
 | M2 private persistent slice | Demonstrate supported AT-01/16/17/18/23/27/29/30/31 variants on the local ARM64 stack. Two accounts remain isolated, two sessions converge and SQL data survives replacement, retries and reconnect. Record both native AMD64 CI checks and the first versioned index with its two tested platform digests. |
 | M3 authoritative task rules | The M3 portions of AT-01 through AT-13, lifecycle cases in AT-27 and affected view/undo variants match the agreed fixtures. Check the date and membership results that M4 will render in Forecast. A race to resolve one recurring occurrence creates at most one successor. Native ambiguities that affect shipped rules have recorded observations or accepted differences. |
 | M4 daily planning and review | Complete AT-14/15/25, the AT-16 bulk inspector, preferences and in-scope AT-32 views. Run one uninterrupted capture → Forecast → focus/search → review → completion/undo journey. A selected subset can be labeled an **evaluation beta** with the exact cases available and outstanding. Use independent copies of working data during evaluation. |

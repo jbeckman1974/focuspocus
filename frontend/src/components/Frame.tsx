@@ -17,7 +17,11 @@ interface FrameProps {
   onSelect: (ids: string[]) => void;
   run: (command: Command) => boolean;
   onCapture: () => void;
-  onReset: () => void;
+  onReset?: () => void;
+  workspaceLabel?: string;
+  accountControls?: ReactNode;
+  pendingTag?: Extract<Command, { type: "setTag" }>;
+  mutationsDisabled?: boolean;
   children: ReactNode;
   inspectorOpen: boolean;
   setInspectorOpen: (open: boolean) => void;
@@ -41,6 +45,10 @@ export function Frame({
   run,
   onCapture,
   onReset,
+  workspaceLabel,
+  accountControls,
+  mutationsDisabled,
+  pendingTag,
   children,
   inspectorOpen,
   setInspectorOpen,
@@ -153,9 +161,10 @@ export function Frame({
           <span className="fp-brandmark" aria-hidden="true">
             <Icon name="mark" size={24} />
           </span>
-          <span>Sample workspace</span>
+          <span>{workspaceLabel ?? "Sample workspace"}</span>
         </div>
         <div className="fp-top-actions">
+          {accountControls}
           {compact && (
             <button
               ref={browseToggle}
@@ -260,11 +269,17 @@ export function Frame({
             selection={selection}
             run={run}
             onClose={closeInspector}
+            mutationsDisabled={mutationsDisabled}
+            pendingTag={pendingTag}
           />
         </div>
       </div>
       <footer className="fp-statusbar">
-        <span>Sample data resets on reload</span>
+        <span>
+          {workspaceLabel
+            ? "Private workspace"
+            : "Sample data resets on reload"}
+        </span>
         <span role="status" aria-live="polite" aria-atomic="true">
           {message}
         </span>
@@ -276,10 +291,14 @@ export function Frame({
           editMode={editMode}
           setEditMode={setEditMode}
           onClose={() => setPreferencesOpen(false)}
-          onReset={() => {
-            setPreferencesOpen(false);
-            onReset();
-          }}
+          onReset={
+            onReset
+              ? () => {
+                  setPreferencesOpen(false);
+                  onReset();
+                }
+              : undefined
+          }
         />
       )}
     </div>

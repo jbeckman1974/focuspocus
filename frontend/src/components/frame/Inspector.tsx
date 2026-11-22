@@ -8,6 +8,8 @@ interface InspectorProps {
   selection: string[];
   run: (command: Command) => boolean;
   onClose: () => void;
+  pendingTag?: Extract<Command, { type: "setTag" }>;
+  mutationsDisabled?: boolean;
 }
 
 type Drafts = Record<string, string>;
@@ -15,13 +17,19 @@ type Drafts = Record<string, string>;
 function TagOption({
   tag,
   items,
+  pendingTag,
   onChange,
 }: {
   tag: Entry;
   items: Task[];
+  pendingTag?: InspectorProps["pendingTag"];
   onChange: (value: boolean) => void;
 }) {
-  const count = items.filter((item) => item.tags.includes(tag.id)).length;
+  const count = items.filter((item) =>
+    pendingTag?.tagId === tag.id && pendingTag.ids.includes(item.id)
+      ? pendingTag.enabled
+      : item.tags.includes(tag.id),
+  ).length;
   const mixed = count > 0 && count < items.length;
   return (
     <label className="fp-tag-option">
@@ -43,6 +51,8 @@ export function Inspector({
   selection,
   run,
   onClose,
+  pendingTag,
+  mutationsDisabled = false,
 }: InspectorProps) {
   const [drafts, setDrafts] = useState<Drafts>({});
   const selected = new Set(selection);
@@ -131,7 +141,9 @@ export function Inspector({
               type="submit"
               className="fp-secondary"
               disabled={
-                !title.trim() || (!mixedTitle && title.trim() === currentTitle)
+                mutationsDisabled ||
+                !title.trim() ||
+                (!mixedTitle && title.trim() === currentTitle)
               }
             >
               Apply title
@@ -167,6 +179,7 @@ export function Inspector({
                 type="submit"
                 className="fp-secondary"
                 disabled={
+                  mutationsDisabled ||
                   drafts[dateKey] === undefined ||
                   (!mixedDue && date === currentDate)
                 }
@@ -177,6 +190,7 @@ export function Inspector({
                 <button
                   type="button"
                   className="fp-text-button"
+                  disabled={mutationsDisabled}
                   onClick={() => saveDate("")}
                 >
                   Clear date
@@ -184,13 +198,14 @@ export function Inspector({
               )}
             </div>
           </form>
-          <fieldset className="fp-tags-field">
+          <fieldset className="fp-tags-field" disabled={mutationsDisabled}>
             <legend>Tags</legend>
             {workspace.tags.map((tag) => (
               <TagOption
                 key={tag.id}
                 tag={tag}
                 items={items}
+                pendingTag={pendingTag}
                 onChange={(enabled) =>
                   run({ type: "setTag", ids, tagId: tag.id, enabled })
                 }

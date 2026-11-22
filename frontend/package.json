@@ -13,9 +13,10 @@
     "build": "vite build",
     "test": "node --test tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "format:check": "prettier --check src tests e2e playwright.config.ts",
+    "format:check": "prettier --check src tests e2e integration playwright*.config.ts vite.config.ts",
     "check": "npm run format:check && npm run typecheck && npm test && npm run build",
-    "test:browser": "playwright test"
+    "test:browser": "playwright test -c playwright.config.ts",
+    "test:integration": "playwright test -c playwright.integration.config.ts"
   },
   "dependencies": {
     "react": "19.3.1",

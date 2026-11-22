@@ -1,0 +1,35 @@
+name: Persistent foundation
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  stack:
+    name: Native ${{ matrix.arch }} tests, startup and migrations
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    env:
+      EXPECTED_ARCH: ${{ matrix.arch }}
+      FOCUSPOCUS_IMAGE: localhost/focuspocus:ci-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Check native engine
+        run: bash ops/assert-native.sh
+      - name: Validate Mac Compose model
+        run: docker compose -f compose.dev.yaml --profile testing config --quiet
+      - name: Build application image
+        run: docker build --target application -t "$FOCUSPOCUS_IMAGE" .
+      - name: Verify the built image and persistent stack
+        run: bash ops/verify-stack.sh

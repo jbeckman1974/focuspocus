@@ -1,0 +1,93 @@
+"""Run each command under the same lock as its authorization and receipt."""
+
+import hashlib
+import json
+
+from django.db import transaction
+
+from core.access import locked_membership
+from core.models import Change, Receipt
+
+from . import edits
+from .context import validate_context
+from .state import Outline
+from .structure import organize
+from .validation import CommandError, fields, identifier
+
+
+def scoped_workspace(user, workspace_id, *, write=False):
+    if not user.is_authenticated:
+        raise CommandError("Login required.", 401)
+    workspace, role = locked_membership(user, workspace_id)
+    if workspace is None:
+        raise CommandError("Workspace unavailable.", 404)
+    if write and role not in ("owner", "editor"):
+        raise CommandError("Write permission required.", 403)
+    return workspace
+
+
+def etag(item):
+    return f'"item-{item.pk}-v{item.version}"'
+
+
+def dispatch(tree, user, name, payload):
+    if name in ("create-container", "create-tag"):
+        return edits.create_entry(tree, name, payload)
+    if name == "capture":
+        return edits.capture(tree, payload)
+    if name == "bulk-edit":
+        return edits.edit(tree, payload)
+    if name == "set-tags":
+        return edits.set_tags(tree, payload)
+    if name in ("complete", "reopen"):
+        return edits.complete(tree, name, payload)
+    if name == "undo":
+        return edits.undo(tree, user, payload)
+    if name in ("move", "reorder", "indent", "outdent", "group"):
+        return organize(tree, name, payload)
+    raise CommandError("Unknown command.", 404)
+
+
+@transaction.atomic
+def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
+    workspace = scoped_workspace(user, workspace_id, write=True)
+    fields(body, ["operationId", "context", "payload"], ["expectedRevision"])
+    op = identifier(body["operationId"])
+    context = validate_context(workspace, user, body["context"])
+    identity = dict(workspace=workspace, actor=user, operation_id=op, context_id=context)
+    serialized = json.dumps([name, str(item_id), if_match, body], sort_keys=True, separators=(",", ":"))
+    fingerprint = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+    prior = Receipt.objects.filter(**identity).first()
+    if prior is not None:
+        if prior.fingerprint != fingerprint:
+            raise CommandError("Operation key already used for a different request.", 409)
+        return prior.result
+    tree = Outline(workspace)
+    payload = body["payload"]
+    if item_id is not None:
+        item = tree.get(item_id)
+        if not if_match:
+            raise CommandError("A strong If-Match version is required.", 428)
+        if if_match != etag(item):
+            raise CommandError("This item has changed. Reload and compare the draft.", 412)
+        fields(payload, optional=["title", "due"])
+        result = edits.edit(tree, {**payload, "ids": [str(item_id)]})
+    else:
+        if "expectedRevision" not in body:
+            raise CommandError("A workspace revision is required.", 428)
+        version = body["expectedRevision"]
+        if type(version) is not int or version < 0:
+            raise CommandError("Expected a nonnegative integer revision.")
+        if workspace.revision != version:
+            raise CommandError("The workspace changed. Reload and compare the draft.", 409)
+        result = dispatch(tree, user, name, payload)
+    if result.versions:
+        workspace.revision += 1
+        workspace.save(update_fields=["revision"])
+        Change.objects.create(workspace=workspace, revision=workspace.revision, affected=list(result.versions))
+    response = {
+        "operationId": str(op), "contextId": str(context), "revision": workspace.revision,
+        "versions": result.versions, "selection": result.selection, "undoable": bool(result.inverse),
+    }
+    Receipt.objects.create(**identity, fingerprint=fingerprint, result=response, inverse=result.inverse)
+    return response

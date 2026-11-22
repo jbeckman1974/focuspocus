@@ -2,7 +2,12 @@
 
 The behavioral reference is **OmniFocus 4.10.1 for Mac, including Pro workflows**. The release notes date the Mac version to November 10, 2026. The versioned Web manual documents a smaller feature set. It can run existing repeat rules, but editing those rules, notifications and Review are outside that Web edition. All three belong in this project's scope. The reference version stays fixed until a recorded decision changes it. [S1] [S2]
 
-This register defines the target. The [verification plan](VERIFICATION_PLAN.md) defines the fixtures and evidence required to claim it. No application behavior or hands-on native observation has been verified in this planning session.
+This register defines the target. The [verification plan](VERIFICATION_PLAN.md) defines the fixtures and evidence required to claim it. The following evidence covers specific increments of the broader requirements in the register.
+
+| Increment | Delivery evidence | Remaining comparison |
+| --- | --- | --- |
+| FR-01, FR-02, FR-13, FR-14 · Sample outline | Verified on native Linux AMD64 and ARM64. Six Chromium journeys exercise capture, keyboard and pointer editing, movement, view state, focus and scrolling. [M1 checks](https://github.com/jbeckman1974/focuspocus/actions/runs/44978646450) | Joe’s Mac walkthrough and OBS-07 editing preference are pending. |
+| FR-15, FR-18, FR-20a · Accounts, retries and container startup | Implemented on the M2 branch. On its initial integrated revision both native runners built the Tumbleweed image. PostgreSQL tests passed, including scoped access and command retries. [Initial M2 checks](https://github.com/jbeckman1974/focuspocus/actions/runs/44979813092) | The [progress log](PROGRESS.md) tracks the persistent browser, release and target-host checks separately. |
 
 ## Owner outcomes
 

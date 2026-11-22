@@ -1,0 +1,89 @@
+.account-page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: #ecf0ea;
+  color: #21382d;
+  font:
+    1rem/1.5 system-ui,
+    sans-serif;
+}
+.account-card {
+  background: #fffefa;
+  border: 1px solid #abbbae;
+  border-radius: 0.8rem;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  width: min(100%, 26rem);
+}
+.account-card h1 {
+  margin-top: 0;
+}
+.account-card form,
+.account-card label,
+.fp-dialog form label {
+  display: grid;
+  gap: 0.35rem;
+}
+.account-card form {
+  gap: 1rem;
+}
+.account-card input,
+.account-card button,
+.fp-dialog form input,
+.fp-dialog form button {
+  font: inherit;
+  padding: 0.5rem 0.75rem;
+}
+.account-card button,
+.private-actions button,
+.write-notice button {
+  cursor: pointer;
+}
+.account-card a {
+  display: block;
+  margin-top: 1rem;
+  color: #195b43;
+}
+.private-actions {
+  display: flex;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.private-actions button,
+.write-notice button {
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--control-border);
+  border-radius: 0.3rem;
+  padding: 0.4rem 0.6rem;
+  font: inherit;
+}
+.write-notice {
+  padding: 0.6rem 1rem;
+  background: var(--surface-subtle);
+  border-bottom: 2px solid var(--accent);
+  max-height: 34vh;
+  overflow: auto;
+}
+.write-notice h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+.write-notice p {
+  margin: 0.25rem 0;
+  overflow-wrap: anywhere;
+}
+.fp-dialog form {
+  padding: 1rem;
+}
+@media (max-width: 850px) {
+  .fp-topbar:has(.private-actions) {
+    flex-wrap: wrap;
+  }
+  .fp-topbar:has(.private-actions) .fp-top-actions {
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+}

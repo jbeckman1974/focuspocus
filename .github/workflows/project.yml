@@ -23,6 +23,8 @@ jobs:
           git check-ignore -q -- build/vm/lima/tw/diffdisk
       - name: Test reference archive
         run: python3 -B -m unittest discover -s tools/references -v
+      - name: Test image promotion safeguards
+        run: python3 -B -m unittest discover -s tools/release -v
       - name: Test disposable VM tooling
         run: |
           sh -n tools/vm/guest.sh
