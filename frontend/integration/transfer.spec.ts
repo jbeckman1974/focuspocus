@@ -3,6 +3,7 @@ import { signIn } from "./account.ts";
 import {
   closeTools,
   createShared,
+  openNewWorkspace,
   selectWorkspace,
   toolsPanel,
 } from "./workspace-tools.ts";
@@ -56,23 +57,16 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   await panel
     .getByLabel("Workspace bundle", { exact: true })
     .setInputFiles(zip!);
-  const restoring = page.waitForResponse(
-    (r) =>
-      new URL(r.url()).pathname.endsWith("/portability/restore") &&
-      r.request().method() === "POST" &&
-      r.ok(),
-  );
   await panel
     .getByRole("button", { name: "Restore bundle", exact: true })
     .click();
   await expect(panel.getByRole("status")).toContainText(
     "Created a new workspace",
   );
-  const restored = (await (await restoring).json()).workspaceId as string;
-  expect(restored).not.toBe(source);
-  await selectWorkspace(page, restored, () =>
+  const restored = await openNewWorkspace(page, () =>
     panel.getByRole("button", { name: "Open restored workspace" }).click(),
   );
+  expect(restored).not.toBe(source);
   await expect(task(page, title)).toBeVisible();
   await selectWorkspace(page, source);
   await expect(task(page, title)).toBeVisible();

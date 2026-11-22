@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Page, type Response } from "@playwright/test";
 export async function toolsPanel(page: Page, section: string) {
   const dialog = page.getByRole("dialog", {
     name: "Workspace tools",
@@ -24,23 +24,46 @@ export async function closeTools(page: Page) {
 }
 export async function createShared(page: Page, name: string) {
   const panel = await toolsPanel(page, "Sharing");
-  const result = page.waitForResponse(
-    (r) =>
-      r.url().endsWith("/api/v1/sharing/workspaces") &&
-      r.request().method() === "POST" &&
-      r.ok(),
-  );
   await panel.getByLabel("Shared workspace name").fill(name);
-  await panel
-    .getByRole("button", { name: "Create shared workspace", exact: true })
-    .click();
-  const id = (await (await result).json()).workspaceId as string;
-  await expect(
-    page.getByRole("dialog", { name: "Workspace tools" }),
-  ).not.toBeVisible();
-  await expect(page.getByLabel("Active workspace")).toHaveValue(id);
-  await expect(page.getByRole("tree", { name: "Task outline" })).toBeVisible();
-  return id;
+  return openNewWorkspace(page, () =>
+    panel.getByRole("button", { name: "Create shared workspace" }).click(),
+  );
+}
+
+export async function openNewWorkspace(page: Page, open: () => Promise<void>) {
+  const picker = page.getByLabel("Active workspace");
+  const selected = () =>
+    picker.evaluateAll(
+      (nodes) => (nodes[0] as HTMLSelectElement | undefined)?.value ?? "",
+    );
+  const previous = await selected();
+  const opened = new Set<string>();
+  const record = (response: Response) => {
+    const path = new URL(response.url()).pathname;
+    const match = /^\/api\/v1\/workspaces\/([^/]+)\/snapshot$/.exec(path);
+    if (match && response.ok()) opened.add(match[1]);
+  };
+  page.on("response", record);
+  try {
+    await open();
+    let id = "";
+    await expect
+      .poll(
+        async () => {
+          id = await selected();
+          return id !== previous && opened.has(id);
+        },
+        { message: "A new workspace selection acknowledges its own snapshot" },
+      )
+      .toBe(true);
+    expect(id).toMatch(/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+    await expect(
+      page.getByRole("tree", { name: "Task outline" }),
+    ).toBeVisible();
+    return id;
+  } finally {
+    page.off("response", record);
+  }
 }
 
 export async function selectWorkspace(
