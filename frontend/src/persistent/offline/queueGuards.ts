@@ -49,8 +49,14 @@ export function writeScopes(
         list(p.parentId ?? "root");
         break;
       case "create-tag":
+        id(p.parentId);
+        break;
       case "bulk-edit":
+        if ("due" in p) return ["workspace"];
+        break;
       case "set-tags":
+        // Exclusive and inherited tag rules consult more than the selected tag.
+        return ["workspace"];
       case "set-note":
         break;
       case "move":

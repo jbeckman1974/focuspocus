@@ -28,6 +28,8 @@ Open `/app/` for the session-authenticated workspace. Each provisioned account s
 
 The planning views support Forecast, project Review, saved perspectives, notes and attachments. Use **Workspace tools** for transfers, sharing, reminders, calendars and nearby work. [Import, export and sharing](docs/PORTABILITY.md) · [Optional integrations](docs/INTEGRATIONS.md)
 
+To work offline, open the workspace on a trusted browser profile and choose **Enable offline editing on this device**. The offline changes list shows pending edits, uploads and conflicts that need review when you reconnect. [Trusted-device guide](docs/OFFLINE_DEVICE.md) · [Application installation](docs/INSTALLATION.md)
+
 For a private test on an existing Tumbleweed x64 Docker host, the test runner verifies where neighboring containers keep their data and creates its database directories under a `focuspocus/` subfolder there. It binds the web interface to loopback and cleans up its own run. [Private test-host procedure](ops/README.md#private-tumbleweed-x64-test-server)
 
 ## License

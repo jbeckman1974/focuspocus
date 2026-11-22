@@ -19,7 +19,9 @@ def main(checkpoint):
         raise ValueError("Restore verification requires a disposable QA stack.")
     if checkpoint.parent.parent.resolve() != (Path.cwd() / "build").resolve() or checkpoint.name != "probe-checkpoint":
         raise ValueError("Expected the generated per-run account checkpoint.")
-    compose = ("docker", "compose", "-f", "compose.yaml")
+    compose = ["docker", "compose", "-f", "compose.yaml", "-f", "ops/compose.tests.yaml", "--profile", "testing"]
+    if os.environ.get("FOCUSPOCUS_TEST_DATA_DIR"):
+        compose.extend(["-f", "ops/compose.host-test.yaml"])
     web = output(*compose, "ps", "-q", "web")
     command = json.loads(output("docker", "inspect", "--format", "{{json .Config.Cmd}}", web))
     if not isinstance(command, list) or not command:
