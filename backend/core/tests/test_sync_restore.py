@@ -7,7 +7,7 @@ from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
 
-from core.models import Item, Membership, PasswordRecovery, Workspace
+from core.models import Item, Membership, PasswordRecovery, Receipt, Workspace
 from core.sync.jobs import claim, enqueue_probe, finish, heartbeat, heartbeat_fresh
 
 
@@ -20,6 +20,9 @@ class RestoreFenceTests(TestCase):
         PasswordRecovery.objects.create(
             user=actor, digest=uuid.uuid4().hex, expires_at=timezone.now() + timedelta(minutes=1)
         )
+        legacy = Receipt.objects.create(workspace=workspace, actor=actor, context_id=uuid.uuid4(),
+                                        operation_id=uuid.uuid4(), fingerprint="fixture", result={"revision": 0},
+                                        inverse={"done": {str(item.pk): False}})
         base = f"/api/v1/workspaces/{workspace.pk}/"
         self.client.force_login(actor)
         snapshot = self.client.get(base + "snapshot").json()
@@ -31,6 +34,8 @@ class RestoreFenceTests(TestCase):
         self.assertEqual(self.client.get(base + "snapshot").status_code, 401)
         self.assertFalse(PasswordRecovery.objects.exists())
         self.assertFalse(heartbeat_fresh())
+        legacy.refresh_from_db()
+        self.assertEqual(legacy.inverse, {})
         self.assertFalse(finish(leased))
         pending.refresh_from_db()
         self.assertEqual((pending.status, pending.last_error), ("failed", "restore_reconciliation"))

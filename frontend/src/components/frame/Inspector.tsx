@@ -1,9 +1,10 @@
 import { useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, ReactNode } from "react";
 import type { Command, Entry, Task, Workspace } from "../../outline/index.ts";
 import { Icon } from "./Icon.tsx";
 
 interface InspectorProps {
+  tools?: ReactNode;
   workspace: Workspace;
   selection: string[];
   run: (command: Command) => boolean;
@@ -47,6 +48,7 @@ function TagOption({
 }
 
 export function Inspector({
+  tools,
   workspace,
   selection,
   run,
@@ -123,6 +125,7 @@ export function Inspector({
                 : "Action"
               : `${items.length} items selected`}
           </p>
+          {tools}
           <form className="fp-edit-field" onSubmit={saveTitle}>
             <label htmlFor="inspector-title">Title</label>
             <input

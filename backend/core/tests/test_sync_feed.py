@@ -40,14 +40,17 @@ class FeedTests(TestCase):
         self.assertIn("no-store", response["Cache-Control"])
         data = response.json()
         self.assertEqual(data["workspaceId"], str(self.space.pk))
-        self.assertEqual(data["projects"], [{"id": str(project.pk), "title": "Sample", "version": 1}])
+        self.assertEqual(len(data["projects"]), 1)
+        project_row = data["projects"][0]
+        self.assertEqual([project_row[key] for key in ("id", "title", "version")], [str(project.pk), "Sample", 1])
         self.assertEqual(data["tags"][0]["id"], str(tag.pk))
         self.assertEqual([task["id"] for task in data["tasks"]], [str(x.pk) for x in (inbox, child, group)])
         self.assertEqual(data["tasks"][0]["parentId"], "inbox")
-        self.assertEqual(data["tasks"][1], {
+        required = {
             "id": str(child.pk), "title": "Cable", "version": 3, "kind": "action",
             "parentId": str(group.pk), "tags": [str(tag.pk)], "due": "2026-11-26", "done": True,
-        })
+        }
+        self.assertEqual({key: data["tasks"][1][key] for key in required}, required)
         self.assertEqual(self.client.get(self.base + "changes", {"after": data["cursor"]}).json()["changes"], [])
 
     def test_cursor_scope_unavailable_window_and_revoked_membership(self):

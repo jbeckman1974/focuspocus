@@ -20,6 +20,8 @@ interface RowProps {
   done: boolean;
   tags: string[];
   draft?: EditDraft;
+  mutationsDisabled?: boolean;
+  context?: boolean;
   dropBefore: boolean;
   select: (event: MouseEvent) => void;
   edit: () => void;
@@ -60,10 +62,11 @@ export function TaskRow(props: RowProps) {
       data-task-id={task.id}
       data-active={props.active}
       data-done={props.done}
+      data-context={props.context || undefined}
       data-drop-before={props.dropBefore}
       className="outline-row"
       style={{ "--depth": props.depth } as CSSProperties}
-      draggable={!editing}
+      draggable={!editing && !props.mutationsDisabled}
       onDragStart={props.dragStart}
       onDragOver={props.dragOver}
       onDrop={props.drop}
@@ -82,6 +85,8 @@ export function TaskRow(props: RowProps) {
       }}
     >
       <span id={`${props.id}-details`} className="outline-visually-hidden">
+        {props.context && "Ancestor. "}
+        {task.effective?.reason} {task.effective?.flagged && "Flagged."}{" "}
         {props.done ? "Completed." : "Active."} {props.tags.join(", ")}{" "}
         {task.due && `Due ${task.due}.`}
       </span>
@@ -106,7 +111,7 @@ export function TaskRow(props: RowProps) {
         type="button"
         className="outline-check"
         aria-label={`${props.done ? "Reopen" : "Complete"} ${task.title}`}
-        disabled={props.done && !task.done}
+        disabled={props.mutationsDisabled || (props.done && !task.done)}
         title={props.done && !task.done ? "Completed by its group" : undefined}
         tabIndex={-1}
         onClick={(event) => {
@@ -140,7 +145,7 @@ export function TaskRow(props: RowProps) {
           />
           <button
             type="submit"
-            disabled={!draft.title.trim()}
+            disabled={props.mutationsDisabled || !draft.title.trim()}
             aria-label="Save title"
           >
             Save
@@ -161,6 +166,15 @@ export function TaskRow(props: RowProps) {
             {task.title}
           </span>
           <span className="outline-fields">
+            {task.effective?.flagged && <span aria-label="Flagged">⚑</span>}
+            {task.effective?.blocked && (
+              <span
+                className="outline-blocked"
+                title={task.effective.reason ?? undefined}
+              >
+                Blocked
+              </span>
+            )}
             {props.tags.length > 0 && (
               <span className="outline-tags">{props.tags.join(" · ")}</span>
             )}

@@ -1,3 +1,4 @@
+import { canReorder } from "../../outline/views.ts";
 import { effectiveDone } from "../../outline/index.ts";
 import type {
   Command,
@@ -10,6 +11,7 @@ import type {
 export type OutlinePanel = "commands" | "group" | "move";
 
 interface KeyActions {
+  mutationsDisabled?: boolean;
   view: View;
   workspace: Workspace;
   selection: string[];
@@ -77,6 +79,11 @@ export function handleTreeKey(
     actions.panel("commands");
     return;
   }
+  if (
+    actions.mutationsDisabled &&
+    ["u", "x", "g", "m", "i", "o"].includes(key.toLowerCase())
+  )
+    return;
   if (key.toLowerCase() === "u") {
     event.preventDefault();
     if (event.shiftKey) actions.redo();
@@ -96,13 +103,13 @@ export function handleTreeKey(
       nav.clearSelection();
       break;
     case "arrowleft":
-      if (actions.view.kind === "tag") return;
+      if (!hasChildren && !ids.includes(task.parentId)) return;
       if (hasChildren && !actions.collapsed.has(task.id))
         actions.toggle(task.id);
       else if (ids.includes(task.parentId)) nav.select(task.parentId);
       break;
     case "arrowright":
-      if (actions.view.kind === "tag" || !hasChildren) return;
+      if (!hasChildren) return;
       if (actions.collapsed.has(task.id)) actions.toggle(task.id);
       else {
         const child = rows.find((entry) => entry.task.parentId === task.id);
@@ -124,7 +131,7 @@ export function handleTreeKey(
       break;
     case "i":
     case "o":
-      if (!selection.length || actions.view.kind === "tag") return;
+      if (!selection.length || !canReorder(actions.view)) return;
       actions.run({
         type: key.toLowerCase() === "i" ? "indent" : "outdent",
         ids: selection,

@@ -63,6 +63,7 @@ class ProbeJourney(unittest.TestCase):
         self.commands = []
         self.last = None
         self.leak = False
+        self.shelves = {}
 
     @contextmanager
     def session(self, origin, identity):
@@ -75,8 +76,10 @@ class ProbeJourney(unittest.TestCase):
             if workspace_id != workspace and not self.leak:
                 raise ApiFailure(404)
             tasks = self.data[workspace_id]
+            if data is None and "/shelf?state=" in path:
+                return {"items": self.shelves.get((workspace_id, path.split("=")[-1]), [])}
             if data is None:
-                return {"workspaceId": workspace_id, "projects": [], "tags": [], "tasks": list(tasks),
+                return {"workspaceId": workspace_id, "projects": [], "folders": [], "tags": [], "tasks": list(tasks),
                         "revision": len(tasks), "context": str(uuid4())}
             self.commands.append((session, data))
             if self.last and self.last["operationId"] == data["operationId"]:
@@ -113,6 +116,14 @@ class ProbeJourney(unittest.TestCase):
         with self.assertRaises(ProbeError):
             self.verify()
         self.assertFalse(self.commands)
+
+    def test_archived_or_trashed_items_in_either_workspace_prevent_writes(self):
+        for account in (self.owner, self.neighbor):
+            for shelf in ("archive", "trash"):
+                self.shelves = {(account["workspace"], shelf): [{"id": str(uuid4())}]}
+                with self.assertRaises(ProbeError):
+                    self.verify()
+                self.assertEqual(self.commands, [])
 
     def test_refuses_wrong_replacement_order_before_mutation(self):
         ids = [str(uuid4()), str(uuid4())]

@@ -6,6 +6,7 @@ import type { OutlinePanel } from "./keyboard.ts";
 
 interface Props {
   panel: OutlinePanel;
+  mutationsDisabled?: boolean;
   manualOrder: boolean;
   workspace: Workspace;
   selection: string[];
@@ -149,7 +150,11 @@ export function ActionDialog(props: Props) {
               <li key={command.name}>
                 <button
                   type="button"
-                  disabled={!command.enabled}
+                  disabled={
+                    !command.enabled ||
+                    (props.mutationsDisabled &&
+                      command.name !== "Inspect selection")
+                  }
                   onClick={command.invoke}
                   aria-label={command.name}
                 >
@@ -186,7 +191,9 @@ export function ActionDialog(props: Props) {
           <button
             className="outline-primary"
             type="submit"
-            disabled={!name.trim() || !selected.length}
+            disabled={
+              props.mutationsDisabled || !name.trim() || !selected.length
+            }
           >
             Group tasks
           </button>

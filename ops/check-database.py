@@ -8,6 +8,7 @@ from django.db import connection
 
 django.setup()
 from core.models import Item, ItemTag, Tag, Workspace
+from core.repeats.models import Occurrence, RepeatSeries
 
 
 def check_grants():
@@ -30,8 +31,11 @@ def check_grants():
 def content_digest():
     if Workspace.objects.count() < 2 or not Item.objects.exists():
         raise RuntimeError("Browser fixtures did not leave two private workspaces and a saved item")
+    if not Occurrence.objects.filter(predecessor__outcome="completed").exists():
+        raise RuntimeError("Browser fixtures did not persist a recurring successor and its predecessor")
     digest = hashlib.sha256()
-    for model in (Workspace, Item, Tag, ItemTag):
+    for model in (Workspace, Item, Tag, ItemTag, RepeatSeries, Occurrence):
+        digest.update(model._meta.label.encode("utf-8") + b"\n")
         for row in model.objects.order_by("pk").values().iterator():
             if model is Workspace:
                 row.pop("generation")  # A restored workspace deliberately receives a new generation.

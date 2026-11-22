@@ -3,6 +3,8 @@ export const INBOX = "inbox";
 export interface Entry {
   id: string;
   title: string;
+  parentId?: string | null;
+  position?: number;
 }
 
 export interface Task extends Entry {
@@ -11,18 +13,26 @@ export interface Task extends Entry {
   tags: string[];
   due: string | null;
   done: boolean;
+  effective?: {
+    status: "active" | "held" | "dropped" | "completed";
+    flagged: boolean;
+    blocked: boolean;
+    reason: string | null;
+  };
 }
 
 export interface Workspace {
   // Filtering this array by parentId gives the manual order of that parent's children.
   tasks: Task[];
   projects: Entry[];
+  folders?: Entry[];
   tags: Entry[];
 }
 
 export type View =
   | { kind: "inbox" }
-  | { kind: "all" }
+  | { kind: "all" | "projects" | "tags" | "flagged" | "completed" | "changed" }
+  | { kind: "folder"; id: string }
   | { kind: "project"; id: string }
   | { kind: "tag"; id: string };
 
@@ -46,4 +56,5 @@ export interface OutlineRow {
   task: Task;
   depth: number;
   hasChildren: boolean;
+  context?: boolean;
 }

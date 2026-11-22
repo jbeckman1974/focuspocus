@@ -1,8 +1,14 @@
 from django.db.models import Max
 
-from core.models import Item, ItemTag, Receipt, Tag
+from core.history.recording import create_many
+from core.models import Item, ItemTag, Receipt
 
+from .completion import apply_status, restore_statuses
+from core.scheduling.clock import workspace_clock
+
+from .schedules import legacy_edit
 from .state import Changes, save_changed
+from . import tagging
 from .validation import CommandError, due_date, fields, identifier, title
 
 
@@ -14,14 +20,18 @@ def next_position(query):
 
 
 def create_entry(tree, name, data):
-    fields(data, ["id", "title"])
-    values = {"workspace": tree.workspace, "id": identifier(data["id"]), "title": title(data["title"])}
     if name == "create-tag":
-        entry = Tag.objects.create(**values)
-    else:
-        entry = Item.objects.create(
-            **values, kind="project", position=next_position(tree.items.filter(kind="project"))
-        )
+        return tagging.create_tag(tree, data)
+    fields(data, ["id", "title"], ["kind", "parentId"])
+    kind = data.get("kind", "project")
+    if kind not in ("folder", "project"):
+        raise CommandError("Choose a folder or project.")
+    parent = tree.parent(data.get("parentId", "root"), library=True)
+    parent_id = parent.pk if parent else None
+    entry = Item.objects.create(
+        workspace=tree.workspace, id=identifier(data["id"]), title=title(data["title"]),
+        kind=kind, parent_id=parent_id, position=next_position(tree.siblings(parent_id, library=True)),
+    )
     result = Changes([str(entry.pk)])
     result.touch(entry)
     return result
@@ -34,18 +44,29 @@ def capture(tree, data):
     if not isinstance(rows, list) or not 1 <= len(rows) <= 200:
         raise CommandError("Capture between 1 and 200 actions.")
     position = next_position(tree.siblings(parent.pk if parent else None))
-    pending = []
+    pending, links = [], []
+    tag_tree = tagging.TagTree(tree)
+    inherited = [tag_tree.tags[pk] for pk in parent.tags.values_list("pk", flat=True)] if parent else []
     for row in rows:
-        fields(row, ["id", "title"])
+        fields(row, ["id", "title"], ["tagIds", "filingProjectId"])
+        filing = row.get("filingProjectId")
+        if filing is not None:
+            project = tree.get(identifier(filing))
+            if parent or project.kind != "project":
+                raise CommandError("An Inbox filing destination must be a project.")
+            filing = project.pk
         pending.append(Item(
             workspace=tree.workspace, parent=parent, id=identifier(row["id"]),
-            title=title(row["title"]), kind="action", position=position,
+            title=title(row["title"]), kind="action", position=position, filing_project_id=filing,
         ))
+        links.extend(ItemTag(workspace=tree.workspace, item=pending[-1], tag=tag)
+                     for tag in tagging.insertion_tags(tag_tree, row, inherited))
         position += GAP
     result = Changes([str(item.pk) for item in pending])
     if len(set(result.selection)) != len(pending):
         raise CommandError("Duplicate item identifiers.")
-    Item.objects.bulk_create(pending)
+    create_many(Item, pending)
+    create_many(ItemTag, links)
     for item in pending:
         result.touch(item)
     return result
@@ -56,61 +77,27 @@ def edit(tree, data):
     changes = {}
     if "title" in data:
         changes["title"] = title(data["title"])
-    if "due" in data:
-        changes["due"] = due_date(data["due"])
-    if not changes:
+    if "due" not in data and not changes:
         raise CommandError("Choose a field to edit.")
+    due = due_date(data["due"]) if "due" in data else None
+    clock = workspace_clock(tree.workspace) if "due" in data else None
     items = tree.selected(data["ids"])
     result = Changes([str(item.pk) for item in items])
     for item in items:
-        save_changed(item, result, **changes)
+        schedule = legacy_edit(item, due, clock) if clock is not None else {}
+        save_changed(item, result, **changes, **schedule)
     return result
 
 
 def set_tags(tree, data):
-    fields(data, ["ids", "tagId", "enabled"])
-    if type(data["enabled"]) is not bool:
-        raise CommandError("Choose whether to apply or remove the tag.")
-    tag = tree.tags.filter(pk=identifier(data["tagId"])).first()
-    if tag is None:
-        raise CommandError("Tag unavailable.", 404)
-    items = tree.selected(data["ids"])
-    result = Changes([str(item.pk) for item in items])
-    for item in items:
-        links = ItemTag.objects.filter(workspace=tree.workspace, item=item, tag=tag)
-        if data["enabled"]:
-            _, changed = links.get_or_create(workspace=tree.workspace, item=item, tag=tag)
-        else:
-            changed, _ = links.delete()
-        if changed:
-            item.version += 1
-            item.save(update_fields=["version"])
-            result.touch(item)
-    return result
+    return tagging.set_tags(tree, data)
 
 
 def complete(tree, name, data):
     fields(data, ["ids"])
     items = tree.selected(data["ids"])
-    ids = {item.pk for item in items}
     result = Changes([str(item.pk) for item in items])
-    saved = {}
-    target = name == "complete"
-    by_id = tree.items.only("id", "parent_id", "done").in_bulk()
-    for item in items:
-        parent = by_id.get(item.parent_id)
-        while parent is not None:
-            if target and (parent.done or parent.pk in ids):
-                break
-            if not target and parent.done and parent.pk not in ids:
-                raise CommandError("Reopen the completed parent first.")
-            parent = by_id.get(parent.parent_id)
-        else:
-            if item.done != target:
-                saved[str(item.pk)] = item.done
-                save_changed(item, result, done=target)
-    if saved:
-        result.inverse = {"done": saved}
+    apply_status(tree, result, items, "completed" if name == "complete" else "active")
     return result
 
 
@@ -120,13 +107,13 @@ def undo(tree, user, data):
         workspace=tree.workspace, actor=user, context_id=identifier(data["contextId"]),
         operation_id=identifier(data["operationId"]),
     ).first()
-    if receipt is None or not receipt.inverse.get("done"):
+    if receipt is None or not (receipt.inverse.get("done") or receipt.inverse.get("statuses")):
         raise CommandError("Reversible completion unavailable.", 404)
     if tree.workspace.revision != receipt.result["revision"]:
         raise CommandError("The workspace changed after this completion.", 409)
-    prior = receipt.inverse["done"]
-    items = tree.selected(list(prior))
     result = Changes(receipt.result["selection"])
-    for item in items:
-        save_changed(item, result, done=prior[str(item.pk)])
+    if receipt.inverse.get("recurrences"):
+        from core.repeats.resolution import undo_resolutions
+        undo_resolutions(tree, result, receipt.inverse)
+    restore_statuses(tree, result, receipt.inverse)
     return result

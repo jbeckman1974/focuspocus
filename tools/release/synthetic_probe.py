@@ -38,7 +38,7 @@ def marker(item_id):
 
 
 def ordered_ids(snapshot, workspace):
-    if snapshot["workspaceId"] != workspace or snapshot["projects"] or snapshot["tags"]:
+    if snapshot["workspaceId"] != workspace or snapshot["projects"] or snapshot.get("folders") or snapshot["tags"]:
         raise ProbeError("The workspace contains other resources or its identity has changed.")
     result = []
     for task in snapshot["tasks"]:
@@ -46,6 +46,15 @@ def ordered_ids(snapshot, workspace):
             raise ProbeError("Only an empty or dedicated synthetic workspace may be used.")
         result.append(task["id"])
     return result
+
+
+def check_collections(session, snapshot, workspace):
+    # Folder-capable versions also keep archived and deleted records outside their snapshot.
+    if "folders" in snapshot:
+        for state in ("archive", "trash"):
+            collection = session.request(f"workspaces/{workspace}/shelf?state={state}")
+            if collection.get("items") != []:
+                raise ProbeError("The verification workspace contains archived or deleted records.")
 
 
 def check_private(session, other_workspace):
@@ -66,11 +75,14 @@ def verify_capture(origin, account, neighbor, previous=None):
     with signed_in(origin, account) as writer, signed_in(origin, account) as reader:
         with signed_in(origin, neighbor) as outsider:
             other_workspace = neighbor["workspace"]
-            ordered_ids(outsider.request(f"workspaces/{other_workspace}/snapshot"), other_workspace)
+            other = outsider.request(f"workspaces/{other_workspace}/snapshot")
+            ordered_ids(other, other_workspace)
+            check_collections(outsider, other, other_workspace)
             check_private(outsider, workspace)
             check_private(reader, other_workspace)
         initial = writer.request(base + "snapshot")
         original = ordered_ids(initial, workspace)
+        check_collections(writer, initial, workspace)
         if previous is not None and original != previous:
             raise ProbeError("The retained task identities or order changed after replacement.")
         item_id = str(uuid4())

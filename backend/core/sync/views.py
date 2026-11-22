@@ -4,6 +4,8 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 from core.access import locked_membership
+from core.commands.validation import CommandError
+from core.queries import views as queries
 
 from . import feed
 from .health import schema_ready
@@ -18,8 +20,16 @@ def workspace_read(request, workspace_id, mode):
         workspace, _ = locked_membership(request.user, workspace_id)
         if workspace is None:
             return JsonResponse({"error": "not_found"}, status=404)
-        if mode == "snapshot":
-            payload = feed.snapshot(workspace, request.user)
+        if mode in ("snapshot", "outline", "date-preview"):
+            try:
+                if mode == "snapshot":
+                    payload = feed.snapshot(workspace, request.user, queries.view_zone(request.GET))
+                elif mode == "outline":
+                    payload = queries.outline(workspace, request.GET)
+                else:
+                    payload = queries.date_preview(workspace, request.GET)
+            except CommandError as error:
+                return JsonResponse({"error": str(error)}, status=error.status)
         else:
             try:
                 limit = int(request.GET.get("limit", feed.PAGE_SIZE))

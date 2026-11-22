@@ -1,3 +1,5 @@
+import type { RepeatPreviewRequest } from "./repeat.ts";
+import { CommandHistory } from "./history.ts";
 import { HttpError } from "./api.ts";
 import type { Receipt, Snapshot, WorkspaceApi } from "./api.ts";
 import { prepare } from "./writes.ts";
@@ -18,6 +20,7 @@ export interface ChannelState {
   phase: Phase;
   pending: Write | null;
   undo: Receipt | null;
+  redo: Receipt | null;
   message: string;
   conflictFresh: boolean;
   lastChange: { receipt: Receipt; intent: Intent } | null;
@@ -25,10 +28,13 @@ export interface ChannelState {
 
 export class WorkspaceChannel {
   private api: WorkspaceApi;
+  private history = new CommandHistory();
   private lostAccess: () => void;
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
+  private requestedSnapshot = 0;
+  private finishedSnapshot = 0;
   private epoch = 0;
   private accessCheck: { write: Write; status: number; reason: string } | null =
     null;
@@ -36,7 +42,7 @@ export class WorkspaceChannel {
     snapshot: null,
     phase: "loading",
     pending: null,
-    undo: null,
+    ...this.history.clear(),
     message: "",
     conflictFresh: false,
     lastChange: null,
@@ -71,7 +77,7 @@ export class WorkspaceChannel {
       this.update({
         snapshot: null,
         pending: null,
-        undo: null,
+        ...this.history.clear(),
         lastChange: null,
         phase: "loading",
       });
@@ -83,9 +89,35 @@ export class WorkspaceChannel {
     return false;
   }
 
+  previewRepeat: RepeatPreviewRequest = async (
+    id,
+    rule,
+    completedAt,
+    signal,
+  ) => {
+    try {
+      return await this.api.previewRepeat(id, rule, completedAt, signal);
+    } catch (error) {
+      if (error instanceof HttpError && [401, 403, 404].includes(error.status))
+        await this.refresh();
+      throw error;
+    }
+  };
+
+  setViewZone = async (zone: string) => {
+    this.api.setViewZone(zone);
+    await this.refresh();
+  };
+
+  refresh = async () => {
+    this.requestedSnapshot++;
+    await this.tick();
+  };
+
   tick = async () => {
     if (!this.active || this.polling || this.state.phase === "sending") return;
     const epoch = this.epoch;
+    const request = this.requestedSnapshot;
     this.polling = true;
     try {
       const { snapshot, phase } = this.state;
@@ -107,6 +139,7 @@ export class WorkspaceChannel {
         return;
       }
       let refresh =
+        request !== this.finishedSnapshot ||
         !snapshot ||
         phase === "acknowledged" ||
         (phase === "conflict" && !this.state.conflictFresh);
@@ -114,7 +147,10 @@ export class WorkspaceChannel {
         try {
           const page = await this.api.changes(snapshot.cursor);
           refresh =
-            page.changes.length > 0 || page.revision !== snapshot.revision;
+            page.changes.length > 0 ||
+            page.revision !== snapshot.revision ||
+            (page.resolvedCleanup !== undefined &&
+              page.resolvedCleanup !== snapshot.resolvedCleanup);
         } catch (error) {
           if (!(error instanceof HttpError && error.status === 410))
             throw error;
@@ -138,13 +174,15 @@ export class WorkspaceChannel {
         next.revision < (this.state.lastChange?.receipt.revision ?? 0)
       )
         return;
+      if (request !== this.requestedSnapshot) return;
+      this.finishedSnapshot = request;
       this.update({ snapshot: next, conflictFresh: phase === "conflict" });
       if (phase === "acknowledged") {
         const restored = next.generation !== snapshot?.generation;
         this.update({
           phase: "ready",
           pending: null,
-          ...(restored ? { undo: null, lastChange: null } : {}),
+          ...(restored ? { ...this.history.clear(), lastChange: null } : {}),
           message: restored
             ? "Workspace restored. Check your recent changes."
             : "Saved changes",
@@ -153,7 +191,7 @@ export class WorkspaceChannel {
         this.update({ phase: "ready", message: "" });
       } else if (snapshot?.generation !== next.generation) {
         this.update({
-          undo: null,
+          ...this.history.clear(),
           message:
             "Workspace restored. Check the current values before making changes.",
         });
@@ -216,14 +254,9 @@ export class WorkspaceChannel {
     try {
       const receipt = await this.api.submit(write.name, write.envelope);
       if (!this.active || epoch !== this.epoch) return;
-      const undo = receipt.undoable
-        ? receipt
-        : write.name === "undo"
-          ? null
-          : this.state.undo;
       this.update({
         phase: "acknowledged",
-        undo,
+        ...this.history.acknowledge(write.name, receipt),
         lastChange: { receipt, intent: write.intent },
         message: "Saved changes",
       });
@@ -239,7 +272,7 @@ export class WorkspaceChannel {
         this.update({
           snapshot: null,
           pending: null,
-          undo: null,
+          ...this.history.clear(),
           lastChange: null,
           phase: "verifying",
           message: "Checking workspace access…",

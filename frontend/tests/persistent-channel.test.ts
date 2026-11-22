@@ -21,6 +21,8 @@ function fixture(custom: Partial<WorkspaceApi> = {}) {
   let snapshot = first;
   let submissions: object[] = [];
   const api: WorkspaceApi = {
+    previewRepeat: async () => ({ revision: 2, next: null, remaining: 0 }),
+    setViewZone: () => {},
     verifySession: async () => true,
     snapshot: async () => snapshot,
     changes: async () => ({ revision: snapshot.revision, changes: [] }),
@@ -299,4 +301,59 @@ test("transport renews the CSRF header only for the verified actor and workspace
   await assert.rejects(api.verifySession(), { status: 403 });
   session = { ...session, user: { id: 12, username: "actor" }, workspaces: [] };
   await assert.rejects(api.verifySession(), { status: 403 });
+});
+
+test("a same-revision personal setting received from the feed refreshes the snapshot", async () => {
+  let reads = 0;
+  const fake = fixture({
+    snapshot: async () => ({
+      ...first,
+      resolvedCleanup: ++reads === 1 ? "immediate" : "on-cleanup",
+    }),
+    changes: async () => ({
+      revision: first.revision,
+      changes: [],
+      resolvedCleanup: "on-cleanup",
+    }),
+  });
+  await fake.channel.tick();
+  assert.equal(
+    fake.channel.getSnapshot().snapshot?.resolvedCleanup,
+    "immediate",
+  );
+  await fake.channel.tick();
+  assert.equal(
+    fake.channel.getSnapshot().snapshot?.resolvedCleanup,
+    "on-cleanup",
+  );
+});
+
+test("repeat previews send one versionless read with the current CSRF token", async (t) => {
+  const csrf = crypto.randomUUID();
+  const api = workspaceApi("office", 1, csrf, new AbortController().signal);
+  const rule = {
+    schedule: "regular" as const,
+    unit: "week" as const,
+    interval: 1,
+    weekdays: [1, 3],
+  };
+  const fetcher = t.mock.method(
+    globalThis,
+    "fetch",
+    async (url: RequestInfo | URL, init?: RequestInit) => {
+      assert.equal(url, "/api/v1/workspaces/office/repeat-preview");
+      assert.equal(init?.credentials, "same-origin");
+      assert.equal(new Headers(init?.headers).get("X-CSRFToken"), csrf);
+      assert.deepEqual(JSON.parse(String(init?.body)), { id: "item", rule });
+      return Response.json({ revision: 2, next: null, remaining: 0 });
+    },
+  );
+  const value = await api.previewRepeat(
+    "item",
+    rule,
+    undefined,
+    new AbortController().signal,
+  );
+  assert.equal(value.remaining, 0);
+  assert.equal(fetcher.mock.callCount(), 1);
 });

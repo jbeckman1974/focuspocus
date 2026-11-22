@@ -3,8 +3,8 @@ import { Frame } from "../components/Frame.tsx";
 import { Outline } from "../components/Outline.tsx";
 import {
   homeView,
+  revealSelection,
   inbox,
-  reconcileSelection,
   viewExists,
   viewKey,
   containsSelection,
@@ -12,9 +12,18 @@ import {
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
 import { workspaceApi } from "./api.ts";
-import type { Snapshot } from "./api.ts";
 import { WorkspaceChannel } from "./channel.ts";
-import { NewEntry } from "./NewEntry.tsx";
+import { WorkspaceActions } from "./WorkspaceActions.tsx";
+import { hasEligibleFiling } from "./lifecycle.ts";
+import { AvailabilityFilter } from "./RuleControls.tsx";
+import { projectedRows, visibleSelection } from "./rules.ts";
+import type { Availability, RuleFields } from "./rules.ts";
+import type { Entry } from "../outline/index.ts";
+import { useClockRefresh } from "./useClockRefresh.ts";
+import { DirectoryLinks } from "./DirectoryLinks.tsx";
+import { ItemTools } from "./ItemTools.tsx";
+import { useResolvedRows } from "./useResolvedRows.ts";
+import { useRuleOutline } from "./useRuleOutline.ts";
 import { WriteNotice } from "./WriteNotice.tsx";
 
 interface Props {
@@ -57,6 +66,7 @@ export function PrivateWorkspace(props: Props) {
 
 function ConnectedOutline({
   username,
+  actorId,
   onSignOut,
   channel,
 }: Props & { channel: WorkspaceChannel }) {
@@ -71,20 +81,49 @@ function ConnectedOutline({
     {},
   );
   const collapsed = collapsedRows[key] ?? new Set<string>();
-  const selection = snapshot
-    ? reconcileSelection(snapshot, view, collapsed, selected[key] ?? [])
-        .selection
-    : [];
+  const [filters, setFilters] = useState<Record<string, Availability>>({});
+  const availability = filters[key] ?? "everything";
+  const [cleanupEpoch, setCleanupEpoch] = useState(0);
+  const cleanUp = () => setCleanupEpoch((value) => value + 1);
+  const [travel, setTravel] = useState(false);
+  const deviceZone = useClockRefresh(
+    snapshot?.nextDateBoundary,
+    channel.refresh,
+  );
+  const viewZone = travel ? deviceZone : "";
+  const previousZone = useRef("");
+  useEffect(() => {
+    if (previousZone.current !== viewZone) {
+      previousZone.current = viewZone;
+      void channel.setViewZone(viewZone);
+    }
+  }, [channel, viewZone]);
+  const projection = useRuleOutline(
+    snapshot,
+    view,
+    availability,
+    viewZone,
+    channel.refresh,
+  );
+  const matches =
+    snapshot && projection.result
+      ? projectedRows(snapshot, projection.result, collapsed)
+      : [];
+  const rows = useResolvedRows({
+    snapshot,
+    result: projection.result,
+    rows: matches,
+    scope: JSON.stringify([actorId, key, availability, viewZone]),
+    collapsed,
+    cleanupEpoch,
+  });
+
+  const selection = visibleSelection(rows, selected[key] ?? []);
   const [showInspector, setShowInspector] = useState(
     () => window.innerWidth > 850,
   );
   const [mode, setMode] = useState<"inline" | "inspector">("inline");
   const [capture, setCapture] = useState(0);
-  const [entry, setEntry] = useState<{
-    kind: "project" | "tag";
-    target?: { id: string; title: string };
-    base: Snapshot;
-  }>();
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
   useEffect(() => {
@@ -103,17 +142,35 @@ function ConnectedOutline({
       setView({ kind: "project", id: ids[0] });
       return;
     }
+    if (change.intent.type === "folder") {
+      setView({ kind: "folder", id: ids[0] });
+      return;
+    }
     if (change.intent.type === "tag") {
       setView({ kind: "tag", id: ids[0] });
       return;
     }
+    if (
+      change.intent.type === "set-properties" ||
+      (change.intent.type === "lifecycle" &&
+        change.intent.change.name === "file-inbox")
+    )
+      return;
     const first = ids.find((id) =>
       snapshot.tasks.some((task) => task.id === id),
     );
     if (!first) return;
-    const destination = containsSelection(snapshot, view, ids)
-      ? view
-      : homeView(snapshot, first);
+    const relocating = [
+      "move",
+      "capture",
+      "group",
+      "indent",
+      "outdent",
+    ].includes(change.intent.type);
+    const destination =
+      relocating && !containsSelection(snapshot, view, ids)
+        ? homeView(snapshot, first)
+        : view;
     setView(destination);
     setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
   }, [state.lastChange, snapshot, view]);
@@ -146,14 +203,95 @@ function ConnectedOutline({
     ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase)
       ? tagIntent
       : undefined;
+  function showSource(id: string) {
+    if (!snapshot) return;
+    if (snapshot.tags.some((item) => item.id === id))
+      return setView({ kind: "tag", id });
+    if (snapshot.projects.some((item) => item.id === id))
+      return setView({ kind: "project", id });
+    if (snapshot.folders?.some((item) => item.id === id))
+      return setView({ kind: "folder", id });
+    if (!snapshot.tasks.some((item) => item.id === id)) return;
+    const destination = homeView(snapshot, id);
+    const destinationKey = viewKey(destination);
+    const memory = revealSelection(
+      snapshot,
+      destination,
+      collapsedRows[destinationKey] ?? new Set(),
+      [id],
+    );
+    setFilters((current) => ({ ...current, [destinationKey]: "everything" }));
+    setCollapsed((current) => ({
+      ...current,
+      [destinationKey]: new Set(memory.collapsed),
+    }));
+    setSelected((current) => ({ ...current, [destinationKey]: [id] }));
+    setView(destination);
+  }
+
+  function controls(
+    entry: Entry & RuleFields,
+    kind: "project" | "group" | "action" | "folder",
+  ) {
+    const pending =
+      tagIntent?.type === "set-properties" &&
+      tagIntent.ids.includes(entry.id) &&
+      ["sending", "acknowledged", "uncertain", "retryable"].includes(
+        state.phase,
+      )
+        ? tagIntent.properties
+        : undefined;
+    return (
+      <ItemTools
+        key={entry.id}
+        showSource={showSource}
+        entry={entry}
+        kind={kind}
+        snapshot={snapshot!}
+        channel={channel}
+        pending={pending}
+        disabled={state.phase !== "ready"}
+      />
+    );
+  }
+  const project =
+    view.kind === "project"
+      ? snapshot.projects.find((p) => p.id === view.id)
+      : undefined;
+  const folder =
+    view.kind === "folder"
+      ? snapshot.folders?.find((f) => f.id === view.id)
+      : undefined;
+  const task =
+    selection.length === 1
+      ? snapshot.tasks.find((t) => t.id === selection[0])
+      : undefined;
   return (
     <div {...drafts.bindings}>
       <Frame
+        standardViews
+        inspectorTools={task ? controls(task, task.kind) : undefined}
         mutationsDisabled={state.phase !== "ready"}
         pendingTag={pendingTag}
         workspace={snapshot}
         view={view}
-        onView={setView}
+        onView={(next) => {
+          if (
+            view.kind === "inbox" &&
+            next.kind !== "inbox" &&
+            state.phase === "ready" &&
+            hasEligibleFiling(snapshot)
+          ) {
+            channel.run(
+              {
+                type: "lifecycle",
+                change: { name: "file-inbox", payload: {} },
+              },
+              snapshot,
+            );
+          }
+          setView(next);
+        }}
         selection={selection}
         onSelect={choose}
         run={run}
@@ -164,45 +302,18 @@ function ConnectedOutline({
         }}
         workspaceLabel={username}
         accountControls={
-          <div className="private-actions">
-            <button
-              disabled={state.phase !== "ready"}
-              onClick={() => setEntry({ kind: "project", base: snapshot })}
-            >
-              New project
-            </button>
-            <button
-              disabled={state.phase !== "ready"}
-              onClick={() => setEntry({ kind: "tag", base: snapshot })}
-            >
-              New tag
-            </button>
-            {view.kind === "project" && (
-              <button
-                disabled={state.phase !== "ready"}
-                onClick={() =>
-                  setEntry({
-                    kind: "project",
-                    target: snapshot.projects.find((p) => p.id === view.id),
-                    base: snapshot,
-                  })
-                }
-              >
-                Rename project
-              </button>
-            )}
-            <button
-              onClick={() => {
-                if (
-                  !state.pending ||
-                  window.confirm("Leave this workspace with a pending change?")
-                )
-                  onSignOut();
-              }}
-            >
-              Sign out
-            </button>
-          </div>
+          <WorkspaceActions
+            channel={channel}
+            state={state}
+            snapshot={snapshot}
+            view={view}
+            selection={selection}
+            onSignOut={onSignOut}
+            travel={travel}
+            deviceZone={deviceZone}
+            setTravel={setTravel}
+            cleanUp={cleanUp}
+          />
         }
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
@@ -212,6 +323,34 @@ function ConnectedOutline({
       >
         <WriteNotice state={state} channel={channel} />
         <Outline
+          mutationsDisabled={state.phase !== "ready"}
+          rows={rows}
+          count={projection.result?.count}
+          retainedCount={Math.max(0, rows.length - matches.length)}
+          tools={
+            <div className="private-outline-tools">
+              <AvailabilityFilter
+                value={availability}
+                change={(value) =>
+                  setFilters((current) => ({ ...current, [key]: value }))
+                }
+              />
+              <DirectoryLinks
+                snapshot={snapshot}
+                view={view}
+                result={projection.result}
+                choose={setView}
+              />
+              {project && controls(project, "project")}
+              {folder && controls(folder, "folder")}
+              {projection.message && (
+                <p role="alert">
+                  {projection.message}{" "}
+                  <button onClick={projection.retry}>Retry outline</button>
+                </p>
+              )}
+            </div>
+          }
           workspace={snapshot}
           view={view}
           selection={selection}
@@ -227,9 +366,11 @@ function ConnectedOutline({
           undo={() => {
             if (state.undo) channel.run({ type: "undo", receipt: state.undo });
           }}
-          redo={() => {}}
+          redo={() => {
+            if (state.redo) channel.run({ type: "redo", receipt: state.redo });
+          }}
           canUndo={Boolean(state.undo) && state.phase === "ready"}
-          canRedo={false}
+          canRedo={Boolean(state.redo) && state.phase === "ready"}
           captureSignal={capture}
           editMode={mode}
           onInspect={() => {
@@ -239,21 +380,6 @@ function ConnectedOutline({
             );
           }}
         />
-        {entry && (
-          <NewEntry
-            kind={entry.kind}
-            initialTitle={entry.target?.title}
-            onCreate={(title) =>
-              channel.run(
-                entry.target
-                  ? { type: "rename", id: entry.target.id, title }
-                  : { type: entry.kind, title },
-                entry.base,
-              )
-            }
-            onClose={() => setEntry(undefined)}
-          />
-        )}
       </Frame>
     </div>
   );

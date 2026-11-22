@@ -1,4 +1,9 @@
+import type { RepeatRule, RepeatPreviewResult } from "./repeat.ts";
 import type { Entry, Task } from "../outline/index.ts";
+
+import type { DateDefaults } from "./schedule.ts";
+import type { FilingPolicy, TagStatus } from "./lifecycle.ts";
+import type { RuleFields } from "./rules.ts";
 
 export interface Session {
   user: { id: number; username: string } | null;
@@ -12,9 +17,22 @@ export interface Snapshot {
   generation: string;
   context: string;
   cursor: string;
-  tasks: (Task & { version: number })[];
-  tags: (Entry & { version: number })[];
-  projects: (Entry & { version: number })[];
+  timeZone?: string;
+  viewZone?: string;
+  dateDefaults?: DateDefaults;
+  nextDateBoundary?: string | null;
+  resolvedCleanup?: "immediate" | "on-cleanup";
+  filingPolicy?: FilingPolicy;
+  tasks: (Task &
+    RuleFields & { version: number; filingProjectId?: string | null })[];
+  folders?: (Entry & RuleFields & { version: number })[];
+  tags: (Entry & {
+    version: number;
+    parentId?: string | null;
+    status?: TagStatus;
+    exclusive?: boolean;
+  })[];
+  projects: (Entry & RuleFields & { version: number })[];
 }
 
 export interface Receipt {
@@ -80,8 +98,26 @@ export function workspaceApi(
   signal: AbortSignal,
 ) {
   let csrf = initialCsrf;
+  let viewZone = "";
   const base = "/api/v1/workspaces/" + encodeURIComponent(id);
   return {
+    setViewZone(value: string) {
+      viewZone = value;
+    },
+    previewRepeat: (
+      item: string,
+      rule: RepeatRule,
+      completedAt: string | undefined,
+      callerSignal: AbortSignal,
+    ) =>
+      jsonRequest<RepeatPreviewResult>(base + "/repeat-preview", {
+        ...jsonPost(csrf, {
+          id: item,
+          rule,
+          ...(completedAt ? { completedAt } : {}),
+        }),
+        signal: AbortSignal.any([signal, callerSignal]),
+      }),
     async verifySession() {
       const session = await readSession(signal);
       const membership = session.workspaces.find((space) => space.id === id);
@@ -91,12 +127,19 @@ export function workspaceApi(
       csrf = session.csrfToken;
       return membership.role === "owner" || membership.role === "editor";
     },
-    snapshot: () => jsonRequest<Snapshot>(base + "/snapshot", { signal }),
-    changes: (cursor: string) =>
-      jsonRequest<{ revision: number; changes: unknown[] }>(
-        base + "/changes?after=" + encodeURIComponent(cursor),
+    snapshot: () =>
+      jsonRequest<Snapshot>(
+        base +
+          "/snapshot" +
+          (viewZone ? "?viewZone=" + encodeURIComponent(viewZone) : ""),
         { signal },
       ),
+    changes: (cursor: string) =>
+      jsonRequest<{
+        revision: number;
+        changes: unknown[];
+        resolvedCleanup?: "immediate" | "on-cleanup";
+      }>(base + "/changes?after=" + encodeURIComponent(cursor), { signal }),
     submit: (name: string, envelope: object) =>
       jsonRequest<Receipt>(base + "/commands/" + name, {
         ...jsonPost(csrf, envelope),

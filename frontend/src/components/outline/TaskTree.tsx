@@ -8,6 +8,7 @@ import type {
   View,
   Workspace,
 } from "../../outline/index.ts";
+import { canReorder } from "../../outline/views.ts";
 import { viewKey } from "../../workspace/viewState.ts";
 import { TaskRow } from "./TaskRow.tsx";
 import type { EditDraft } from "./TaskRow.tsx";
@@ -17,6 +18,7 @@ import { handleTreeKey } from "./keyboard.ts";
 import type { OutlinePanel } from "./keyboard.ts";
 
 interface TreeProps {
+  mutationsDisabled?: boolean;
   workspace: Workspace;
   view: View;
   rows: OutlineRow[];
@@ -110,7 +112,7 @@ export function TaskTree(props: TreeProps) {
         }}
         onScroll={nav.rememberScroll}
       >
-        {rows.map(({ task, depth, hasChildren }) => {
+        {rows.map(({ task, depth, hasChildren, context }) => {
           return (
             <TaskRow
               key={task.id}
@@ -126,6 +128,8 @@ export function TaskTree(props: TreeProps) {
               tags={task.tags.map((id) => tagTitles.get(id) ?? id)}
               done={effectiveDone(workspace, task.id)}
               draft={props.draft}
+              mutationsDisabled={props.mutationsDisabled}
+              context={context}
               dropBefore={dropBefore === task.id}
               select={(event) =>
                 nav.select(
@@ -170,7 +174,7 @@ export function TaskTree(props: TreeProps) {
                 if (
                   !dragIds.length ||
                   dragIds.includes(task.id) ||
-                  view.kind === "tag"
+                  !canReorder(view)
                 )
                   return;
                 event.preventDefault();
@@ -178,7 +182,7 @@ export function TaskTree(props: TreeProps) {
                 setDropBefore(task.id);
               }}
               drop={(event) => {
-                if (view.kind !== "tag" && !dragIds.includes(task.id))
+                if (canReorder(view) && !dragIds.includes(task.id))
                   drop(event, task.parentId, task.id);
               }}
               dragEnd={endDrag}
