@@ -1,5 +1,5 @@
 import { expect, test, type Locator } from "@playwright/test";
-import { inspector, sidebarDestination, tabTo } from "./controls.ts";
+import { inspector, sidebarDestination, tabTo, task, taskId } from "./controls.ts";
 
 function visibleAnchor(tree: Locator) {
   return tree.evaluate((element) => {
@@ -10,6 +10,47 @@ function visibleAnchor(tree: Locator) {
     return { id: row?.getAttribute("data-task-id"), top: element.scrollTop };
   });
 }
+
+test("AT-24 · reveal the newly captured active row when the keyboard enters the outline", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1200, height: 640 });
+  await page.goto("/");
+  const tree = page.getByRole("tree", { name: "Task outline" });
+  const composer = page.getByRole("textbox", { name: "Task titles" });
+  const before = await visibleAnchor(tree);
+  expect(before.top).toBeLessThanOrEqual(1);
+
+  const title = "Captured below the fold";
+  await composer.fill(title);
+  await composer.press("Enter");
+  await expect(composer).toBeFocused();
+  const id = await taskId(page, title);
+  await page.keyboard.insertText("Next capture draft");
+  await expect(composer).toHaveValue("Next capture draft");
+  expect(await visibleAnchor(tree)).toEqual(before);
+  expect(
+    await task(page, title).evaluate((row) => {
+      const viewport = row.closest('[role="tree"]')!.getBoundingClientRect();
+      return row.getBoundingClientRect().top >= viewport.bottom;
+    }),
+  ).toBe(true);
+
+  await tabTo(page, tree);
+  await expect(tree).toBeFocused();
+  await expect.poll(() =>
+    tree.evaluate((element) => {
+      const row = document.getElementById(element.getAttribute("aria-activedescendant") ?? "");
+      const bounds = row?.getBoundingClientRect();
+      const viewport = element.getBoundingClientRect();
+      return {
+        id: row?.getAttribute("data-task-id"),
+        visible: !!bounds && bounds.top >= viewport.top - 1 && bounds.bottom <= viewport.bottom + 1,
+      };
+    }),
+  ).toEqual({ id, visible: true });
+  await expect(composer).toHaveValue("Next capture draft");
+});
 
 test("AT-16, AT-24 and AT-28 · retain outline state across pane and perspective changes", async ({
   page,

@@ -126,7 +126,7 @@ export function Outline(props: OutlineProps) {
         }}
         saveDraft={saveEdit} cancelDraft={cancelEdit} panel={setPanel} undo={props.undo} redo={props.redo}
       />
-      {panel && <ActionDialog key={panel} panel={panel} workspace={workspace} selection={selection}
+      {panel && <ActionDialog key={panel} panel={panel} manualOrder={view.kind !== "tag"} workspace={workspace} selection={selection}
         run={props.run} open={setPanel} close={closePanel} edit={() => selectedTask && edit(selectedTask)}
         inspect={() => { setPanel(undefined); props.onInspect(); }} undo={props.undo} redo={props.redo}
         canUndo={props.canUndo} canRedo={props.canRedo}

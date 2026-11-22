@@ -6,6 +6,7 @@ import type { OutlinePanel } from "./keyboard.ts";
 
 interface Props {
   panel: OutlinePanel;
+  manualOrder: boolean;
   workspace: Workspace;
   selection: string[];
   run: (command: Command) => boolean;
@@ -47,8 +48,8 @@ export function ActionDialog(props: Props) {
     { name: "Edit title", key: "F2", enabled: selected.length === 1, invoke: props.edit },
     { name: "Inspect selection", key: "", enabled: !!selected.length, invoke: props.inspect },
     { name: "Group…", key: "G", enabled: !!selected.length, invoke: () => props.open("group") },
-    { name: "Indent", key: "I", enabled: !!selected.length, invoke: () => submit({ type: "indent", ids: selected }) },
-    { name: "Outdent", key: "O", enabled: !!selected.length, invoke: () => submit({ type: "outdent", ids: selected }) },
+    { name: "Indent", key: "I", enabled: props.manualOrder && !!selected.length, invoke: () => submit({ type: "indent", ids: selected }) },
+    { name: "Outdent", key: "O", enabled: props.manualOrder && !!selected.length, invoke: () => submit({ type: "outdent", ids: selected }) },
     { name: "Move…", key: "M", enabled: !!selected.length, invoke: () => props.open("move") },
     { name: complete ? "Reopen" : "Complete", key: "X", enabled: !!selected.length,
       invoke: () => submit({ type: complete ? "reopen" : "complete", ids: selected }) },

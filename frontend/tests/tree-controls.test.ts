@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { Workspace } from "../src/outline/index.ts";
+import { visibleRows } from "../src/outline/index.ts";
+import type { Command, Task, Workspace } from "../src/outline/index.ts";
+import { handleTreeKey } from "../src/components/outline/keyboard.ts";
 import {
   adjacentId,
   moveDestinations,
@@ -49,4 +51,51 @@ test("view headings use the current project or tag name", () => {
   assert.equal(viewTitle({ kind: "inbox" }, workspace), "Inbox");
   assert.equal(viewTitle({ kind: "project", id: "p1" }, workspace), "Office");
   assert.equal(viewTitle({ kind: "tag", id: "t" }, workspace), "Research");
+});
+
+test("Escape leaves the focused task available for navigation and clears every editing shortcut", () => {
+  const target = new EventTarget();
+  const view = { kind: "project", id: "p1" } as const;
+  const rows = visibleRows(workspace, view, new Set());
+  const ids = rows.map(({ task }) => task.id);
+  const commands: Command[] = [];
+  const edits: string[] = [];
+  const dialogs: string[] = [];
+  let selection = [ids[1]!];
+  const nav = {
+    active: ids[1]!,
+    clearSelection() { selection = []; },
+    select(id: string) { selection = [id]; },
+    navigate() {},
+  };
+
+  function press(key: string) {
+    handleTreeKey(
+      {
+        key, target, currentTarget: target, altKey: false, ctrlKey: false, metaKey: false,
+        shiftKey: false, nativeEvent: { isComposing: false }, preventDefault() {},
+      },
+      {
+        view, workspace, selection, rows, collapsed: new Set(),
+        toggle() {}, undo() {}, redo() {},
+        edit(task: Task) { edits.push(task.id); },
+        panel(panel) { dialogs.push(panel); },
+        run(command) { commands.push(command); return true; },
+      },
+      nav,
+      ids,
+    );
+  }
+
+  press("Escape");
+  assert.deepEqual(selection, []);
+  assert.equal(nav.active, "b");
+  for (const key of ["x", "i", "o", "Enter", "F2", "g", "m"]) press(key);
+  assert.deepEqual(commands, []);
+  assert.deepEqual(edits, []);
+  assert.deepEqual(dialogs, []);
+
+  press(" ");
+  press("x");
+  assert.deepEqual(commands, [{ type: "complete", ids: ["b"] }]);
 });

@@ -32,8 +32,28 @@
   background: var(--accent-wash, ButtonFace);
 }
 
+.outline-row[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset-block: 0.35em;
+  inset-inline-start: 0.18em;
+  border-inline-start: 3px solid var(--accent, Highlight);
+  pointer-events: none;
+}
+
 .outline-tree:focus-visible .outline-row[data-active="true"] {
-  box-shadow: inset 3px 0 var(--accent, Highlight);
+  outline: 2px solid var(--focus, Highlight);
+  outline-offset: -2px;
+}
+
+@media (forced-colors: active) {
+  .outline-row[aria-selected="true"]::after {
+    border-color: Highlight;
+  }
+
+  .outline-tree:focus-visible .outline-row[data-active="true"] {
+    outline-color: CanvasText;
+  }
 }
 
 .outline-row[data-drop-before="true"]::before {

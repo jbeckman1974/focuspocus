@@ -78,7 +78,9 @@ export function useTreeNavigation(
   function select(id: string, extend = false, toggle = false) {
     let next: string[];
     if (extend) {
-      const anchor = anchors.current.get(identity) ?? active ?? id;
+      // Commands and history can replace the selection without a pointer or arrow event.
+      const previousAnchor = sameSelection ? anchors.current.get(identity) : undefined;
+      const anchor = previousAnchor && ids.includes(previousAnchor) ? previousAnchor : active ?? id;
       anchors.current.set(identity, anchor);
       next = selectThrough(ids, anchor, id);
     } else {
@@ -105,6 +107,13 @@ export function useTreeNavigation(
     rowId,
     select,
     navigate,
+    clearSelection() {
+      if (active) {
+        anchors.current.set(identity, active);
+        setActiveByView((previous) => ({ ...previous, [identity]: { id: active, selection: [] } }));
+      }
+      onSelect([]);
+    },
     revealActive() {
       if (tree.current && active) revealRow(tree.current, rowId(active));
     },

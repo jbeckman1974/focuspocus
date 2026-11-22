@@ -84,6 +84,9 @@ export function TaskTree(props: TreeProps) {
         aria-activedescendant={nav.active ? nav.rowId(nav.active) : undefined}
         tabIndex={0}
         onKeyDown={(event) => handleTreeKey(event, props, nav, ids)}
+        onFocus={(event) => {
+          if (event.target === event.currentTarget) nav.revealActive();
+        }}
         onScroll={nav.rememberScroll}
       >
         {rows.map(({ task, depth, hasChildren }) => {
