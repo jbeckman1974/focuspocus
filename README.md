@@ -1,6 +1,6 @@
 # focuspocus
 
-self hostable task manager
+self hostable task manager.  note this is being vibe coded by someone who is only half paying attention. I don't recommend installing this, it's a pet project that I'll probably discard after learning what I can. 
 
 The first implementation milestone is a desktop-style task outline. Open the sample Inbox, capture a few tasks, and move them between projects. The inspector edits dates and tags, and the tag view shows the same tasks. Edits stay in the browser tab for the session. Use the sample reset to start again.
 
