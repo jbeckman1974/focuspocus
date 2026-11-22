@@ -1,0 +1,93 @@
+name: focuspocus
+x-process: &process
+  image: ${FOCUSPOCUS_IMAGE:-localhost/focuspocus:development}
+  init: true
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: ["no-new-privileges:true"]
+  tmpfs: ["/tmp:rw,nosuid,nodev,noexec,mode=1777"]
+  networks: [database]
+  environment: &app-environment
+    APP_ENV: ${APP_ENV:-production}
+    TRUST_HTTPS_PROXY: ${TRUST_HTTPS_PROXY:-0}
+    ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1}
+    DB_HOST: db
+    DB_PORT: "5432"
+    DB_NAME: focuspocus
+    DB_USER: fpapp
+    DB_PASSWORD_FILE: /run/secrets/database-app
+    DJANGO_SECRET_KEY_FILE: /run/secrets/django-key
+  secrets: [database-app, django-key]
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  db:
+    image: docker.io/library/postgres:18-bookworm@sha256:194e55feb2597b1465dbee81cc9fd8d204566cd2eb42c8d22fd6c931a38781b1
+    restart: unless-stopped
+    networks: [database]
+    environment:
+      POSTGRES_DB: focuspocus
+      POSTGRES_PASSWORD_FILE: /run/secrets/database-admin
+    secrets: [database-admin, database-migrate, database-app]
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./ops/db-init.sh:/docker-entrypoint-initdb.d/10-roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d focuspocus"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    <<: *process
+    command: ["python", "/srv/ops/migrate.py"]
+    environment:
+      <<: *app-environment
+      DB_USER: fpmigrate
+      DB_PASSWORD_FILE: /run/secrets/database-migrate
+    secrets: [database-migrate, django-key]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  web:
+    <<: *process
+    restart: unless-stopped
+    networks: [database, web]
+    ports:
+      - "127.0.0.1:${FOCUSPOCUS_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/api/v1/health/ready', timeout=3).close()"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+  worker:
+    <<: *process
+    restart: unless-stopped
+    command: ["python", "manage.py", "runworker"]
+    healthcheck:
+      test: ["CMD", "python", "manage.py", "worker_health"]
+      interval: 5s
+      timeout: 4s
+      retries: 20
+
+volumes:
+  pgdata:
+
+networks:
+  database:
+    internal: true
+  web:
+
+secrets:
+  database-admin:
+    file: ${FOCUSPOCUS_SECRET_DIR:-./build/secrets}/database-admin
+  database-migrate:
+    file: ${FOCUSPOCUS_SECRET_DIR:-./build/secrets}/database-migrate
+  database-app:
+    file: ${FOCUSPOCUS_SECRET_DIR:-./build/secrets}/database-app
+  django-key:
+    file: ${FOCUSPOCUS_SECRET_DIR:-./build/secrets}/django-key

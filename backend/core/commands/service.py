@@ -5,7 +5,8 @@ import json
 
 from django.db import transaction
 
-from core.models import Change, Membership, Receipt, Workspace
+from core.access import locked_membership
+from core.models import Change, Receipt
 
 from . import edits
 from .context import validate_context
@@ -17,17 +18,8 @@ from .validation import CommandError, fields, identifier
 def scoped_workspace(user, workspace_id, *, write=False):
     if not user.is_authenticated:
         raise CommandError("Login required.", 401)
-    workspace = (
-        Workspace.objects.select_for_update(of=("self",))
-        .filter(pk=workspace_id, membership__user=user)
-        .first()
-    )
+    workspace, role = locked_membership(user, workspace_id)
     if workspace is None:
-        raise CommandError("Workspace unavailable.", 404)
-    # Recheck permissions after the lock is acquired. Another transaction may
-    # have changed membership while this request waited.
-    role = Membership.objects.filter(workspace=workspace, user=user).values_list("role", flat=True).first()
-    if role is None:
         raise CommandError("Workspace unavailable.", 404)
     if write and role not in ("owner", "editor"):
         raise CommandError("Write permission required.", 403)

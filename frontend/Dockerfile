@@ -4,10 +4,11 @@ COPY --chown=node:node package.json package-lock.json ./
 RUN chown node:node /opt/workspace
 USER node
 RUN test "$(node --version)" = v24.22.3 && test "$(npm --version)" = 11.19.1 && npm ci --ignore-scripts --no-audit --no-fund
-COPY --chown=node:node index.html tsconfig.json playwright.config.ts ./
+COPY --chown=node:node index.html tsconfig.json playwright.config.ts playwright.integration.config.ts vite.config.ts ./
 COPY --chown=node:node src ./src
 COPY --chown=node:node tests ./tests
 COPY --chown=node:node e2e ./e2e
+COPY --chown=node:node integration ./integration
 EXPOSE 5173
 CMD ["npm", "run", "dev"]
 

@@ -1,0 +1,85 @@
+name: Qualify and publish version
+on:
+  push:
+    tags: ["v*"]
+permissions:
+  contents: read
+concurrency:
+  group: version-publication
+  cancel-in-progress: false
+jobs:
+  qualify:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: ubuntu-24.04, platform: amd64, arch: X64 }
+          - { runner: ubuntu-24.04-arm, platform: arm64, arch: ARM64 }
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 35
+    env:
+      PLATFORM: ${{ matrix.platform }}
+      ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify version, source and native builder
+        run: |
+          [[ "$GITHUB_REF_NAME" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$RUNNER_OS" = Linux && test "$RUNNER_ARCH" = "$ARCH"
+          case "$PLATFORM:$(uname -m):$(docker info --format '{{.OSType}}/{{.Architecture}}')" in
+            amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
+            *) exit 1 ;;
+          esac
+      - name: Build and test the frontend
+        run: |
+          docker build --target development -t frontend-qualify frontend
+          docker run --rm frontend-qualify npm run check
+          docker run --rm frontend-qualify npm audit --audit-level=high
+          docker build --target browser-tests -t browser-qualify frontend
+          docker run --rm --shm-size=512m -e CI=true browser-qualify
+      - name: Qualify the production image, database and worker
+        run: |
+          export EXPECTED_ARCH="$PLATFORM"
+          export FOCUSPOCUS_IMAGE="focuspocus-candidate:$PLATFORM"
+          docker build --label "org.opencontainers.image.version=$GITHUB_REF_NAME" --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$FOCUSPOCUS_IMAGE" .
+          bash ops/verify-stack.sh
+      - name: Save the exact tested image
+        run: |
+          mkdir -p "$RUNNER_TEMP/qualified"
+          cd "$RUNNER_TEMP/qualified"
+          image="focuspocus-candidate:$PLATFORM"
+          test "$(docker inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/$PLATFORM"
+          docker save --output image.tar "$image"
+          jq -n --arg platform "linux/$PLATFORM" --arg commit "$GITHUB_SHA" --arg id "$(docker inspect --format '{{.Id}}' "$image")" --arg archive "$(sha256sum image.tar | cut -d' ' -f1)" '{platform:$platform,commit:$commit,id:$id,archive_sha256:$archive}' > qualified.json
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: candidate-${{ matrix.platform }}
+          path: ${{ runner.temp }}/qualified
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    runs-on: ubuntu-24.04
+    needs: qualify
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
+        with:
+          pattern: candidate-*
+          path: ${{ runner.temp }}/qualified
+      - name: Publish the tested image index
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          unset REGISTRY_TOKEN
+          python3 tools/release/publish.py "ghcr.io/${GITHUB_REPOSITORY,,}" "$GITHUB_REF_NAME" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/qualified" | tee -a "$GITHUB_STEP_SUMMARY"

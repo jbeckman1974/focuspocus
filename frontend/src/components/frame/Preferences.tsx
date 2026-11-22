@@ -18,7 +18,7 @@ interface Props {
   editMode: EditMode;
   setEditMode: (value: EditMode) => void;
   onClose: () => void;
-  onReset: () => void;
+  onReset?: () => void;
 }
 
 export function Preferences({
@@ -120,10 +120,9 @@ export function Preferences({
       </div>
       <div className="fp-dialog-footer">
         <p>
-          Tasks and preferences last until you reset the sample or reload this
-          tab.
+          {onReset ? "Tasks and preferences last until you reset the sample or reload this tab." : "Appearance preferences apply to this tab."}
         </p>
-        <button
+        {onReset && <button
           type="button"
           className="fp-secondary"
           onClick={() => {
@@ -132,7 +131,7 @@ export function Preferences({
           }}
         >
           <Icon name="reset" size={16} /> Reset sample
-        </button>
+        </button>}
       </div>
     </dialog>
   );

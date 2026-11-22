@@ -1,0 +1,28 @@
+import uuid
+
+from django.contrib.sessions.models import Session
+from django.core.management.base import BaseCommand
+from django.db import transaction
+from django.utils import timezone
+
+from core.models import Job, PasswordRecovery, WorkerHeartbeat, Workspace
+
+
+class Command(BaseCommand):
+    help = "Fence an isolated restored database before web and worker processes start."
+
+    @transaction.atomic
+    def handle(self, *args, **options):
+        count = 0
+        for workspace in Workspace.objects.select_for_update().only("pk").order_by("pk").iterator():
+            workspace.generation = uuid.uuid4()
+            workspace.save(update_fields=["generation"])
+            count += 1
+        Session.objects.all().delete()
+        PasswordRecovery.objects.all().delete()
+        WorkerHeartbeat.objects.all().delete()
+        quarantined = Job.objects.filter(status__in=["pending", "running"]).update(
+            status="failed", last_error="restore_reconciliation", finished_at=timezone.now(),
+            lease_until=None, lease_token=None,
+        )
+        self.stdout.write(f"Rotated {count} workspace generations and held {quarantined} jobs.")

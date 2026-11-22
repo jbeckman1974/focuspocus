@@ -52,6 +52,13 @@ def credentials(request, first):
         return None
     if not isinstance(password, str) or not 0 < len(password) <= 4096:
         return None
+    if "\x00" in key or "\x00" in password:
+        return None
+    try:
+        key.encode("utf-8")
+        password.encode("utf-8")
+    except UnicodeEncodeError:
+        return None
     return key, password
 
 

@@ -1,15 +1,6 @@
 name: focuspocus-dev
-services:
-  frontend:
-    platform: linux/arm64
-    build:
-      context: ./frontend
-      target: development
-    init: true
-    ports:
-      - "127.0.0.1:5173:5173"
-    volumes:
-      - ./frontend/src:/opt/workspace/src:ro
-      - ./frontend/tests:/opt/workspace/tests:ro
-      - ./frontend/e2e:/opt/workspace/e2e:ro
-      - ./frontend/index.html:/opt/workspace/index.html:ro
+include:
+  - path:
+      - compose.yaml
+      - ops/compose.tests.yaml
+      - ops/compose.native.yaml

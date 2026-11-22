@@ -1,0 +1,36 @@
+services:
+  db:
+    platform: linux/arm64
+  migrate:
+    platform: linux/arm64
+    pull_policy: never
+    environment:
+      APP_ENV: development
+  web:
+    platform: linux/arm64
+    build:
+      context: .
+      target: application
+    environment:
+      APP_ENV: development
+  worker:
+    platform: linux/arm64
+    pull_policy: never
+    environment:
+      APP_ENV: development
+  frontend:
+    platform: linux/arm64
+    build:
+      context: ./frontend
+      target: development
+    networks: [web]
+    init: true
+    environment:
+      FOCUSPOCUS_API_ORIGIN: http://web:8000
+    ports:
+      - "127.0.0.1:5173:5173"
+    volumes:
+      - ./frontend/src:/opt/workspace/src:ro
+      - ./frontend/tests:/opt/workspace/tests:ro
+      - ./frontend/e2e:/opt/workspace/e2e:ro
+      - ./frontend/index.html:/opt/workspace/index.html:ro

@@ -13,3 +13,7 @@
 !tests/**/*.ts
 !e2e/
 !e2e/**/*.ts
+!vite.config.ts
+!playwright.integration.config.ts
+!integration/
+!integration/**/*.ts

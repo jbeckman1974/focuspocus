@@ -43,3 +43,5 @@ Joe confirmed public source visibility and authorized automated testing while hi
 The branch `milestone/m2-foundation` starts at the M1 merge. M2 implements account isolation, ordered mutations, synchronization, a real PostgreSQL migration and native container checks. No Codex usage reset has been used. Joe authorized at most two; this session has no Codex reset control.
 
 Package 2A adds the account and workspace schema, database-enforced same-workspace links, session and CSRF handling, account provisioning and recovery. Package 2B adds transactional outline commands with replay receipts and expected versions. The new source passed Python syntax parsing here. Its PostgreSQL integration results are tracked on PR #3.
+
+Packages 2C–2E connect the authenticated browser, cursor-based updates and worker to PostgreSQL. The candidate stack check starts a separate test database, applies migrations, runs Django and browser tests, replaces web and worker, and restores a database dump. Registry publication is restricted to tested release tags. Three release index/input checks passed locally; registry promotion and host acceptance require actual runs.
