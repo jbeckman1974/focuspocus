@@ -1,0 +1,15 @@
+services:
+  db:
+    volumes:
+      - type: bind
+        source: ${FOCUSPOCUS_TEST_DATA_DIR:?}/pgdata
+        target: /var/lib/postgresql
+        bind:
+          create_host_path: false
+  test-db:
+    volumes:
+      - type: bind
+        source: ${FOCUSPOCUS_TEST_DATA_DIR:?}/testdata
+        target: /var/lib/postgresql
+        bind:
+          create_host_path: false
