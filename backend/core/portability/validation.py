@@ -14,6 +14,7 @@ from core.content.files import file_name
 from core.content.notes import validate_document
 from core.planning.models import UNITS
 from core.repeats.models import OUTCOMES
+from core.repeats.schedule_changes import validate_rule_schedule
 from core.scheduling.dates import DateContext, direct_dates, duration_minutes
 from core.scheduling.repeat_rule import RepeatRule
 
@@ -93,7 +94,7 @@ def decode_records(records):
     fields(records, ["workspace", "history", "imports", "memberships", "personal", "places", "reviewSources", *[t.name for t in TABLES]])
     workspace = fields(records["workspace"], ["name", "timeZone", "dateDefaults", "filingPolicy"])
     title(workspace["name"])
-    DateContext(workspace["timeZone"], timezone.now(), workspace["dateDefaults"])
+    clock = DateContext(workspace["timeZone"], timezone.now(), workspace["dateDefaults"])
     if workspace["filingPolicy"] not in POLICIES:
         raise ValueError("Unknown filing policy.")
     groups = {}
@@ -132,6 +133,12 @@ def decode_records(records):
     for name, reference in (("items", "parent_id"), ("tags", "parent_id"), ("occurrences", "predecessor_id")):
         check_graph(groups[name], reference)
     items = {row["id"]: row for row in groups["items"]}
+    series = {row["id"]: row for row in groups["series"]}
+    for occurrence in groups["occurrences"]:
+        template = series[occurrence["series_id"]]
+        if template["active"] and occurrence["outcome"] == "open":
+            item = items[occurrence["item_id"]]
+            validate_rule_schedule(RepeatRule.from_wire(template["rule"]), item["schedule"], clock, template["origin"])
     for row in items.values():
         parent = items.get(row["parent_id"])
         if row["shelf"] == "active" and parent:

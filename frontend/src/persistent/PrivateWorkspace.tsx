@@ -82,7 +82,9 @@ function ConnectedOutline({
   id,
   csrf,
   readOnly = false,
-  activeSpace, spaces, switchTo,
+  activeSpace,
+  spaces,
+  switchTo,
   onSignOut,
   channel,
 }: Props & { channel: WorkspaceChannel }) {
@@ -365,23 +367,36 @@ function ConnectedOutline({
           setCapture((n) => n + 1);
         }}
         workspaceLabel={activeSpace.private ? username : activeSpace.name}
-        accountControls={<>
-          <WorkspaceTools actorId={actorId} csrf={csrf} workspace={activeSpace} spaces={spaces} snapshot={snapshot} focusVersion={catalog.data?.personalVersion??0} selection={selection} switchTo={switchTo} refresh={channel.refresh} openItem={showSource}/>
-          <WorkspaceActions
-            readOnly={readOnly}
-            actorId={actorId}
-            channel={channel}
-            state={state}
-            snapshot={snapshot}
-            view={view}
-            selection={selection}
-            onSignOut={onSignOut}
-            travel={travel}
-            deviceZone={deviceZone}
-            setTravel={setTravel}
-            cleanUp={cleanUp}
-          />
-        </>}
+        accountControls={
+          <>
+            <WorkspaceTools
+              actorId={actorId}
+              csrf={csrf}
+              workspace={activeSpace}
+              spaces={spaces}
+              snapshot={snapshot}
+              focusVersion={catalog.data?.personalVersion ?? 0}
+              selection={selection}
+              switchTo={switchTo}
+              refresh={channel.refresh}
+              openItem={showSource}
+            />
+            <WorkspaceActions
+              readOnly={readOnly}
+              actorId={actorId}
+              channel={channel}
+              state={state}
+              snapshot={snapshot}
+              view={view}
+              selection={selection}
+              onSignOut={onSignOut}
+              travel={travel}
+              deviceZone={deviceZone}
+              setTravel={setTravel}
+              cleanUp={cleanUp}
+            />
+          </>
+        }
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}

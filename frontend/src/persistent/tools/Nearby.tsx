@@ -21,17 +21,27 @@ export function Nearby({
   focusVersion: number;
   openItem: (id: string) => void;
 }) {
-  const data = useResource<Places>(client, "integrations/places", snapshot.revision+"/"+focusVersion),
+  const data = useResource<Places>(
+      client,
+      "integrations/places",
+      snapshot.revision + "/" + focusVersion,
+    ),
     action = useAction();
   const [point, setPoint] = useState<Point>();
   const [manual, setManual] = useState("");
-  useEffect(()=>{
-    function refresh(){if(!document.hidden)data.reload();}
-    window.addEventListener("focus",refresh);
-    document.addEventListener("visibilitychange",refresh);
-    const timer=window.setInterval(refresh,10000);
-    return ()=>{window.removeEventListener("focus",refresh);document.removeEventListener("visibilitychange",refresh);window.clearInterval(timer);};
-  },[data.reload]);
+  useEffect(() => {
+    function refresh() {
+      if (!document.hidden) data.reload();
+    }
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    const timer = window.setInterval(refresh, 10000);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+      window.clearInterval(timer);
+    };
+  }, [data.reload]);
   const places = data.data?.places ?? [];
   const origin = manual ? places.find((p) => p.tagId === manual) : point;
   const matches = origin
@@ -111,7 +121,15 @@ export function Nearby({
         ) : (
           <p>No available tasks within these radii.</p>
         ))}
-      {editable && <PlaceEditor client={client} snapshot={snapshot} data={data.data} accept={data.setData} reload={data.reload}/>}
+      {editable && (
+        <PlaceEditor
+          client={client}
+          snapshot={snapshot}
+          data={data.data}
+          accept={data.setData}
+          reload={data.reload}
+        />
+      )}
       {(action.error || data.error) && (
         <p role="alert">
           {action.error || data.error}{" "}

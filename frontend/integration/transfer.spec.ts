@@ -13,17 +13,15 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   await createShared(page, name);
   let panel = await toolsPanel(page, "Import");
   await panel.getByLabel("Source format").selectOption("csv");
-  await panel
-    .getByLabel("Source file")
-    .setInputFiles({
-      name: "field.csv",
-      mimeType: "text/csv",
-      buffer: Buffer.from(
-        'Title,Notes,Unmapped column\n"' +
-          title +
-          '","Line one\nLine two",value\n',
-      ),
-    });
+  await panel.getByLabel("Source file").setInputFiles({
+    name: "field.csv",
+    mimeType: "text/csv",
+    buffer: Buffer.from(
+      'Title,Notes,Unmapped column\n"' +
+        title +
+        '","Line one\nLine two",value\n',
+    ),
+  });
   await panel.getByRole("button", { name: "Preview import" }).click();
   await expect(
     panel.getByRole("region", { name: "Import comparison" }),

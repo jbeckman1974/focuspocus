@@ -83,14 +83,39 @@ test("a rejected rollback retains the server's concrete conflicts as text", asyn
   );
 });
 
-import {editPlace,placeChange} from "../src/persistent/tools/placeDraft.ts";
-test("a place edit keeps its source version and command identity across refresh and retry",()=>{
-  const original={tagId:"tag",title:"Station",version:3,latitude:28.5,longitude:-82.4,radiusMeters:150,itemIds:[]};
-  const draft={...editPlace("tag",3,original),radius:"80"};
-  const attempt=placeChange(draft,false,"context1","op1");
-  const next={...original,version:4,latitude:28.6};
-  assert.deepEqual(attempt,{tagId:"tag",expectedVersion:3,context:"context1",operationId:"op1",latitude:28.5,longitude:-82.4,radiusMeters:80});
-  const fresh=editPlace("tag",next.version,next);
-  assert.equal(fresh.latitude,"28.6");
-  assert.deepEqual(placeChange({...draft,version:4},true,"context2","op2"),{tagId:"tag",expectedVersion:4,context:"context2",operationId:"op2",remove:true});
+import { editPlace, placeChange } from "../src/persistent/tools/placeDraft.ts";
+test("a place edit keeps its source version and command identity across refresh and retry", () => {
+  const original = {
+    tagId: "tag",
+    title: "Station",
+    version: 3,
+    latitude: 28.5,
+    longitude: -82.4,
+    radiusMeters: 150,
+    itemIds: [],
+  };
+  const draft = { ...editPlace("tag", 3, original), radius: "80" };
+  const attempt = placeChange(draft, false, "context1", "op1");
+  const next = { ...original, version: 4, latitude: 28.6 };
+  assert.deepEqual(attempt, {
+    tagId: "tag",
+    expectedVersion: 3,
+    context: "context1",
+    operationId: "op1",
+    latitude: 28.5,
+    longitude: -82.4,
+    radiusMeters: 80,
+  });
+  const fresh = editPlace("tag", next.version, next);
+  assert.equal(fresh.latitude, "28.6");
+  assert.deepEqual(
+    placeChange({ ...draft, version: 4 }, true, "context2", "op2"),
+    {
+      tagId: "tag",
+      expectedVersion: 4,
+      context: "context2",
+      operationId: "op2",
+      remove: true,
+    },
+  );
 });

@@ -10,7 +10,11 @@ export function feedback(error: unknown) {
     : "Unable to complete this request.";
 }
 
-export function useResource<T>(client: WorkspaceClient, path: string, version = "") {
+export function useResource<T>(
+  client: WorkspaceClient,
+  path: string,
+  version = "",
+) {
   const [data, storeData] = useState<T>();
   const order = useRef(0);
   const setData = useCallback((value: T) => {

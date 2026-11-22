@@ -34,6 +34,22 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
         with ZipFile(io.BytesIO(bundle)) as archive:
             return json.loads(archive.read("records.json"))
 
+    @staticmethod
+    def replace_records(body, records):
+        from core.portability.archive import counts, digest, encoded
+
+        raw_records = encoded(records)
+        output = io.BytesIO()
+        with ZipFile(io.BytesIO(body)) as source, ZipFile(output, "w") as rewritten:
+            manifest = json.loads(source.read("manifest.json"))
+            manifest.update(counts=counts(records), recordBytes=len(raw_records), recordSha256=digest(raw_records))
+            rewritten.writestr("manifest.json", encoded(manifest))
+            rewritten.writestr("records.json", raw_records)
+            for name in source.namelist():
+                if name.startswith("files/"):
+                    rewritten.writestr(name, source.read(name))
+        return output.getvalue()
+
     def switch(self, workspace):
         self.space = workspace
         self.base = f"/api/v1/workspaces/{workspace.pk}/"
@@ -240,21 +256,49 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
             self.assertFalse(Job.objects.filter(workspace=destination).exists())
 
     def test_inconsistent_graph_and_cross_workspace_parent_are_rejected_atomically(self):
-        from core.portability.archive import counts, digest, encoded
-
         task, = self.capture(["Team project"])
         body = self.bundle()
         for target in (task, str(uuid4())):
             records = self.records(body)
             records["items"][0]["parent_id"] = target
-            raw_records = encoded(records)
-            tampered = io.BytesIO()
-            with ZipFile(io.BytesIO(body)) as original, ZipFile(tampered, "w") as changed:
-                manifest = json.loads(original.read("manifest.json"))
-                manifest.update(counts=counts(records), recordBytes=len(raw_records), recordSha256=digest(raw_records))
-                changed.writestr("manifest.json", encoded(manifest))
-                changed.writestr("records.json", raw_records)
             before = Workspace.objects.count()
-            self.assertEqual(self.restore(tampered.getvalue()).status_code, 422)
+            self.assertEqual(self.restore(self.replace_records(body, records)).status_code, 422)
             self.assertEqual(Workspace.objects.count(), before)
             self.assertFalse(RestoreReceipt.objects.exists())
+
+    def test_invalid_active_repeat_anchor_time_or_origin_rejects_entire_restore(self):
+        task, = self.capture(["Calibrate instrument"])
+        due = {"kind": "floating", "value": "2026-11-22T08:30"}
+        self.command("set-schedule", {"ids": [task], "schedule": {"due": due}})
+        self.command("set-repeat", {"id": task, "rule": {"schedule": "regular", "unit": "hour"}})
+        body = self.bundle()
+        for schedule, origin in (
+            ({}, {"due": due}),
+            ({"due": {"kind": "date", "value": "2026-11-22"}}, {"due": due}),
+            ({"due": due}, {}),
+        ):
+            with self.subTest(schedule=schedule, origin=origin):
+                records = self.records(body)
+                records["items"][0]["schedule"] = schedule
+                records["series"][0]["origin"] = origin
+                before = Workspace.objects.count()
+                rejected = self.restore(self.replace_records(body, records))
+                self.assertEqual(rejected.status_code, 422)
+                self.assertEqual(Workspace.objects.count(), before)
+                self.assertFalse(RestoreReceipt.objects.exists())
+
+    def test_historical_and_stopped_repeats_can_retain_later_schedule_edits(self):
+        task, stopped = self.capture(["Daily review", "Stopped timer"])
+        timed = {"kind": "floating", "value": "2026-11-22T08:30"}
+        for pk in (task, stopped):
+            self.command("set-schedule", {"ids": [pk], "schedule": {"due": timed}})
+            self.command("set-repeat", {"id": pk, "rule": {"schedule": "regular", "unit": "hour"}})
+        self.command("complete", {"ids": [task]})
+        self.command("stop-series", {"id": stopped, "seriesVersion": 1})
+        self.command("set-schedule", {"ids": [task, stopped], "schedule": {"due": None}})
+        result = self.restore(self.bundle())
+        self.assertEqual(result.status_code, 200, result.content)
+        rows = Occurrence.objects.filter(workspace_id=result.json()["workspaceId"]).select_related("series", "item")
+        self.assertEqual(rows.get(outcome="completed").item.schedule, {})
+        self.assertEqual(rows.get(series__active=False).item.schedule, {})
+        self.assertIn("due", rows.get(series__active=True, outcome="open").item.schedule)
