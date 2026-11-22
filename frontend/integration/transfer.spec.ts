@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { signIn } from "./account.ts";
-import { closeTools, createShared, toolsPanel } from "./workspace-tools.ts";
+import { closeTools, createShared, selectWorkspace, toolsPanel } from "./workspace-tools.ts";
 import { task } from "../e2e/controls.ts";
 
 test("AT-21/22 · preview import losses, retry one commit, restore a bundle and roll back the source", async ({
@@ -10,7 +10,7 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   await signIn(page, "planner");
   const name = "Portable field notes",
     title = "Check Café coordinates";
-  await createShared(page, name);
+  const source = await createShared(page, name);
   let panel = await toolsPanel(page, "Import");
   await panel.getByLabel("Source format").selectOption("csv");
   await panel.getByLabel("Source file").setInputFiles({
@@ -51,15 +51,21 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   await panel
     .getByLabel("Workspace bundle", { exact: true })
     .setInputFiles(zip!);
+  const restoring = page.waitForResponse(
+    (r) => new URL(r.url()).pathname.endsWith("/portability/restore") && r.request().method() === "POST" && r.ok(),
+  );
   await panel
     .getByRole("button", { name: "Restore bundle", exact: true })
     .click();
   await expect(panel.getByRole("status")).toContainText(
     "Created a new workspace",
   );
-  await panel.getByRole("button", { name: "Open restored workspace" }).click();
+  const restored = (await (await restoring).json()).workspaceId as string;
+  expect(restored).not.toBe(source);
+  await selectWorkspace(page, restored, () => panel.getByRole("button", { name: "Open restored workspace" }).click());
   await expect(task(page, title)).toBeVisible();
-  await page.getByLabel("Active workspace").selectOption({ label: name });
+  await selectWorkspace(page, source);
+  await expect(task(page, title)).toBeVisible();
   panel = await toolsPanel(page, "Import");
   await panel.getByLabel("Previous imports").selectOption({ index: 1 });
   await panel.getByRole("button", { name: "Roll back import…" }).click();
@@ -67,4 +73,6 @@ test("AT-21/22 · preview import losses, retry one commit, restore a bundle and 
   await expect(panel.getByRole("status")).toContainText("rolled_back");
   await closeTools(page);
   await expect(task(page, title)).toHaveCount(0);
+  await selectWorkspace(page, restored);
+  await expect(task(page, title)).toBeVisible();
 });

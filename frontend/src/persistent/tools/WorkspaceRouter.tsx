@@ -24,6 +24,8 @@ export function WorkspaceRouter({
   const [spaces, setSpaces] = useState<WorkspaceInfo[]>();
   const [active, setActive] = useState("");
   const [error, setError] = useState("");
+  const [switching,setSwitching]=useState(false);
+  const [failedTarget,setFailedTarget]=useState<string>();
   const controller = useRef<AbortController | undefined>(undefined);
   const sequence = useRef(0);
   const changing = useRef(false);
@@ -31,7 +33,7 @@ export function WorkspaceRouter({
     async (requested?: string) => {
       const signal = controller.current?.signal;
       if (!signal || signal.aborted || (!requested && changing.current)) return;
-      if (requested) changing.current = true;
+      if (requested) { changing.current = true; setSwitching(true); setFailedTarget(undefined); }
       const order = ++sequence.current;
       try {
         const result = await actorRequest<{ workspaces: WorkspaceInfo[] }>(
@@ -58,10 +60,10 @@ export function WorkspaceRouter({
           onLostAccess();
         else {
           setError("Unable to refresh your workspaces.");
-          if (requested) throw e;
+          if (requested) {setFailedTarget(requested);throw e;}
         }
       } finally {
-        if (requested && order === sequence.current) changing.current = false;
+        if (requested && order === sequence.current && !signal.aborted) { changing.current = false;setSwitching(false); }
       }
     },
     [actorId, onLostAccess],
@@ -99,12 +101,13 @@ export function WorkspaceRouter({
     );
   return (
     <>
-      {error && (
-        <p role="status">
-          {error}{" "}
-          <button onClick={() => void switchTo()}>Refresh workspaces</button>
-        </p>
-      )}
+      {switching && <p role="status">Switching workspace…</p>}
+      {!switching && failedTarget && <p role="alert">Could not open the requested workspace. Your current workspace is still open.{" "}
+        <button onClick={()=>void switchTo(failedTarget).catch(()=>{})}>Retry workspace switch</button>{" "}
+        <button onClick={()=>{setFailedTarget(undefined);setError("");}}>Stay here</button>
+      </p>}
+      {!switching && error && !failedTarget && <p role="status">{error} <button onClick={()=>void switchTo()}>Refresh workspaces</button></p>}
+      <div hidden={switching} inert={switching}>
       <PrivateWorkspace
         key={selected.id + ":" + selected.role}
         id={selected.id}
@@ -114,10 +117,12 @@ export function WorkspaceRouter({
         readOnly={selected.role === "viewer"}
         activeSpace={selected}
         spaces={spaces!}
+        switching={switching}
         switchTo={switchTo}
         onLostAccess={onLostAccess}
         onSignOut={onSignOut}
       />
+      </div>
     </>
   );
 }

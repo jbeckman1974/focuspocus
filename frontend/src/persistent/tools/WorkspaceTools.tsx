@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../api.ts";
 import type { WorkspaceInfo } from "./WorkspaceRouter.tsx";
 import { workspaceClient } from "./transport.ts";
@@ -8,11 +8,13 @@ import { ExportPanel } from "./ExportPanel.tsx";
 import { CalendarPanel, ReminderPanel } from "./Integrations.tsx";
 import { Nearby } from "./Nearby.tsx";
 import "./tools.css";
+import {workspaceOption} from "./workspaceNames.ts";
 
 interface Props {
   actorId: number;
   csrf: string;
   workspace: WorkspaceInfo;
+  switching:boolean;
   spaces: WorkspaceInfo[];
   snapshot: Snapshot;
   selection: string[];
@@ -37,7 +39,7 @@ export function WorkspaceTools(props: Props) {
           >
             {props.spaces.map((space) => (
               <option key={space.id} value={space.id}>
-                {space.name}
+                {workspaceOption(space,props.spaces)}
               </option>
             ))}
           </select>
@@ -54,6 +56,7 @@ function ToolsDialog({
   actorId,
   csrf,
   workspace,
+  switching,
   snapshot,
   selection,
   focusVersion,
@@ -74,13 +77,13 @@ function ToolsDialog({
         abort.signal,
       ),
     );
-    const node = dialog.current;
-    node?.showModal();
-    return () => {
-      abort.abort();
-      node?.close();
-    };
+    return () => abort.abort();
   }, [actorId, csrf, workspace.id]);
+  useLayoutEffect(()=>{
+    const node=dialog.current;
+    if(!switching)node?.showModal();
+    return ()=>node?.close();
+  },[switching]);
   const choose = async (id: string) => {
     await switchTo(id);
     if (client && !client.signal.aborted) close();

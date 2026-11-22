@@ -41,6 +41,7 @@ interface Props {
   csrf: string;
   readOnly?: boolean;
   activeSpace: WorkspaceInfo;
+  switching:boolean;
   spaces: WorkspaceInfo[];
   switchTo: (id?: string) => Promise<void>;
   onLostAccess: () => void;
@@ -83,6 +84,7 @@ function ConnectedOutline({
   csrf,
   readOnly = false,
   activeSpace,
+  switching,
   spaces,
   switchTo,
   onSignOut,
@@ -373,6 +375,7 @@ function ConnectedOutline({
               actorId={actorId}
               csrf={csrf}
               workspace={activeSpace}
+              switching={switching}
               spaces={spaces}
               snapshot={snapshot}
               focusVersion={catalog.data?.personalVersion ?? 0}
