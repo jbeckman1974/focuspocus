@@ -178,7 +178,12 @@ class LoginWindow(models.Model):
 
 # Register feature models with Django's core app while keeping their definitions together.
 from .content.models import AttachmentBlob, AttachmentBody, AttachmentLink, ItemNote  # noqa: E402, F401
+from .imports.models import ImportBatch, ImportMapping  # noqa: E402, F401
+from .integrations.models import CalendarConnection, CalendarEvent, PushDevice, Reminder, ReminderDelivery, TagPlace  # noqa: E402, F401
+from .oidc.models import IdentityBinding, LoginChallenge  # noqa: E402, F401
 from .perspectives.models import PerspectiveState, SavedPerspective  # noqa: E402, F401
 from .planning.models import ProjectReview  # noqa: E402, F401
+from .portability.models import RestoredHistory, RestoredReviewer, RestoreReceipt  # noqa: E402, F401
 from .preferences.models import AccountPreference, DevicePreference  # noqa: E402, F401
 from .repeats.models import Occurrence, RepeatSeries  # noqa: E402, F401
+from .sharing.models import CaptureCredential, SharedWorkspace, WorkspaceInvitation  # noqa: E402, F401

@@ -30,6 +30,8 @@ import { ContentTools } from "./content/ContentTools.tsx";
 import { PlanningArea } from "./planning/PlanningArea.tsx";
 import { usePlanningNavigation } from "./planning/usePlanningNavigation.ts";
 import { useCatalog } from "./planning/useCatalog.ts";
+import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
+import type { WorkspaceInfo } from "./tools/WorkspaceRouter.tsx";
 import { WriteNotice } from "./WriteNotice.tsx";
 
 interface Props {
@@ -38,6 +40,10 @@ interface Props {
   actorId: number;
   csrf: string;
   readOnly?: boolean;
+  activeSpace: WorkspaceInfo;
+  switching: boolean;
+  spaces: WorkspaceInfo[];
+  switchTo: (id?: string) => Promise<void>;
   onLostAccess: () => void;
   onSignOut: () => void;
 }
@@ -67,7 +73,7 @@ export function PrivateWorkspace(props: Props) {
   return channel ? (
     <ConnectedOutline {...props} channel={channel} />
   ) : (
-    <p role="status">Opening private workspace…</p>
+    <p role="status">Opening workspace…</p>
   );
 }
 
@@ -77,6 +83,10 @@ function ConnectedOutline({
   id,
   csrf,
   readOnly = false,
+  activeSpace,
+  switching,
+  spaces,
+  switchTo,
   onSignOut,
   channel,
 }: Props & { channel: WorkspaceChannel }) {
@@ -202,7 +212,7 @@ function ConnectedOutline({
     return (
       <main className="account-page">
         <section className="account-card">
-          <p role="status">{state.message || "Loading private workspace…"}</p>
+          <p role="status">{state.message || "Loading workspace…"}</p>
           <button onClick={() => channel.tick()}>Retry connection</button>
           <button onClick={onSignOut}>Sign out</button>
         </section>
@@ -358,21 +368,37 @@ function ConnectedOutline({
           if (window.innerWidth <= 850) setShowInspector(false);
           setCapture((n) => n + 1);
         }}
-        workspaceLabel={username}
+        workspaceLabel={activeSpace.private ? username : activeSpace.name}
         accountControls={
-          <WorkspaceActions
-            actorId={actorId}
-            channel={channel}
-            state={state}
-            snapshot={snapshot}
-            view={view}
-            selection={selection}
-            onSignOut={onSignOut}
-            travel={travel}
-            deviceZone={deviceZone}
-            setTravel={setTravel}
-            cleanUp={cleanUp}
-          />
+          <>
+            <WorkspaceTools
+              actorId={actorId}
+              csrf={csrf}
+              workspace={activeSpace}
+              switching={switching}
+              spaces={spaces}
+              snapshot={snapshot}
+              focusVersion={catalog.data?.personalVersion ?? 0}
+              selection={selection}
+              switchTo={switchTo}
+              refresh={channel.refresh}
+              openItem={showSource}
+            />
+            <WorkspaceActions
+              readOnly={readOnly}
+              actorId={actorId}
+              channel={channel}
+              state={state}
+              snapshot={snapshot}
+              view={view}
+              selection={selection}
+              onSignOut={onSignOut}
+              travel={travel}
+              deviceZone={deviceZone}
+              setTravel={setTravel}
+              cleanUp={cleanUp}
+            />
+          </>
         }
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}

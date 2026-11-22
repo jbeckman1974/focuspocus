@@ -4,6 +4,8 @@ This design takes the synthetic outline in M1 through the first private, persist
 
 ## Components and ownership
 
+M5 uses separate Django modules for import staging, portable archives, sharing, integrations and optional identity. A workspace import preserves its source mapping so a retry can recognize existing work after a restore. Workspace members can read shared work. Personal saved settings, calendars, reminders and device endpoints retain their own user scope. Restore creates fresh workspace identities and leaves external deliveries inactive until the user reconnects them.
+
 | Component | Responsibility | Boundary |
 | --- | --- | --- |
 | React and TypeScript browser application | Full-window perspective rail, project/tag sidebar, editable outline, resizable panes and collapsible inspector | One command dispatcher owns selection, editing and unsaved drafts. M1 supplies a fixture transport. From M2, the same controls call the same-origin API. Vite builds the static assets. [React component model, S13](https://react.dev/learn) |

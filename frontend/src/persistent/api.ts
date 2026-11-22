@@ -6,6 +6,7 @@ import type { FilingPolicy, TagStatus } from "./lifecycle.ts";
 import type { RuleFields } from "./rules.ts";
 
 export interface Session {
+  authMode?: "local" | "oidc";
   user: { id: number; username: string } | null;
   workspaces: { id: string; role: string }[];
   csrfToken: string;

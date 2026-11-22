@@ -3,6 +3,8 @@ from pathlib import Path
 
 from django.core.exceptions import ImproperlyConfigured
 
+from .oidc import load_provider
+
 
 def secret(name):
     path = os.environ.get(f"{name}_FILE")
@@ -36,6 +38,7 @@ MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "core.oidc.backend.ProviderSessionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 DATABASES = {"default": {
@@ -54,6 +57,10 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+OIDC_PROVIDER = load_provider(os.getenv("FOCUSPOCUS_OIDC_FILE"))
+AUTHENTICATION_BACKENDS = (
+    ["core.oidc.backend.ProviderBackend"] if OIDC_PROVIDER else ["django.contrib.auth.backends.ModelBackend"]
+)
 SESSION_COOKIE_SECURE = CSRF_COOKIE_SECURE = APP_ENV == "production"
 SESSION_COOKIE_HTTPONLY = CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = CSRF_COOKIE_SAMESITE = "Lax"

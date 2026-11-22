@@ -1,6 +1,7 @@
 import json
 
 from django.contrib import auth
+from django.conf import settings
 from django.core.exceptions import RequestDataTooBig, ValidationError
 from django.http import JsonResponse
 from django.middleware.csrf import get_token, rotate_token
@@ -24,6 +25,7 @@ def session_payload(request):
             .order_by("workspace_id").values_list("workspace_id", "role")
         ]
     return {
+        "authMode": "oidc" if settings.OIDC_PROVIDER else "local",
         "user": {"id": user.pk, "username": user.get_username()} if user.is_authenticated else None,
         "workspaces": memberships,
         "csrfToken": get_token(request),
@@ -70,6 +72,8 @@ def throttled():
 
 @require_POST
 def login(request):
+    if settings.OIDC_PROVIDER:
+        return JsonResponse({"error": "Use the configured identity provider."}, status=403)
     pair = credentials(request, "username")
     if pair is None:
         return JsonResponse({"error": "Supply a username and password."}, status=400)
@@ -94,6 +98,8 @@ def logout(request):
 
 @require_POST
 def recover(request):
+    if settings.OIDC_PROVIDER:
+        return JsonResponse({"error": "Recover access through the configured identity provider."}, status=403)
     pair = credentials(request, "token")
     if pair is None:
         return JsonResponse({"error": "Supply a recovery token and new password."}, status=400)

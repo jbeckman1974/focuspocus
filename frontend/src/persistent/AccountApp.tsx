@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { HttpError, jsonPost, jsonRequest, readSession } from "./api.ts";
 import type { Session } from "./api.ts";
-import { PrivateWorkspace } from "./PrivateWorkspace.tsx";
+import { WorkspaceRouter } from "./tools/WorkspaceRouter.tsx";
 import "./persistent.css";
 
 export function AccountApp() {
@@ -43,9 +43,6 @@ export function AccountApp() {
       </main>
     );
   if (!session.user) return <SignIn session={session} onSession={setSession} />;
-  const privateId = session.workspaces.find(
-    (workspace) => workspace.role === "owner",
-  )?.id;
   const signOut = async () => {
     try {
       const current = await readSession();
@@ -64,25 +61,9 @@ export function AccountApp() {
       reconnect();
     }
   };
-  if (!privateId)
-    return (
-      <main className="account-page">
-        <section className="account-card">
-          <h1>Private workspace unavailable</h1>
-          <button type="button" onClick={signOut}>
-            Sign out
-          </button>
-        </section>
-      </main>
-    );
   return (
-    <PrivateWorkspace
-      key={session.user.id + ":" + privateId}
-      id={privateId}
-      readOnly={
-        session.workspaces.find((space) => space.id === privateId)?.role ===
-        "viewer"
-      }
+    <WorkspaceRouter
+      key={session.user.id}
       actorId={session.user.id}
       username={session.user.username}
       csrf={session.csrfToken}
@@ -102,6 +83,30 @@ function SignIn({
   const [recovery, setRecovery] = useState(false);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+
+  if (session.authMode === "oidc")
+    return (
+      <main className="account-page">
+        <section className="account-card">
+          <h1>Private task workspace</h1>
+          {new URLSearchParams(window.location.search).get("signin") ===
+            "failed" && (
+            <p role="alert">
+              Provider sign-in failed. Check your account and second factor,
+              then try again.
+            </p>
+          )}
+          <form action="/api/v1/oidc/start" method="post">
+            <input
+              type="hidden"
+              name="csrfmiddlewaretoken"
+              value={session.csrfToken}
+            />
+            <button type="submit">Sign in with identity provider</button>
+          </form>
+        </section>
+      </main>
+    );
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

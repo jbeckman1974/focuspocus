@@ -29,7 +29,7 @@ python3 -B tools/vm/tumbleweed.py verify
 
 Only the small utilities, their tests and the public source catalog belong in Git. The repository checks verify that Git ignores the reference archive and guest disks and tracks no path beneath `build/`.
 
-The November 22 reference archive contains verified local copies of all 88 cataloged publisher resources, including the OmniFocus 4.10.1 release record, 11 manual chapters and two support articles. The upstream collection adds 41 technical documents, 15 licenses and one notice. Open `build/OmniFocus/index.html` from the project checkout.
+The November 22 reference archive contains verified local copies of all 95 cataloged publisher resources, including the OmniFocus 4.10.1 release record, 11 manual chapters and two support articles. The upstream collection adds 41 technical documents, 15 licenses and one notice. Open `build/OmniFocus/index.html` from the project checkout.
 
 ## Daily development on the MacBook
 
@@ -168,5 +168,7 @@ The repository maintainer owns release checks. The operator Joe designates for t
 M2 evidence covers the Mac ARM64 rebuild, private isolation, image/volume replacement, native AMD64 CI gates and the first dual-platform index. Each deployment has its own target-host verification. M5 adds sharing, export and provider recovery. M6 exercises stale client recovery. M7 requires recorded clean-stack restore and upgrade rehearsals on representative data and a verified deployment on the target AMD64 host. Keep dated results under AT-17, AT-22, AT-23, AT-29, AT-30 and AT-31 as their features arrive. [Verification plan](VERIFICATION_PLAN.md)
 
 ### Local account recovery
+
+An optional [identity-provider configuration](OIDC.md) delegates login and recovery to the provider. Private [calendar, push and location integrations](INTEGRATIONS.md) use account-scoped settings. A [portable workspace bundle](PORTABILITY.md) supports transfer into a new owned workspace.
 
 From an interactive terminal attached to the web container, run `python manage.py issue_recovery USERNAME` and give the one-time token to the verified account holder out of band. The command writes the token directly to its controlling terminal. For unattended delivery, use `--output-file /private/handoff` in an operator-controlled mounted directory. The destination must be new. The command creates it with owner-only permissions and rolls back issuance if writing or flushing fails. Remove the handoff file after delivery. Tokens expire after 15 minutes, and a successful password change invalidates prior sessions.
