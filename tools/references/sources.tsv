@@ -70,3 +70,8 @@ lima-faq	Lima · Frequently asked questions	https://lima-vm.io/docs/faq/
 lima-shell	Lima · Guest shell commands	https://lima-vm.io/docs/reference/limactl_shell/
 lima-release	Lima 2.3.0 release	https://github.com/lima-vm/lima/releases/tag/v2.3.0
 utm	UTM · Virtualization and emulation on Apple Silicon	https://getutm.app/
+owasp-spreadsheet	OWASP · Spreadsheet formula handling for CSV exports	https://community.owasp.org/attacks/CSV_Injection
+lima-install	Lima · Installation	https://lima-vm.io/docs/installation/
+lima-qemu	Lima · QEMU driver	https://lima-vm.io/docs/config/vmtype/qemu/
+lima-plain	Lima · Plain mode	https://lima-vm.io/docs/config/plain/
+compose-plugin	Docker · Linux Compose plugin	https://docs.docker.com/compose/install/linux/
