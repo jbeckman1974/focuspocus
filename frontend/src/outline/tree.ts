@@ -10,7 +10,11 @@ export class TaskTree {
   constructor(workspace: Workspace) {
     this.roots = [INBOX, ...workspace.projects.map((project) => project.id)];
     const used = new Set([INBOX]);
-    for (const entry of [...workspace.projects, ...workspace.tags, ...workspace.tasks]) {
+    for (const entry of [
+      ...workspace.projects,
+      ...workspace.tags,
+      ...workspace.tasks,
+    ]) {
       if (!entry.id.trim() || used.has(entry.id)) {
         throw new Error("Workspace item IDs must be present and unique.");
       }
@@ -31,7 +35,9 @@ export class TaskTree {
       reachable++;
     }
     if (reachable !== workspace.tasks.length) {
-      throw new Error("Every task must belong to the Inbox or a project without a cycle.");
+      throw new Error(
+        "Every task must belong to the Inbox or a project without a cycle.",
+      );
     }
   }
 
@@ -47,7 +53,9 @@ export class TaskTree {
 
   requireContainer(id: string) {
     if (!this.roots.includes(id) && this.byId.get(id)?.kind !== "group") {
-      throw new Error("Choose the Inbox, a project, or a group as the destination.");
+      throw new Error(
+        "Choose the Inbox, a project, or a group as the destination.",
+      );
     }
   }
 
@@ -72,7 +80,8 @@ export class TaskTree {
       const { task, depth } = stack.pop()!;
       const hasChildren = this.children(task.id).length > 0;
       yield { task, depth, hasChildren };
-      if (hasChildren && !collapsed?.has(task.id)) pushChildren(task.id, depth + 1);
+      if (hasChildren && !collapsed?.has(task.id))
+        pushChildren(task.id, depth + 1);
     }
   }
 

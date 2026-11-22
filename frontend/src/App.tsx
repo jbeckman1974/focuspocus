@@ -20,7 +20,10 @@ export default function App() {
 
   useEffect(() => {
     if (!state.notice) return;
-    const timer = window.setTimeout(() => session.dismissNotice(state.notice), 8000);
+    const timer = window.setTimeout(
+      () => session.dismissNotice(state.notice),
+      8000,
+    );
     return () => window.clearTimeout(timer);
   }, [session, state.notice]);
 
@@ -39,7 +42,11 @@ export default function App() {
   }
 
   function reset() {
-    if (!window.confirm("Reset the sample workspace? This discards your session edits and drafts.")) {
+    if (
+      !window.confirm(
+        "Reset the sample workspace? This discards your session edits and drafts.",
+      )
+    ) {
       return;
     }
     setFixture({ session: new WorkspaceSession(), generation: generation + 1 });

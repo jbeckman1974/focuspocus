@@ -14,7 +14,8 @@ export function visibleRows(
     case "all":
       return [...tree.walk(tree.roots, collapsed)];
     case "project":
-      if (!workspace.projects.some((project) => project.id === view.id)) return [];
+      if (!workspace.projects.some((project) => project.id === view.id))
+        return [];
       return [...tree.walk([view.id], collapsed)];
     case "tag":
       if (!workspace.tags.some((tag) => tag.id === view.id)) return [];

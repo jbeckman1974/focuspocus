@@ -14,6 +14,30 @@ export function viewTitle(view: View, workspace: Workspace): string {
   }
 }
 
+export interface TreeCursor {
+  id: string;
+  anchor: string;
+  selection: string[];
+}
+
+export function stillSelected(cursor: TreeCursor | undefined, selection: string[]): boolean {
+  return cursor !== undefined && cursor.selection.length === selection.length &&
+    cursor.selection.every((id, index) => id === selection[index]);
+}
+
+export function extendRange(
+  ids: string[],
+  cursor: TreeCursor | undefined,
+  selection: string[],
+  active: string | undefined,
+  end: string,
+): TreeCursor {
+  // A command or history operation can replace the selection between navigation events.
+  const oldAnchor = cursor && stillSelected(cursor, selection) ? cursor.anchor : undefined;
+  const anchor = oldAnchor && ids.includes(oldAnchor) ? oldAnchor : active ?? end;
+  return { id: end, anchor, selection: selectThrough(ids, anchor, end) };
+}
+
 export function selectThrough(ids: string[], anchor: string, end: string): string[] {
   const startIndex = ids.indexOf(anchor);
   const endIndex = ids.indexOf(end);

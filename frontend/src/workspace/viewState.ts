@@ -29,7 +29,9 @@ export function containsSelection(
   view: View,
   selection: string[],
 ): boolean {
-  const ids = new Set(visibleRows(workspace, view, expanded).map(({ task }) => task.id));
+  const ids = new Set(
+    visibleRows(workspace, view, expanded).map(({ task }) => task.id),
+  );
   return selection.length > 0 && selection.every((id) => ids.has(id));
 }
 
@@ -63,7 +65,8 @@ export function revealSelection(
   collapsed: ReadonlySet<string>,
   requested: string[],
 ): ViewMemory {
-  if (!collapsed.size) return reconcileSelection(workspace, view, collapsed, requested);
+  if (!collapsed.size)
+    return reconcileSelection(workspace, view, collapsed, requested);
   const nextCollapsed = new Set(collapsed);
   const tree = indexWorkspace(workspace);
   for (const id of requested) {

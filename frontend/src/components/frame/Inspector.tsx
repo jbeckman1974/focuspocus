@@ -12,7 +12,15 @@ interface InspectorProps {
 
 type Drafts = Record<string, string>;
 
-function TagOption({ tag, items, onChange }: { tag: Entry; items: Task[]; onChange: (value: boolean) => void }) {
+function TagOption({
+  tag,
+  items,
+  onChange,
+}: {
+  tag: Entry;
+  items: Task[];
+  onChange: (value: boolean) => void;
+}) {
   const count = items.filter((item) => item.tags.includes(tag.id)).length;
   const mixed = count > 0 && count < items.length;
   return (
@@ -20,7 +28,9 @@ function TagOption({ tag, items, onChange }: { tag: Entry; items: Task[]; onChan
       <input
         type="checkbox"
         checked={count === items.length}
-        ref={(element) => { if (element) element.indeterminate = mixed; }}
+        ref={(element) => {
+          if (element) element.indeterminate = mixed;
+        }}
         onChange={(event) => onChange(event.currentTarget.checked)}
       />
       <span>{tag.title}</span>
@@ -28,7 +38,12 @@ function TagOption({ tag, items, onChange }: { tag: Entry; items: Task[]; onChan
   );
 }
 
-export function Inspector({ workspace, selection, run, onClose }: InspectorProps) {
+export function Inspector({
+  workspace,
+  selection,
+  run,
+  onClose,
+}: InspectorProps) {
   const [drafts, setDrafts] = useState<Drafts>({});
   const selected = new Set(selection);
   const items = workspace.tasks.filter((task) => selected.has(task.id));
@@ -39,8 +54,8 @@ export function Inspector({ workspace, selection, run, onClose }: InspectorProps
   const first = items[0];
   const mixedTitle = items.some((item) => item.title !== first?.title);
   const mixedDue = items.some((item) => item.due !== first?.due);
-  const currentTitle = mixedTitle ? "" : first?.title ?? "";
-  const currentDate = mixedDue ? "" : first?.due ?? "";
+  const currentTitle = mixedTitle ? "" : (first?.title ?? "");
+  const currentDate = mixedDue ? "" : (first?.due ?? "");
   const title = drafts[titleKey] ?? currentTitle;
   const date = drafts[dateKey] ?? currentDate;
 
@@ -60,9 +75,10 @@ export function Inspector({ workspace, selection, run, onClose }: InspectorProps
     event.preventDefault();
     const value = title.trim();
     if (!value || !first) return;
-    const command: Command = ids.length > 1
-      ? { type: "setTitle", ids, title: value }
-      : { type: "rename", id: first.id, title: value };
+    const command: Command =
+      ids.length > 1
+        ? { type: "setTitle", ids, title: value }
+        : { type: "rename", id: first.id, title: value };
     if (run(command)) discard(titleKey);
   }
 
@@ -71,14 +87,32 @@ export function Inspector({ workspace, selection, run, onClose }: InspectorProps
   }
 
   return (
-    <aside className="fp-inspector" aria-label="Task inspector" id="task-inspector" tabIndex={-1}>
+    <aside
+      className="fp-inspector"
+      aria-label="Task inspector"
+      id="task-inspector"
+      tabIndex={-1}
+    >
       <div className="fp-panel-heading">
         <h2>Inspector</h2>
-        <button type="button" aria-label="Close inspector" className="fp-icon-button" onClick={onClose}><Icon name="close" /></button>
+        <button
+          type="button"
+          aria-label="Close inspector"
+          className="fp-icon-button"
+          onClick={onClose}
+        >
+          <Icon name="close" />
+        </button>
       </div>
       {first ? (
         <div className="fp-inspector-body">
-          <p className="fp-selection-count">{items.length === 1 ? (first.kind === "group" ? "Action group" : "Action") : `${items.length} items selected`}</p>
+          <p className="fp-selection-count">
+            {items.length === 1
+              ? first.kind === "group"
+                ? "Action group"
+                : "Action"
+              : `${items.length} items selected`}
+          </p>
           <form className="fp-edit-field" onSubmit={saveTitle}>
             <label htmlFor="inspector-title">Title</label>
             <input
@@ -86,31 +120,81 @@ export function Inspector({ workspace, selection, run, onClose }: InspectorProps
               type="text"
               value={title}
               placeholder={mixedTitle ? "Mixed titles" : undefined}
-              onChange={(event) => writeDraft(titleKey, event.currentTarget.value)}
-              onKeyDown={(event) => { if (event.key === "Escape") discard(titleKey); }}
+              onChange={(event) =>
+                writeDraft(titleKey, event.currentTarget.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Escape") discard(titleKey);
+              }}
             />
-            <button type="submit" className="fp-secondary" disabled={!title.trim() || (!mixedTitle && title.trim() === currentTitle)}>Apply title</button>
+            <button
+              type="submit"
+              className="fp-secondary"
+              disabled={
+                !title.trim() || (!mixedTitle && title.trim() === currentTitle)
+              }
+            >
+              Apply title
+            </button>
           </form>
-          <form className="fp-edit-field" onSubmit={(event) => { event.preventDefault(); saveDate(date); }}>
+          <form
+            className="fp-edit-field"
+            onSubmit={(event) => {
+              event.preventDefault();
+              saveDate(date);
+            }}
+          >
             <label htmlFor="inspector-date">Due date</label>
-            {mixedDue && <small id="mixed-date">The selection has different due dates.</small>}
+            {mixedDue && (
+              <small id="mixed-date">
+                The selection has different due dates.
+              </small>
+            )}
             <input
               id="inspector-date"
               type="date"
               value={date}
               aria-describedby={mixedDue ? "mixed-date" : undefined}
-              onChange={(event) => writeDraft(dateKey, event.currentTarget.value)}
-              onKeyDown={(event) => { if (event.key === "Escape") discard(dateKey); }}
+              onChange={(event) =>
+                writeDraft(dateKey, event.currentTarget.value)
+              }
+              onKeyDown={(event) => {
+                if (event.key === "Escape") discard(dateKey);
+              }}
             />
             <div className="fp-field-actions">
-              <button type="submit" className="fp-secondary" disabled={drafts[dateKey] === undefined || (!mixedDue && date === currentDate)}>Apply date</button>
-              {(mixedDue || currentDate) && <button type="button" className="fp-text-button" onClick={() => saveDate("")}>Clear date</button>}
+              <button
+                type="submit"
+                className="fp-secondary"
+                disabled={
+                  drafts[dateKey] === undefined ||
+                  (!mixedDue && date === currentDate)
+                }
+              >
+                Apply date
+              </button>
+              {(mixedDue || currentDate) && (
+                <button
+                  type="button"
+                  className="fp-text-button"
+                  onClick={() => saveDate("")}
+                >
+                  Clear date
+                </button>
+              )}
             </div>
           </form>
           <fieldset className="fp-tags-field">
             <legend>Tags</legend>
             {workspace.tags.map((tag) => (
-              <TagOption key={tag.id} tag={tag} items={items} onChange={(enabled) => run({ type: "setTag", ids, tagId: tag.id, enabled })} />
+              <TagOption
+                key={tag.id}
+                tag={tag}
+                items={items}
+                onChange={(enabled) =>
+                  run({ type: "setTag", ids, tagId: tag.id, enabled })
+                }
+              />
             ))}
           </fieldset>
         </div>

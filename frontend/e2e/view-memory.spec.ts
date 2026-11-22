@@ -18,6 +18,9 @@ test("AT-24 · reveal the newly captured active row when the keyboard enters the
   await page.goto("/");
   const tree = page.getByRole("tree", { name: "Task outline" });
   const composer = page.getByRole("textbox", { name: "Task titles" });
+  await task(page, "Loose receipt").getByText("Loose receipt", { exact: true }).click();
+  const predecessor = await tree.getByRole("treeitem").last().getAttribute("data-task-id");
+  expect(predecessor).toBeTruthy();
   const before = await visibleAnchor(tree);
   expect(before.top).toBeLessThanOrEqual(1);
 
@@ -50,6 +53,43 @@ test("AT-24 · reveal the newly captured active row when the keyboard enters the
     }),
   ).toEqual({ id, visible: true });
   await expect(composer).toHaveValue("Next capture draft");
+  await page.keyboard.press("Shift+ArrowUp");
+  const selected = tree.getByRole("treeitem", { selected: true });
+  await expect(selected).toHaveCount(2);
+  expect(
+    await selected.evaluateAll((rows) => rows.map((row) => row.getAttribute("data-task-id"))),
+  ).toEqual([predecessor, id]);
+});
+
+test("AT-16 and AT-24 · an empty selection preserves the cursor and leaves tasks unchanged", async ({
+  page,
+}) => {
+  await page.goto("/");
+  const tree = page.getByRole("tree", { name: "Task outline" });
+  const selected = tree.getByRole("treeitem", { selected: true });
+  await tabTo(page, tree);
+  await page.keyboard.press("Home");
+  await page.keyboard.press("ArrowDown");
+  const row = task(page, "Untagged insert");
+  await expect(row).toHaveAttribute("aria-selected", "true");
+  const cursor = await row.getAttribute("id");
+  expect(cursor).toBeTruthy();
+  await page.keyboard.press("Escape");
+  await expect(selected).toHaveCount(0);
+  const before = await tree.ariaSnapshot();
+  for (const key of ["x", "i", "o", "g", "m", "F2", "Enter"]) {
+    await page.keyboard.press(key);
+    await expect(tree).toBeFocused();
+    await expect(tree).toHaveAttribute("aria-activedescendant", cursor!);
+    await expect(selected).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(tree.getByRole("textbox")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled();
+    expect(await tree.ariaSnapshot()).toBe(before);
+  }
+  await page.keyboard.press("Space");
+  await expect(selected).toHaveCount(1);
+  await expect(row).toHaveAttribute("aria-selected", "true");
 });
 
 test("AT-16, AT-24 and AT-28 · retain outline state across pane and perspective changes", async ({

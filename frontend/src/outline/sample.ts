@@ -4,24 +4,49 @@ import { newTask } from "./values.ts";
 
 // Stable comparison labels match the synthetic reference workspace. Extra Inbox rows exercise scrolling.
 const inboxTitles = [
-  "Loose receipt", "Untagged insert", "Pretagged insert", "Check last week's mileage",
-  "Refill the field bag", "Confirm the site entrance", "Order replacement flags",
-  "File the access sketch", "Set out fresh batteries", "Return the borrowed tripod",
-  "Transcribe the station notes", "Update the equipment log", "Check the route map",
-  "Restock the marking chalk", "Print the field index", "Review the traverse closure",
-  "Label the reference photos", "Collect the spare prism", "Send the visit summary",
-  "Book a drafting desk", "Confirm the return window", "Sort the field sketches",
-  "Check the case inventory", "Archive the finished sheet",
+  "Loose receipt",
+  "Untagged insert",
+  "Pretagged insert",
+  "Check last week's mileage",
+  "Refill the field bag",
+  "Confirm the site entrance",
+  "Order replacement flags",
+  "File the access sketch",
+  "Set out fresh batteries",
+  "Return the borrowed tripod",
+  "Transcribe the station notes",
+  "Update the equipment log",
+  "Check the route map",
+  "Restock the marking chalk",
+  "Print the field index",
+  "Review the traverse closure",
+  "Label the reference photos",
+  "Collect the spare prism",
+  "Send the visit summary",
+  "Book a drafting desk",
+  "Confirm the return window",
+  "Sort the field sketches",
+  "Check the case inventory",
+  "Archive the finished sheet",
 ];
 
-function sampleTask(id: string, parent: string, title: string, properties: Partial<Pick<Task, "kind" | "tags" | "done" | "due">> = {}): Task {
+function sampleTask(
+  id: string,
+  parent: string,
+  title: string,
+  properties: Partial<Pick<Task, "kind" | "tags" | "done" | "due">> = {},
+): Task {
   return { ...newTask(id, parent, title), ...properties };
 }
 
 export function createSample(): Workspace {
   const inbox = inboxTitles.map((title, index) =>
-    sampleTask(`I${String(index + 1).padStart(2, "0")}`, INBOX, title,
-      index === 2 ? { tags: ["desk"] } : {}),
+    sampleTask(
+      `I${String(index + 1).padStart(2, "0")}`,
+      INBOX,
+      title,
+      index === 2 ? { tags: ["desk"] } : {},
+    ),
   );
   return {
     projects: [

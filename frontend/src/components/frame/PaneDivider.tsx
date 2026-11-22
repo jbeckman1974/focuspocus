@@ -11,20 +11,38 @@ interface Props {
   setSize: (size: number) => void;
 }
 
-export function PaneDivider({ label, controls, side, size, min, max, setSize }: Props) {
+export function PaneDivider({
+  label,
+  controls,
+  side,
+  size,
+  min,
+  max,
+  setSize,
+}: Props) {
   const drag = useRef<{ x: number; width: number } | null>(null);
   const direction = side === "left" ? 1 : -1;
-  const clamp = (value: number) => Math.min(max, Math.max(min, Math.round(value)));
+  const clamp = (value: number) =>
+    Math.min(max, Math.max(min, Math.round(value)));
 
   function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const step = event.shiftKey ? 32 : 8;
     let next: number;
     switch (event.key) {
-      case "ArrowLeft": next = size - step * direction; break;
-      case "ArrowRight": next = size + step * direction; break;
-      case "Home": next = min; break;
-      case "End": next = max; break;
-      default: return;
+      case "ArrowLeft":
+        next = size - step * direction;
+        break;
+      case "ArrowRight":
+        next = size + step * direction;
+        break;
+      case "Home":
+        next = min;
+        break;
+      case "End":
+        next = max;
+        break;
+      default:
+        return;
     }
     event.preventDefault();
     setSize(clamp(next));
@@ -38,7 +56,9 @@ export function PaneDivider({ label, controls, side, size, min, max, setSize }: 
 
   function move(event: PointerEvent<HTMLDivElement>) {
     if (!drag.current) return;
-    setSize(clamp(drag.current.width + (event.clientX - drag.current.x) * direction));
+    setSize(
+      clamp(drag.current.width + (event.clientX - drag.current.x) * direction),
+    );
   }
 
   return (
@@ -57,7 +77,9 @@ export function PaneDivider({ label, controls, side, size, min, max, setSize }: 
       onKeyDown={onKeyDown}
       onPointerDown={start}
       onPointerMove={move}
-      onLostPointerCapture={() => { drag.current = null; }}
+      onLostPointerCapture={() => {
+        drag.current = null;
+      }}
     />
   );
 }

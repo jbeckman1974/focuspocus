@@ -36,13 +36,16 @@ export function Outline(props: OutlineProps) {
   const tree = useRef<HTMLDivElement>(null);
   const identity = viewKey(view);
   const [titles, setTitles] = useState<Record<string, string>>({});
-  const [editing, setEditing] = useState<Record<string, string | undefined>>({});
+  const [editing, setEditing] = useState<Record<string, string | undefined>>(
+    {},
+  );
   const [panel, setPanel] = useState<OutlinePanel>();
   const [multiple, setMultiple] = useState(false);
   const editId = editing[identity];
-  const draft: EditDraft | undefined = editId && Object.hasOwn(titles, editId)
-    ? { id: editId, title: titles[editId]! }
-    : undefined;
+  const draft: EditDraft | undefined =
+    editId && Object.hasOwn(titles, editId)
+      ? { id: editId, title: titles[editId]! }
+      : undefined;
   const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
   const title = viewTitle(view, workspace);
 
@@ -62,9 +65,11 @@ export function Outline(props: OutlineProps) {
       props.onInspect();
       return;
     }
-    setTitles((previous) => Object.hasOwn(previous, task.id)
-      ? previous
-      : { ...previous, [task.id]: task.title });
+    setTitles((previous) =>
+      Object.hasOwn(previous, task.id)
+        ? previous
+        : { ...previous, [task.id]: task.title },
+    );
     setEditing((previous) => ({ ...previous, [identity]: task.id }));
   }
 
@@ -81,7 +86,11 @@ export function Outline(props: OutlineProps) {
   }
 
   function saveEdit() {
-    if (draft && props.run({ type: "rename", id: draft.id, title: draft.title })) cancelEdit();
+    if (
+      draft &&
+      props.run({ type: "rename", id: draft.id, title: draft.title })
+    )
+      cancelEdit();
   }
 
   return (
@@ -89,48 +98,138 @@ export function Outline(props: OutlineProps) {
       <header className="outline-heading">
         <div className="outline-heading-title">
           <h1>{title}</h1>
-          <span className="outline-count">{rows.length} {rows.length === 1 ? "item" : "items"}</span>
+          <span className="outline-count">
+            {rows.length} {rows.length === 1 ? "item" : "items"}
+          </span>
         </div>
         <div className="outline-history" aria-label="Edit history">
-          <button type="button" aria-label="Undo" title="Undo (U in outline)" disabled={!props.canUndo} onClick={props.undo}>↶</button>
-          <button type="button" aria-label="Redo" title="Redo (Shift+U in outline)" disabled={!props.canRedo} onClick={props.redo}>↷</button>
+          <button
+            type="button"
+            aria-label="Undo"
+            title="Undo (U in outline)"
+            disabled={!props.canUndo}
+            onClick={props.undo}
+          >
+            ↶
+          </button>
+          <button
+            type="button"
+            aria-label="Redo"
+            title="Redo (Shift+U in outline)"
+            disabled={!props.canRedo}
+            onClick={props.redo}
+          >
+            ↷
+          </button>
         </div>
       </header>
-      <Capture identity={identity}
+      <Capture
+        identity={identity}
         destination={view.kind === "project" ? title : "Inbox"}
         signal={props.captureSignal}
-        submit={(titles) => props.run({ type: "capture", titles, parentId: view.kind === "project" ? view.id : INBOX })}
+        submit={(titles) =>
+          props.run({
+            type: "capture",
+            titles,
+            parentId: view.kind === "project" ? view.id : INBOX,
+          })
+        }
       />
       <div className="outline-toolbar" role="group" aria-label="Task actions">
-        <button type="button" aria-pressed={multiple} onClick={() => setMultiple(!multiple)}>
+        <button
+          type="button"
+          aria-pressed={multiple}
+          onClick={() => setMultiple(!multiple)}
+        >
           Select multiple
         </button>
-        <span className="outline-selection-count" aria-live="polite">{selection.length} selected</span>
+        <span className="outline-selection-count" aria-live="polite">
+          {selection.length} selected
+        </span>
         <div className="outline-toolbar-commands">
-          <button type="button" disabled={selection.length !== 1 || !selectedTask}
-            onClick={() => selectedTask && edit(selectedTask)}>Edit</button>
-          <button type="button" disabled={!selection.length} onClick={() => setPanel("group")}>Group…</button>
-          <button type="button" disabled={!selection.length} onClick={() => setPanel("move")}>Move…</button>
-          <button type="button" className="outline-more" aria-label="Outline commands" title="Outline commands (?)"
-            onClick={() => setPanel("commands")}>•••</button>
+          <button
+            type="button"
+            disabled={selection.length !== 1 || !selectedTask}
+            onClick={() => selectedTask && edit(selectedTask)}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            disabled={!selection.length}
+            onClick={() => setPanel("group")}
+          >
+            Group…
+          </button>
+          <button
+            type="button"
+            disabled={!selection.length}
+            onClick={() => setPanel("move")}
+          >
+            Move…
+          </button>
+          <button
+            type="button"
+            className="outline-more"
+            aria-label="Outline commands"
+            title="Outline commands (?)"
+            onClick={() => setPanel("commands")}
+          >
+            •••
+          </button>
         </div>
       </div>
-      {!rows.length && <p className="outline-empty">
-        {view.kind === "tag" ? "No tasks have this tag." : "This outline is empty."}
-      </p>}
-      <TaskTree workspace={workspace} view={view} rows={rows} tree={tree}
-        selection={selection} select={props.onSelect} multiple={multiple} collapsed={props.collapsed}
-        toggle={props.onToggle} run={props.run} edit={edit} draft={draft}
+      {!rows.length && (
+        <p className="outline-empty">
+          {view.kind === "tag"
+            ? "No tasks have this tag."
+            : "This outline is empty."}
+        </p>
+      )}
+      <TaskTree
+        workspace={workspace}
+        view={view}
+        rows={rows}
+        tree={tree}
+        selection={selection}
+        select={props.onSelect}
+        multiple={multiple}
+        collapsed={props.collapsed}
+        toggle={props.onToggle}
+        run={props.run}
+        edit={edit}
+        draft={draft}
         changeDraft={(value) => {
-          if (editId) setTitles((previous) => ({ ...previous, [editId]: value }));
+          if (editId)
+            setTitles((previous) => ({ ...previous, [editId]: value }));
         }}
-        saveDraft={saveEdit} cancelDraft={cancelEdit} panel={setPanel} undo={props.undo} redo={props.redo}
+        saveDraft={saveEdit}
+        cancelDraft={cancelEdit}
+        panel={setPanel}
+        undo={props.undo}
+        redo={props.redo}
       />
-      {panel && <ActionDialog key={panel} panel={panel} manualOrder={view.kind !== "tag"} workspace={workspace} selection={selection}
-        run={props.run} open={setPanel} close={closePanel} edit={() => selectedTask && edit(selectedTask)}
-        inspect={() => { setPanel(undefined); props.onInspect(); }} undo={props.undo} redo={props.redo}
-        canUndo={props.canUndo} canRedo={props.canRedo}
-      />}
+      {panel && (
+        <ActionDialog
+          key={panel}
+          panel={panel}
+          manualOrder={view.kind !== "tag"}
+          workspace={workspace}
+          selection={selection}
+          run={props.run}
+          open={setPanel}
+          close={closePanel}
+          edit={() => selectedTask && edit(selectedTask)}
+          inspect={() => {
+            setPanel(undefined);
+            props.onInspect();
+          }}
+          undo={props.undo}
+          redo={props.redo}
+          canUndo={props.canUndo}
+          canRedo={props.canRedo}
+        />
+      )}
     </section>
   );
 }

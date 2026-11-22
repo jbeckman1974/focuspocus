@@ -34,15 +34,28 @@ function subscribeWidth(onChange: () => void) {
 const readWidth = () => window.innerWidth;
 
 export function Frame({
-  workspace, view, onView, selection, run, onCapture, onReset, children,
-  inspectorOpen, setInspectorOpen, editMode, setEditMode, message,
+  workspace,
+  view,
+  onView,
+  selection,
+  run,
+  onCapture,
+  onReset,
+  children,
+  inspectorOpen,
+  setInspectorOpen,
+  editMode,
+  setEditMode,
+  message,
 }: FrameProps) {
   const width = useSyncExternalStore(subscribeWidth, readWidth, () => 1280);
   const compact = width <= 850;
   const [browseOpen, setBrowseOpen] = useState(false);
   const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [appearance, setAppearance] = useState<Appearance>({
-    theme: "system", density: "comfortable", textSize: "standard",
+    theme: "system",
+    density: "comfortable",
+    textSize: "standard",
   });
   const [sidebarSize, setSidebarSize] = useState(212);
   const [inspectorSize, setInspectorSize] = useState(260);
@@ -56,7 +69,8 @@ export function Frame({
   const inspectorMax = Math.max(190, Math.min(400, Math.floor(width * 0.27)));
   const sidebarWidth = Math.min(sidebarSize, sidebarMax);
   const inspectorWidth = Math.min(inspectorSize, inspectorMax);
-  const columns = `var(--rail-width) ${sidebarWidth}px 6px minmax(0, 1fr)` +
+  const columns =
+    `var(--rail-width) ${sidebarWidth}px 6px minmax(0, 1fr)` +
     (inspectorVisible ? ` 6px ${inspectorWidth}px` : "");
 
   useLayoutEffect(() => {
@@ -73,7 +87,9 @@ export function Frame({
       setBrowseOpen(false);
       setInspectorOpen(false);
       requestAnimationFrame(() => {
-        const active = main.current?.querySelector<HTMLElement>("[role='tree'][tabindex='0']");
+        const active = main.current?.querySelector<HTMLElement>(
+          "[role='tree'][tabindex='0']",
+        );
         (active ?? main.current)?.focus();
       });
     }
@@ -90,7 +106,8 @@ export function Frame({
     setBrowseOpen(true);
     requestAnimationFrame(() => {
       const navigation = document.getElementById("workspace-navigation");
-      const button = navigation?.querySelector<HTMLButtonElement>("[aria-current='page']") ??
+      const button =
+        navigation?.querySelector<HTMLButtonElement>("[aria-current='page']") ??
         navigation?.querySelector<HTMLButtonElement>(".fp-nav-link");
       button?.focus();
     });
@@ -105,7 +122,9 @@ export function Frame({
     if (inspectorVisible) return closeInspector();
     setBrowseOpen(false);
     setInspectorOpen(true);
-    requestAnimationFrame(() => document.getElementById("task-inspector")?.focus());
+    requestAnimationFrame(() =>
+      document.getElementById("task-inspector")?.focus(),
+    );
   }
 
   function capture() {
@@ -116,42 +135,151 @@ export function Frame({
     onCapture();
   }
 
-  const navigation = { workspace, view, onView: chooseView, onPreferences: () => setPreferencesOpen(true) };
+  const navigation = {
+    workspace,
+    view,
+    onView: chooseView,
+    onPreferences: () => setPreferencesOpen(true),
+  };
   return (
-    <div className="fp-shell" data-theme={appearance.theme} data-density={appearance.density} data-text-size={appearance.textSize}>
+    <div
+      className="fp-shell"
+      data-theme={appearance.theme}
+      data-density={appearance.density}
+      data-text-size={appearance.textSize}
+    >
       <header className="fp-topbar">
         <div className="fp-wordmark">
-          <span className="fp-brandmark" aria-hidden="true"><Icon name="mark" size={24} /></span>
+          <span className="fp-brandmark" aria-hidden="true">
+            <Icon name="mark" size={24} />
+          </span>
           <span>Sample workspace</span>
         </div>
         <div className="fp-top-actions">
-          {compact && <button ref={browseToggle} type="button" className="fp-top-button" aria-label="Browse" aria-expanded={browseOpen} aria-controls="workspace-navigation" title="Browse" onClick={toggleBrowse}><Icon name="browse" /><span>Browse</span></button>}
-          <button type="button" className="fp-primary" aria-label="Add task" title="Add task" onClick={capture}><Icon name="add" size={16} /><span>Add task</span></button>
-          <button ref={inspectorToggle} type="button" className="fp-top-button" aria-label="Inspector" aria-expanded={inspectorVisible} aria-controls="task-inspector" title="Inspector" onClick={toggleInspector}><Icon name="inspector" /><span>Inspector</span></button>
+          {compact && (
+            <button
+              ref={browseToggle}
+              type="button"
+              className="fp-top-button"
+              aria-label="Browse"
+              aria-expanded={browseOpen}
+              aria-controls="workspace-navigation"
+              title="Browse"
+              onClick={toggleBrowse}
+            >
+              <Icon name="browse" />
+              <span>Browse</span>
+            </button>
+          )}
+          <button
+            type="button"
+            className="fp-primary"
+            aria-label="Add task"
+            title="Add task"
+            onClick={capture}
+          >
+            <Icon name="add" size={16} />
+            <span>Add task</span>
+          </button>
+          <button
+            ref={inspectorToggle}
+            type="button"
+            className="fp-top-button"
+            aria-label="Inspector"
+            aria-expanded={inspectorVisible}
+            aria-controls="task-inspector"
+            title="Inspector"
+            onClick={toggleInspector}
+          >
+            <Icon name="inspector" />
+            <span>Inspector</span>
+          </button>
         </div>
       </header>
-      <div className="fp-layout" style={compact ? undefined : { gridTemplateColumns: columns }}>
+      <div
+        className="fp-layout"
+        style={compact ? undefined : { gridTemplateColumns: columns }}
+      >
         {!compact && <Rail {...navigation} />}
-        <div className="fp-panel-slot" hidden={compact && !browseOpen} onFocusCapture={() => { lastPanel.current = "browse"; }} onKeyDown={(event) => { if (compact && event.key === "Escape") closeBrowse(); }}>
+        <div
+          className="fp-panel-slot"
+          hidden={compact && !browseOpen}
+          onFocusCapture={() => {
+            lastPanel.current = "browse";
+          }}
+          onKeyDown={(event) => {
+            if (compact && event.key === "Escape") closeBrowse();
+          }}
+        >
           <Sidebar {...navigation} compact={compact} onClose={closeBrowse} />
         </div>
-        {!compact && <PaneDivider label="Resize navigation" controls="workspace-navigation" side="left" min={152} max={sidebarMax} size={sidebarWidth} setSize={setSidebarSize} />}
-        <main id="task-outline" ref={main} tabIndex={-1} className="fp-main" aria-label="Task outline" hidden={compact && (browseOpen || inspectorVisible)} onFocusCapture={() => { lastPanel.current = "outline"; }}>{children}</main>
-        {!compact && inspectorVisible && <PaneDivider label="Resize inspector" controls="task-inspector" side="right" min={190} max={inspectorMax} size={inspectorWidth} setSize={setInspectorSize} />}
-        <div className="fp-panel-slot" hidden={!inspectorVisible} onFocusCapture={() => { lastPanel.current = "inspector"; }}>
-          <Inspector workspace={workspace} selection={selection} run={run} onClose={closeInspector} />
+        {!compact && (
+          <PaneDivider
+            label="Resize navigation"
+            controls="workspace-navigation"
+            side="left"
+            min={152}
+            max={sidebarMax}
+            size={sidebarWidth}
+            setSize={setSidebarSize}
+          />
+        )}
+        <main
+          id="task-outline"
+          ref={main}
+          tabIndex={-1}
+          className="fp-main"
+          aria-label="Task outline"
+          hidden={compact && (browseOpen || inspectorVisible)}
+          onFocusCapture={() => {
+            lastPanel.current = "outline";
+          }}
+        >
+          {children}
+        </main>
+        {!compact && inspectorVisible && (
+          <PaneDivider
+            label="Resize inspector"
+            controls="task-inspector"
+            side="right"
+            min={190}
+            max={inspectorMax}
+            size={inspectorWidth}
+            setSize={setInspectorSize}
+          />
+        )}
+        <div
+          className="fp-panel-slot"
+          hidden={!inspectorVisible}
+          onFocusCapture={() => {
+            lastPanel.current = "inspector";
+          }}
+        >
+          <Inspector
+            workspace={workspace}
+            selection={selection}
+            run={run}
+            onClose={closeInspector}
+          />
         </div>
       </div>
       <footer className="fp-statusbar">
         <span>Sample data resets on reload</span>
-        <span role="status" aria-live="polite" aria-atomic="true">{message}</span>
+        <span role="status" aria-live="polite" aria-atomic="true">
+          {message}
+        </span>
       </footer>
       {preferencesOpen && (
         <Preferences
-          appearance={appearance} onAppearance={setAppearance}
-          editMode={editMode} setEditMode={setEditMode}
+          appearance={appearance}
+          onAppearance={setAppearance}
+          editMode={editMode}
+          setEditMode={setEditMode}
           onClose={() => setPreferencesOpen(false)}
-          onReset={() => { setPreferencesOpen(false); onReset(); }}
+          onReset={() => {
+            setPreferencesOpen(false);
+            onReset();
+          }}
         />
       )}
     </div>

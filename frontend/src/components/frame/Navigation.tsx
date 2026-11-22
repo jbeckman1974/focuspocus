@@ -16,14 +16,29 @@ function isCurrent(view: View, target: View): boolean {
   );
 }
 
-export function Rail({ workspace, view, onView, onPreferences }: NavigationProps) {
+export function Rail({
+  workspace,
+  view,
+  onView,
+  onPreferences,
+}: NavigationProps) {
   const links: { label: string; icon: IconName; target: View }[] = [
     { label: "Inbox", icon: "inbox", target: { kind: "inbox" } },
   ];
   const project = workspace.projects[0];
   const tag = workspace.tags[0];
-  if (project) links.push({ label: "Projects", icon: "projects", target: { kind: "project", id: project.id } });
-  if (tag) links.push({ label: "Tags", icon: "tags", target: { kind: "tag", id: tag.id } });
+  if (project)
+    links.push({
+      label: "Projects",
+      icon: "projects",
+      target: { kind: "project", id: project.id },
+    });
+  if (tag)
+    links.push({
+      label: "Tags",
+      icon: "tags",
+      target: { kind: "tag", id: tag.id },
+    });
   links.push({ label: "All tasks", icon: "all", target: { kind: "all" } });
 
   return (
@@ -42,7 +57,13 @@ export function Rail({ workspace, view, onView, onPreferences }: NavigationProps
           </button>
         ))}
       </div>
-      <button className="fp-rail-button" type="button" aria-label="Preferences" title="Preferences" onClick={onPreferences}>
+      <button
+        className="fp-rail-button"
+        type="button"
+        aria-label="Preferences"
+        title="Preferences"
+        onClick={onPreferences}
+      >
         <Icon name="preferences" size={21} />
       </button>
     </nav>
@@ -54,7 +75,14 @@ interface SidebarProps extends NavigationProps {
   onClose: () => void;
 }
 
-export function Sidebar({ workspace, view, onView, compact, onClose, onPreferences }: SidebarProps) {
+export function Sidebar({
+  workspace,
+  view,
+  onView,
+  compact,
+  onClose,
+  onPreferences,
+}: SidebarProps) {
   const link = (label: string, icon: IconName, target: View) => (
     <button
       key={target.kind + ("id" in target ? target.id : "")}
@@ -70,10 +98,23 @@ export function Sidebar({ workspace, view, onView, compact, onClose, onPreferenc
   );
 
   return (
-    <nav className="fp-sidebar" aria-label="Workspace navigation" id="workspace-navigation">
+    <nav
+      className="fp-sidebar"
+      aria-label="Workspace navigation"
+      id="workspace-navigation"
+    >
       <div className="fp-panel-heading">
         <h2>Browse</h2>
-        {compact && <button type="button" className="fp-icon-button" aria-label="Close navigation" onClick={onClose}><Icon name="close" /></button>}
+        {compact && (
+          <button
+            type="button"
+            className="fp-icon-button"
+            aria-label="Close navigation"
+            onClick={onClose}
+          >
+            <Icon name="close" />
+          </button>
+        )}
       </div>
       <div className="fp-nav-sections">
         {compact && (
@@ -85,15 +126,26 @@ export function Sidebar({ workspace, view, onView, compact, onClose, onPreferenc
         )}
         <section aria-label="Projects">
           <h3>Projects</h3>
-          {workspace.projects.map((project) => link(project.title, "projects", { kind: "project", id: project.id }))}
+          {workspace.projects.map((project) =>
+            link(project.title, "projects", {
+              kind: "project",
+              id: project.id,
+            }),
+          )}
         </section>
         <section aria-label="Tags">
           <h3>Tags</h3>
-          {workspace.tags.map((tag) => link(tag.title, "tags", { kind: "tag", id: tag.id }))}
+          {workspace.tags.map((tag) =>
+            link(tag.title, "tags", { kind: "tag", id: tag.id }),
+          )}
         </section>
       </div>
       {compact && (
-        <button type="button" className="fp-secondary fp-mobile-settings" onClick={onPreferences}>
+        <button
+          type="button"
+          className="fp-secondary fp-mobile-settings"
+          onClick={onPreferences}
+        >
           <Icon name="preferences" size={16} /> Preferences
         </button>
       )}

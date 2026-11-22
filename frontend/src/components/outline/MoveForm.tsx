@@ -11,7 +11,9 @@ interface Props {
 
 export function MoveForm({ workspace, selection, submit }: Props) {
   const targets = moveDestinations(workspace, selection);
-  const firstParent = workspace.tasks.find((task) => selection.includes(task.id))?.parentId;
+  const firstParent = workspace.tasks.find((task) =>
+    selection.includes(task.id),
+  )?.parentId;
   const [parentId, setParentId] = useState(
     targets.some((target) => target.id === firstParent) ? firstParent! : INBOX,
   );
@@ -21,27 +23,55 @@ export function MoveForm({ workspace, selection, submit }: Props) {
   );
 
   return (
-    <form onSubmit={(event) => {
-      event.preventDefault();
-      submit({ type: "move", ids: selection, parentId, beforeId: beforeId || undefined });
-    }}>
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        submit({
+          type: "move",
+          ids: selection,
+          parentId,
+          beforeId: beforeId || undefined,
+        });
+      }}
+    >
       <label>
         Move to
-        <select autoFocus value={parentId} onChange={(event) => {
-          setParentId(event.currentTarget.value);
-          setBeforeId("");
-        }}>
-          {targets.map((entry) => <option key={entry.id} value={entry.id}>{entry.title}</option>)}
+        <select
+          autoFocus
+          value={parentId}
+          onChange={(event) => {
+            setParentId(event.currentTarget.value);
+            setBeforeId("");
+          }}
+        >
+          {targets.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.title}
+            </option>
+          ))}
         </select>
       </label>
       <label>
         Position
-        <select value={beforeId} onChange={(event) => setBeforeId(event.currentTarget.value)}>
+        <select
+          value={beforeId}
+          onChange={(event) => setBeforeId(event.currentTarget.value)}
+        >
           <option value="">At the end</option>
-          {siblings.map((task) => <option key={task.id} value={task.id}>Before {task.title}</option>)}
+          {siblings.map((task) => (
+            <option key={task.id} value={task.id}>
+              Before {task.title}
+            </option>
+          ))}
         </select>
       </label>
-      <button className="outline-primary" type="submit" disabled={!selection.length}>Move tasks</button>
+      <button
+        className="outline-primary"
+        type="submit"
+        disabled={!selection.length}
+      >
+        Move tasks
+      </button>
     </form>
   );
 }

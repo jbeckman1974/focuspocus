@@ -1,5 +1,11 @@
 import { effectiveDone } from "../../outline/index.ts";
-import type { Command, OutlineRow, Task, View, Workspace } from "../../outline/index.ts";
+import type {
+  Command,
+  OutlineRow,
+  Task,
+  View,
+  Workspace,
+} from "../../outline/index.ts";
 
 export type OutlinePanel = "commands" | "group" | "move";
 
@@ -21,7 +27,10 @@ interface Navigation {
   active?: string;
   clearSelection: () => void;
   select: (id: string, extend?: boolean, toggle?: boolean) => void;
-  navigate: (key: "ArrowUp" | "ArrowDown" | "Home" | "End", extend: boolean) => void;
+  navigate: (
+    key: "ArrowUp" | "ArrowDown" | "Home" | "End",
+    extend: boolean,
+  ) => void;
 }
 
 interface TreeKeyEvent {
@@ -53,7 +62,12 @@ export function handleTreeKey(
   }
 
   const key = event.key;
-  if (key === "ArrowDown" || key === "ArrowUp" || key === "Home" || key === "End") {
+  if (
+    key === "ArrowDown" ||
+    key === "ArrowUp" ||
+    key === "Home" ||
+    key === "End"
+  ) {
     event.preventDefault();
     nav.navigate(key, event.shiftKey);
     return;
@@ -83,7 +97,8 @@ export function handleTreeKey(
       break;
     case "arrowleft":
       if (actions.view.kind === "tag") return;
-      if (hasChildren && !actions.collapsed.has(task.id)) actions.toggle(task.id);
+      if (hasChildren && !actions.collapsed.has(task.id))
+        actions.toggle(task.id);
       else if (ids.includes(task.parentId)) nav.select(task.parentId);
       break;
     case "arrowright":
@@ -110,12 +125,17 @@ export function handleTreeKey(
     case "i":
     case "o":
       if (!selection.length || actions.view.kind === "tag") return;
-      actions.run({ type: key.toLowerCase() === "i" ? "indent" : "outdent", ids: selection });
+      actions.run({
+        type: key.toLowerCase() === "i" ? "indent" : "outdent",
+        ids: selection,
+      });
       break;
     case "x":
       if (!selection.length) return;
       actions.run({
-        type: selection.every((id) => effectiveDone(workspace, id)) ? "reopen" : "complete",
+        type: selection.every((id) => effectiveDone(workspace, id))
+          ? "reopen"
+          : "complete",
         ids: selection,
       });
       break;

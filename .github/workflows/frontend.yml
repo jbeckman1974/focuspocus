@@ -57,8 +57,9 @@ jobs:
           if ! docker run --rm focuspocus-dev npm run format:check; then
             docker run --rm --user "$(id -u):$(id -g)" \
               -v "$PWD/frontend/src:/opt/workspace/src" -v "$PWD/frontend/tests:/opt/workspace/tests" \
-              focuspocus-dev ./node_modules/.bin/prettier --write src tests >/dev/null
-            git diff -- frontend/src frontend/tests
+              -v "$PWD/frontend/e2e:/opt/workspace/e2e" -v "$PWD/frontend/playwright.config.ts:/opt/workspace/playwright.config.ts" \
+              focuspocus-dev ./node_modules/.bin/prettier --write src tests e2e playwright.config.ts >/dev/null
+            git diff -- frontend/src frontend/tests frontend/e2e frontend/playwright.config.ts
             exit 1
           fi
       - name: Audit locked packages

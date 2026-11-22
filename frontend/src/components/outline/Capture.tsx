@@ -7,7 +7,12 @@ interface CaptureProps {
   submit: (titles: string[]) => boolean;
 }
 
-export function Capture({ identity, destination, signal, submit }: CaptureProps) {
+export function Capture({
+  identity,
+  destination,
+  signal,
+  submit,
+}: CaptureProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const input = useRef<HTMLTextAreaElement>(null);
   const lastSignal = useRef(signal);
@@ -25,7 +30,10 @@ export function Capture({ identity, destination, signal, submit }: CaptureProps)
   }
 
   function addTasks() {
-    const titles = draft.split(/\r\n|\n|\r/).map((line) => line.trim()).filter(Boolean);
+    const titles = draft
+      .split(/\r\n|\n|\r/)
+      .map((line) => line.trim())
+      .filter(Boolean);
     if (titles.length && submit(titles)) {
       update("");
       input.current?.focus();
@@ -41,7 +49,9 @@ export function Capture({ identity, destination, signal, submit }: CaptureProps)
         addTasks();
       }}
     >
-      <span aria-hidden="true" className="outline-capture-mark">+</span>
+      <span aria-hidden="true" className="outline-capture-mark">
+        +
+      </span>
       <textarea
         ref={input}
         aria-label="Task titles"
@@ -51,13 +61,19 @@ export function Capture({ identity, destination, signal, submit }: CaptureProps)
         value={draft}
         onChange={(event) => update(event.currentTarget.value)}
         onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+          if (
+            event.key === "Enter" &&
+            !event.shiftKey &&
+            !event.nativeEvent.isComposing
+          ) {
             event.preventDefault();
             addTasks();
           }
         }}
       />
-      <button type="submit" disabled={!draft.trim()} aria-label="Add tasks">Add</button>
+      <button type="submit" disabled={!draft.trim()} aria-label="Add tasks">
+        Add
+      </button>
     </form>
   );
 }

@@ -18,8 +18,9 @@
   min-height: var(--row-height, 2.75rem);
   border-bottom: 1px solid var(--line, ButtonBorder);
   padding-block: 0.25em;
-  padding-inline:
-    calc(var(--outline-pad) - 0.35rem + min(var(--depth), 8) * 1em)
+  padding-inline: calc(
+      var(--outline-pad) - 0.35rem + min(var(--depth), 8) * 1em
+    )
     var(--outline-pad);
   box-sizing: border-box;
 }
@@ -189,7 +190,6 @@
 .outline-empty {
   margin: 1rem var(--outline-pad) 0;
 }
-
 
 .outline-visually-hidden {
   position: absolute;

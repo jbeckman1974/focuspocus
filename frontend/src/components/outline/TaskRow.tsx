@@ -82,7 +82,8 @@ export function TaskRow(props: RowProps) {
       }}
     >
       <span id={`${props.id}-details`} className="outline-visually-hidden">
-        {props.done ? "Completed." : "Active."} {props.tags.join(", ")} {task.due && `Due ${task.due}.`}
+        {props.done ? "Completed." : "Active."} {props.tags.join(", ")}{" "}
+        {task.due && `Due ${task.due}.`}
       </span>
       {props.hasChildren ? (
         <button
@@ -95,8 +96,12 @@ export function TaskRow(props: RowProps) {
             props.toggle();
           }}
           onDoubleClick={(event) => event.stopPropagation()}
-        >{props.expanded ? "▾" : "▸"}</button>
-      ) : <span className="outline-disclosure-space" />}
+        >
+          {props.expanded ? "▾" : "▸"}
+        </button>
+      ) : (
+        <span className="outline-disclosure-space" />
+      )}
       <button
         type="button"
         className="outline-check"
@@ -109,11 +114,16 @@ export function TaskRow(props: RowProps) {
           props.check();
         }}
         onDoubleClick={(event) => event.stopPropagation()}
-      ><span aria-hidden="true">{props.done ? "✓" : ""}</span></button>
+      >
+        <span aria-hidden="true">{props.done ? "✓" : ""}</span>
+      </button>
       {editing ? (
         <form
           className="outline-inline-edit"
-          onSubmit={(event) => { event.preventDefault(); props.save(); }}
+          onSubmit={(event) => {
+            event.preventDefault();
+            props.save();
+          }}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) return;
             if (event.key === "Escape") {
@@ -122,18 +132,38 @@ export function TaskRow(props: RowProps) {
             }
           }}
         >
-          <input ref={input} aria-label="Task title" value={draft.title}
-            onChange={(event) => props.changeDraft(event.currentTarget.value)} />
-          <button type="submit" disabled={!draft.title.trim()} aria-label="Save title">Save</button>
-          <button type="button" onClick={props.cancel} aria-label="Cancel edit">Cancel</button>
+          <input
+            ref={input}
+            aria-label="Task title"
+            value={draft.title}
+            onChange={(event) => props.changeDraft(event.currentTarget.value)}
+          />
+          <button
+            type="submit"
+            disabled={!draft.title.trim()}
+            aria-label="Save title"
+          >
+            Save
+          </button>
+          <button type="button" onClick={props.cancel} aria-label="Cancel edit">
+            Cancel
+          </button>
         </form>
       ) : (
         <>
-          <span className={task.kind === "group" ? "outline-title group-title" : "outline-title"}>
+          <span
+            className={
+              task.kind === "group"
+                ? "outline-title group-title"
+                : "outline-title"
+            }
+          >
             {task.title}
           </span>
           <span className="outline-fields">
-            {props.tags.length > 0 && <span className="outline-tags">{props.tags.join(" · ")}</span>}
+            {props.tags.length > 0 && (
+              <span className="outline-tags">{props.tags.join(" · ")}</span>
+            )}
             {task.due && <time dateTime={task.due}>{task.due}</time>}
           </span>
         </>

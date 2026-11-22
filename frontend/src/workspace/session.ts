@@ -127,12 +127,18 @@ export class WorkspaceSession {
 
   select = (ids: string[]) => {
     const { workspace, view, collapsed } = this.snapshot;
-    this.show(workspace, view, reconcileSelection(workspace, view, collapsed, ids));
+    this.show(
+      workspace,
+      view,
+      reconcileSelection(workspace, view, collapsed, ids),
+    );
   };
 
   toggle = (id: string) => {
     const { workspace, view, selection, collapsed } = this.snapshot;
-    if (!workspace.tasks.some((task) => task.id === id && task.kind === "group")) {
+    if (
+      !workspace.tasks.some((task) => task.id === id && task.kind === "group")
+    ) {
       return;
     }
     const next = new Set(collapsed);
@@ -141,7 +147,11 @@ export class WorkspaceSession {
     if (memory.selection.length < selection.length) {
       // A collapsed ancestor takes the place of any hidden selected descendants.
       const retained = [...memory.selection, id];
-      this.show(workspace, view, reconcileSelection(workspace, view, next, retained));
+      this.show(
+        workspace,
+        view,
+        reconcileSelection(workspace, view, next, retained),
+      );
       return;
     }
     this.show(workspace, view, memory);
@@ -153,7 +163,8 @@ export class WorkspaceSession {
     try {
       result = applyCommand(before.workspace, command, this.makeId);
     } catch (error) {
-      const text = error instanceof Error ? error.message : "Edit could not be applied.";
+      const text =
+        error instanceof Error ? error.message : "Edit could not be applied.";
       this.publish({ ...before, notice: { text } });
       return false;
     }
@@ -170,7 +181,8 @@ export class WorkspaceSession {
     ) {
       view = homeView(workspace, selection[0]);
     }
-    const collapsed = this.views.get(viewKey(view))?.collapsed ?? new Set<string>();
+    const collapsed =
+      this.views.get(viewKey(view))?.collapsed ?? new Set<string>();
     const memory = revealSelection(workspace, view, collapsed, selection);
     this.past.push({
       before: checkpoint(before),
@@ -193,10 +205,16 @@ export class WorkspaceSession {
       viewKey(current) !== viewKey(from.view) &&
       containsSelection(to.workspace, current, to.selection);
     const view = keepCurrent ? current : to.view;
-    const collapsed = this.views.get(viewKey(view))?.collapsed ?? new Set<string>();
-    this.show(to.workspace, view, revealSelection(to.workspace, view, collapsed, to.selection), {
-      text,
-    });
+    const collapsed =
+      this.views.get(viewKey(view))?.collapsed ?? new Set<string>();
+    this.show(
+      to.workspace,
+      view,
+      revealSelection(to.workspace, view, collapsed, to.selection),
+      {
+        text,
+      },
+    );
   }
 
   undo = () => {

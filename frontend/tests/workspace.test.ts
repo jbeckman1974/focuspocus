@@ -60,17 +60,24 @@ test("AT-16 capture, two-item indent, tag, date, relocation and completion keep 
   session.changeView({ kind: "project", id: "project" });
   session.toggle("destination");
   session.changeView({ kind: "inbox" });
-  assert.ok(session.run({
-    type: "capture",
-    parentId: INBOX,
-    titles: ["Bench kit", "Cable roll\nField book"],
-  }));
+  assert.ok(
+    session.run({
+      type: "capture",
+      parentId: INBOX,
+      titles: ["Bench kit", "Cable roll\nField book"],
+    }),
+  );
   const [kit, cable, book] = session.getSnapshot().selection;
   session.select([cable, book]);
   assert.ok(session.run({ type: "indent", ids: [cable, book] }));
-  assert.ok(session.run({
-    type: "setTag", ids: [cable, book], tagId: "field", enabled: true,
-  }));
+  assert.ok(
+    session.run({
+      type: "setTag",
+      ids: [cable, book],
+      tagId: "field",
+      enabled: true,
+    }),
+  );
   assert.ok(session.run({ type: "setDue", ids: [cable], due: "2026-11-24" }));
   session.select([kit]);
   assert.ok(session.run({ type: "move", ids: [kit], parentId: "destination" }));
@@ -89,7 +96,9 @@ test("AT-16 capture, two-item indent, tag, date, relocation and completion keep 
     ({ task }) => task.id,
   );
   assert.ok(ids.includes(cable) && ids.includes(book));
-  const originalCable = tagged.workspace.tasks.find((task) => task.id === cable);
+  const originalCable = tagged.workspace.tasks.find(
+    (task) => task.id === cable,
+  );
   assert.equal(originalCable?.parentId, kit);
   assert.equal(originalCable?.due, "2026-11-24");
   session.changeView({ kind: "project", id: "project" });
@@ -113,7 +122,8 @@ test("undo invoked from a compatible second view keeps that view", () => {
   session.redo();
   assert.deepEqual(session.getSnapshot().view, { kind: "tag", id: "field" });
   assert.equal(
-    session.getSnapshot().workspace.tasks.find((task) => task.id === "sheet")?.title,
+    session.getSnapshot().workspace.tasks.find((task) => task.id === "sheet")
+      ?.title,
     "Revised sheet",
   );
 });
@@ -124,11 +134,17 @@ test("rejected and unchanged edits preserve data, selection, and redo", () => {
   session.run({ type: "rename", id: "sheet", title: "Revision" });
   session.undo();
   const original = session.getSnapshot();
-  assert.equal(session.run({ type: "move", ids: ["bag"], parentId: "sheet" }), false);
+  assert.equal(
+    session.run({ type: "move", ids: ["bag"], parentId: "sheet" }),
+    false,
+  );
   assert.ok(session.getSnapshot().notice?.text);
   assert.equal(session.getSnapshot().workspace, original.workspace);
   assert.equal(session.getSnapshot().selection, original.selection);
-  assert.equal(session.run({ type: "rename", id: "sheet", title: "sheet" }), true);
+  assert.equal(
+    session.run({ type: "rename", id: "sheet", title: "sheet" }),
+    true,
+  );
   assert.equal(session.getSnapshot().canRedo, true);
   assert.equal(session.getSnapshot().canUndo, false);
   session.run({ type: "setDue", ids: ["sheet"], due: "2026-11-24" });
@@ -142,7 +158,12 @@ test("a filter change drops absent selection and undo restores it", () => {
   const session = fixture();
   session.changeView({ kind: "tag", id: "field" });
   assert.deepEqual(session.getSnapshot().selection, ["sheet"]);
-  session.run({ type: "setTag", ids: ["sheet"], tagId: "field", enabled: false });
+  session.run({
+    type: "setTag",
+    ids: ["sheet"],
+    tagId: "field",
+    enabled: false,
+  });
   assert.deepEqual(session.getSnapshot().selection, []);
   assert.deepEqual(session.getSnapshot().view, { kind: "tag", id: "field" });
   session.undo();

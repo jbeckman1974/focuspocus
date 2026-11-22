@@ -1,6 +1,7 @@
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { RefObject } from "react";
-import { adjacentId, selectThrough } from "./controls.ts";
+import { adjacentId, extendRange, stillSelected } from "./controls.ts";
+import type { TreeCursor } from "./controls.ts";
 
 interface Anchor {
   item?: string;
@@ -54,13 +55,10 @@ export function useTreeNavigation(
   tree: RefObject<HTMLDivElement | null>,
 ) {
   const prefix = useId();
-  const [activeByView, setActiveByView] = useState<Record<string, { id: string; selection: string[] }>>({});
-  const anchors = useRef(new Map<string, string>());
+  const [activeByView, setActiveByView] = useState<Record<string, TreeCursor>>({});
   const scroll = useRef(new Map<string, Anchor>());
   const remembered = activeByView[identity];
-  const sameSelection = remembered && remembered.selection.length === selected.length &&
-    remembered.selection.every((id, index) => id === selected[index]);
-  const active = sameSelection && ids.includes(remembered.id)
+  const active = remembered && stillSelected(remembered, selected) && ids.includes(remembered.id)
     ? remembered.id
     : selected.find((id) => ids.includes(id)) ?? ids[0];
   const rowId = (id: string) => `${prefix}-${id}`;
@@ -76,23 +74,19 @@ export function useTreeNavigation(
   }, [identity, active, prefix, tree]);
 
   function select(id: string, extend = false, toggle = false) {
-    let next: string[];
+    let next: TreeCursor;
     if (extend) {
-      // Commands and history can replace the selection without a pointer or arrow event.
-      const previousAnchor = sameSelection ? anchors.current.get(identity) : undefined;
-      const anchor = previousAnchor && ids.includes(previousAnchor) ? previousAnchor : active ?? id;
-      anchors.current.set(identity, anchor);
-      next = selectThrough(ids, anchor, id);
+      next = extendRange(ids, remembered, selected, active, id);
     } else {
-      anchors.current.set(identity, id);
-      next = toggle
+      const selection = toggle
         ? selected.includes(id)
           ? selected.filter((previous) => previous !== id)
           : [...selected, id]
         : [id];
+      next = { id, anchor: id, selection };
     }
-    setActiveByView((previous) => ({ ...previous, [identity]: { id, selection: next } }));
-    onSelect(next);
+    setActiveByView((previous) => ({ ...previous, [identity]: next }));
+    onSelect(next.selection);
     tree.current?.focus({ preventScroll: true });
     if (tree.current) revealRow(tree.current, rowId(id));
   }
@@ -109,8 +103,7 @@ export function useTreeNavigation(
     navigate,
     clearSelection() {
       if (active) {
-        anchors.current.set(identity, active);
-        setActiveByView((previous) => ({ ...previous, [identity]: { id: active, selection: [] } }));
+        setActiveByView((previous) => ({ ...previous, [identity]: { id: active, anchor: active, selection: [] } }));
       }
       onSelect([]);
     },

@@ -5,6 +5,7 @@ import type { Command, Task, Workspace } from "../src/outline/index.ts";
 import { handleTreeKey } from "../src/components/outline/keyboard.ts";
 import {
   adjacentId,
+  extendRange,
   moveDestinations,
   selectThrough,
   viewTitle,
@@ -98,4 +99,20 @@ test("Escape leaves the focused task available for navigation and clears every e
   press(" ");
   press("x");
   assert.deepEqual(commands, [{ type: "complete", ids: ["b"] }]);
+});
+
+
+test("a new command selection resets the range anchor to the newly active task", () => {
+  const ids = ["first", "middle", "previous", "captured"];
+  const oldCursor = { id: "first", anchor: "first", selection: ["first"] };
+  const next = extendRange(ids, oldCursor, ["captured"], "captured", "previous");
+  assert.deepEqual(next, {
+    id: "previous",
+    anchor: "captured",
+    selection: ["previous", "captured"],
+  });
+  const continued = extendRange(ids, next, next.selection, next.id, "middle");
+  assert.deepEqual(continued.selection, ["middle", "previous", "captured"]);
+  const filtered = extendRange(["middle", "previous"], continued, continued.selection, "middle", "previous");
+  assert.deepEqual(filtered, { id: "previous", anchor: "middle", selection: ["middle", "previous"] });
 });
