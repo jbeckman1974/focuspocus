@@ -11,9 +11,9 @@ interface Anchor {
 
 function readAnchor(container: HTMLElement): Anchor {
   const top = container.getBoundingClientRect().top;
-  const item = [...container.querySelectorAll<HTMLElement>("[data-task-id]")].find(
-    (row) => row.getBoundingClientRect().bottom > top,
-  );
+  const item = [
+    ...container.querySelectorAll<HTMLElement>("[data-task-id]"),
+  ].find((row) => row.getBoundingClientRect().bottom > top);
   return {
     item: item?.dataset.taskId,
     offset: item ? item.getBoundingClientRect().top - top : 0,
@@ -29,7 +29,9 @@ function restoreAnchor(container: HTMLElement, anchor?: Anchor) {
     : undefined;
   if (item && anchor) {
     container.scrollTop +=
-      item.getBoundingClientRect().top - container.getBoundingClientRect().top - anchor.offset;
+      item.getBoundingClientRect().top -
+      container.getBoundingClientRect().top -
+      anchor.offset;
   } else {
     container.scrollTop = anchor?.top ?? 0;
   }
@@ -43,7 +45,10 @@ function revealRow(container: HTMLElement, rowId: string) {
   if (bounds.top < viewport.top) {
     container.scrollTop += bounds.top - viewport.top;
   } else if (bounds.bottom > viewport.bottom) {
-    container.scrollTop += Math.min(bounds.bottom - viewport.bottom, bounds.top - viewport.top);
+    container.scrollTop += Math.min(
+      bounds.bottom - viewport.bottom,
+      bounds.top - viewport.top,
+    );
   }
 }
 
@@ -55,12 +60,17 @@ export function useTreeNavigation(
   tree: RefObject<HTMLDivElement | null>,
 ) {
   const prefix = useId();
-  const [activeByView, setActiveByView] = useState<Record<string, TreeCursor>>({});
+  const [activeByView, setActiveByView] = useState<Record<string, TreeCursor>>(
+    {},
+  );
   const scroll = useRef(new Map<string, Anchor>());
   const remembered = activeByView[identity];
-  const active = remembered && stillSelected(remembered, selected) && ids.includes(remembered.id)
-    ? remembered.id
-    : selected.find((id) => ids.includes(id)) ?? ids[0];
+  const active =
+    remembered &&
+    stillSelected(remembered, selected) &&
+    ids.includes(remembered.id)
+      ? remembered.id
+      : (selected.find((id) => ids.includes(id)) ?? ids[0]);
   const rowId = (id: string) => `${prefix}-${id}`;
 
   useLayoutEffect(() => {
@@ -91,7 +101,10 @@ export function useTreeNavigation(
     if (tree.current) revealRow(tree.current, rowId(id));
   }
 
-  function navigate(key: "ArrowUp" | "ArrowDown" | "Home" | "End", extend: boolean) {
+  function navigate(
+    key: "ArrowUp" | "ArrowDown" | "Home" | "End",
+    extend: boolean,
+  ) {
     const id = adjacentId(ids, active ?? "", key);
     if (id) select(id, extend);
   }
@@ -103,7 +116,10 @@ export function useTreeNavigation(
     navigate,
     clearSelection() {
       if (active) {
-        setActiveByView((previous) => ({ ...previous, [identity]: { id: active, anchor: active, selection: [] } }));
+        setActiveByView((previous) => ({
+          ...previous,
+          [identity]: { id: active, anchor: active, selection: [] },
+        }));
       }
       onSelect([]);
     },

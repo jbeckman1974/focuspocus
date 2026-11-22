@@ -26,7 +26,9 @@ export async function taskId(page: Page, title: string): Promise<string> {
 export async function tabTo(page: Page, target: Locator) {
   await expect(target).toBeVisible();
   for (let stops = 0; stops < 100; stops++) {
-    if (await target.evaluate((element) => element === document.activeElement)) {
+    if (
+      await target.evaluate((element) => element === document.activeElement)
+    ) {
       return;
     }
     await page.keyboard.press("Tab");
@@ -74,7 +76,9 @@ export async function chooseWithKeys(
   expect(value).not.toBeNull();
   await tabTo(page, select);
   await page.keyboard.press("Home");
-  const count = await select.getByRole("option", { includeHidden: true }).count();
+  const count = await select
+    .getByRole("option", { includeHidden: true })
+    .count();
   for (let index = 0; index < count; index++) {
     if ((await select.inputValue()) === value) return;
     await page.keyboard.press("ArrowDown");

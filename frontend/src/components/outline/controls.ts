@@ -8,9 +8,14 @@ export function viewTitle(view: View, workspace: Workspace): string {
     case "all":
       return "Everything";
     case "project":
-      return workspace.projects.find((entry) => entry.id === view.id)?.title ?? "Project";
+      return (
+        workspace.projects.find((entry) => entry.id === view.id)?.title ??
+        "Project"
+      );
     case "tag":
-      return workspace.tags.find((entry) => entry.id === view.id)?.title ?? "Tag";
+      return (
+        workspace.tags.find((entry) => entry.id === view.id)?.title ?? "Tag"
+      );
   }
 }
 
@@ -20,9 +25,15 @@ export interface TreeCursor {
   selection: string[];
 }
 
-export function stillSelected(cursor: TreeCursor | undefined, selection: string[]): boolean {
-  return cursor !== undefined && cursor.selection.length === selection.length &&
-    cursor.selection.every((id, index) => id === selection[index]);
+export function stillSelected(
+  cursor: TreeCursor | undefined,
+  selection: string[],
+): boolean {
+  return (
+    cursor !== undefined &&
+    cursor.selection.length === selection.length &&
+    cursor.selection.every((id, index) => id === selection[index])
+  );
 }
 
 export function extendRange(
@@ -33,17 +44,26 @@ export function extendRange(
   end: string,
 ): TreeCursor {
   // A command or history operation can replace the selection between navigation events.
-  const oldAnchor = cursor && stillSelected(cursor, selection) ? cursor.anchor : undefined;
-  const anchor = oldAnchor && ids.includes(oldAnchor) ? oldAnchor : active ?? end;
+  const oldAnchor =
+    cursor && stillSelected(cursor, selection) ? cursor.anchor : undefined;
+  const anchor =
+    oldAnchor && ids.includes(oldAnchor) ? oldAnchor : (active ?? end);
   return { id: end, anchor, selection: selectThrough(ids, anchor, end) };
 }
 
-export function selectThrough(ids: string[], anchor: string, end: string): string[] {
+export function selectThrough(
+  ids: string[],
+  anchor: string,
+  end: string,
+): string[] {
   const startIndex = ids.indexOf(anchor);
   const endIndex = ids.indexOf(end);
   if (endIndex < 0) return [];
   if (startIndex < 0) return [end];
-  return ids.slice(Math.min(startIndex, endIndex), Math.max(startIndex, endIndex) + 1);
+  return ids.slice(
+    Math.min(startIndex, endIndex),
+    Math.max(startIndex, endIndex) + 1,
+  );
 }
 
 export function adjacentId(
@@ -59,7 +79,10 @@ export function adjacentId(
   return ids[Math.min(ids.length - 1, Math.max(0, index + delta))];
 }
 
-export function moveDestinations(workspace: Workspace, selection: string[]): Entry[] {
+export function moveDestinations(
+  workspace: Workspace,
+  selection: string[],
+): Entry[] {
   const roots = [{ id: INBOX, title: "Inbox" }, ...workspace.projects];
   const byId = new Map(workspace.tasks.map((task) => [task.id, task]));
   const rootNames = new Map(roots.map((root) => [root.id, root.title]));

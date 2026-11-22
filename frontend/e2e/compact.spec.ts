@@ -8,14 +8,25 @@ test("AT-24 and AT-28 · edit and use preferences at a 320px width", async ({
 }) => {
   await page.goto("/");
   const browse = page.getByRole("button", { name: "Browse", exact: true });
-  const preferences = page.getByRole("button", { name: "Preferences", exact: true });
+  const preferences = page.getByRole("button", {
+    name: "Preferences",
+    exact: true,
+  });
   const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
   await browse.click();
   await preferences.click();
-  await dialog.getByRole("combobox", { name: /^Theme\b/ }).selectOption({ label: "Dark" });
-  await dialog.getByRole("combobox", { name: /^Row density\b/ }).selectOption({ label: "Compact" });
-  await dialog.getByRole("combobox", { name: /^Text size\b/ }).selectOption({ label: "Large" });
-  await dialog.getByRole("combobox", { name: /^Edit titles in\b/ }).selectOption({ label: "Inspector" });
+  await dialog
+    .getByRole("combobox", { name: /^Theme\b/ })
+    .selectOption({ label: "Dark" });
+  await dialog
+    .getByRole("combobox", { name: /^Row density\b/ })
+    .selectOption({ label: "Compact" });
+  await dialog
+    .getByRole("combobox", { name: /^Text size\b/ })
+    .selectOption({ label: "Large" });
+  await dialog
+    .getByRole("combobox", { name: /^Edit titles in\b/ })
+    .selectOption({ label: "Inspector" });
   await dialog.getByRole("button", { name: "Close preferences" }).click();
   await expect(dialog).toBeHidden();
 
@@ -32,7 +43,10 @@ test("AT-24 and AT-28 · edit and use preferences at a 320px width", async ({
   await page.getByRole("button", { name: "Add tasks", exact: true }).click();
   const row = task(page, "Narrow screen task");
   await row.getByText("Narrow screen task", { exact: true }).click();
-  const showInspector = page.getByRole("button", { name: "Inspector", exact: true });
+  const showInspector = page.getByRole("button", {
+    name: "Inspector",
+    exact: true,
+  });
   await showInspector.click();
   const panel = inspector(page);
   const title = panel.getByRole("textbox", { name: "Title", exact: true });
@@ -42,9 +56,14 @@ test("AT-24 and AT-28 · edit and use preferences at a 320px width", async ({
   await panel.getByRole("button", { name: "Close inspector" }).click();
   await expect(task(page, "Edited in inspector")).toBeVisible();
   const hasHorizontalOverflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
+    () =>
+      document.documentElement.scrollWidth >
+      document.documentElement.clientWidth,
   );
-  expect(hasHorizontalOverflow, "320px outline fits the viewport with large text").toBe(false);
+  expect(
+    hasHorizontalOverflow,
+    "320px outline fits the viewport with large text",
+  ).toBe(false);
 
   await browse.click();
   await preferences.click();
@@ -55,7 +74,9 @@ test("AT-24 and AT-28 · edit and use preferences at a 320px width", async ({
     ["Edit titles in", "Inspector"],
   ]) {
     await expect(
-      dialog.getByRole("combobox", { name: new RegExp(`^${setting}\\b`) }).locator("option:checked"),
+      dialog
+        .getByRole("combobox", { name: new RegExp(`^${setting}\\b`) })
+        .locator("option:checked"),
     ).toHaveText(selected);
   }
   await page.keyboard.press("Escape");

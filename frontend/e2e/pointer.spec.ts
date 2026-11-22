@@ -32,14 +32,22 @@ test("AT-01 and AT-16 · organize, find and undo with pointer controls", async (
   if (!(await inspector(page).isVisible())) {
     await page.getByRole("button", { name: "Inspector", exact: true }).click();
   }
-  const field = inspector(page).getByRole("checkbox", { name: "Field", exact: true });
+  const field = inspector(page).getByRole("checkbox", {
+    name: "Field",
+    exact: true,
+  });
   await field.check();
   await expect(field).toBeChecked();
   await multiple.click();
   await cable.getByText("Cable roll", { exact: true }).dblclick();
-  await page.getByRole("textbox", { name: "Task title", exact: true }).fill("Cable reel");
+  await page
+    .getByRole("textbox", { name: "Task title", exact: true })
+    .fill("Cable reel");
   await page.getByRole("button", { name: "Save title", exact: true }).click();
-  await expect(task(page, "Cable reel")).toHaveAttribute("data-task-id", cableId);
+  await expect(task(page, "Cable reel")).toHaveAttribute(
+    "data-task-id",
+    cableId,
+  );
 
   await book.getByText("Field book", { exact: true }).click();
   const due = inspector(page).getByLabel("Due date", { exact: true });
@@ -76,17 +84,26 @@ test("AT-01 and AT-16 · organize, find and undo with pointer controls", async (
   }
 
   await sidebarDestination(page, "Field").click();
-  await expect(task(page, "Cable reel")).toHaveAttribute("data-task-id", cableId);
+  await expect(task(page, "Cable reel")).toHaveAttribute(
+    "data-task-id",
+    cableId,
+  );
   await expect(book).toHaveAttribute("data-task-id", bookId);
   await book.getByText("Field book", { exact: true }).click();
   await expect(due).toHaveValue("2026-11-26");
   await sidebarDestination(page, "Punch list").click();
   await expect(bench).toHaveAttribute("data-task-id", benchId);
   await bench.getByRole("button", { name: "Complete Bench kit" }).click();
-  await expect(bench.getByRole("button", { name: "Reopen Bench kit" })).toBeVisible();
+  await expect(
+    bench.getByRole("button", { name: "Reopen Bench kit" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Undo", exact: true }).click();
-  await expect(bench.getByRole("button", { name: "Complete Bench kit" })).toBeVisible();
+  await expect(
+    bench.getByRole("button", { name: "Complete Bench kit" }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Redo", exact: true }).click();
-  await expect(bench.getByRole("button", { name: "Reopen Bench kit" })).toBeVisible();
+  await expect(
+    bench.getByRole("button", { name: "Reopen Bench kit" }),
+  ).toBeVisible();
   await expect(book).toHaveAttribute("data-task-id", bookId);
 });

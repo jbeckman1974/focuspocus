@@ -32,20 +32,64 @@ test("navigation stays inside the view and supports Home and End", () => {
 });
 
 const workspace: Workspace = {
-  projects: [{ id: "p1", title: "Office" }, { id: "p2", title: "Field" }],
+  projects: [
+    { id: "p1", title: "Office" },
+    { id: "p2", title: "Field" },
+  ],
   tags: [{ id: "t", title: "Research" }],
   tasks: [
-    { id: "a", title: "Maps", parentId: "p1", kind: "group", done: false, due: null, tags: [] },
-    { id: "b", title: "Drafts", parentId: "a", kind: "group", done: false, due: null, tags: [] },
-    { id: "c", title: "Draw", parentId: "b", kind: "action", done: false, due: null, tags: [] },
-    { id: "d", title: "Permits", parentId: "p2", kind: "group", done: false, due: null, tags: [] },
+    {
+      id: "a",
+      title: "Maps",
+      parentId: "p1",
+      kind: "group",
+      done: false,
+      due: null,
+      tags: [],
+    },
+    {
+      id: "b",
+      title: "Drafts",
+      parentId: "a",
+      kind: "group",
+      done: false,
+      due: null,
+      tags: [],
+    },
+    {
+      id: "c",
+      title: "Draw",
+      parentId: "b",
+      kind: "action",
+      done: false,
+      due: null,
+      tags: [],
+    },
+    {
+      id: "d",
+      title: "Permits",
+      parentId: "p2",
+      kind: "group",
+      done: false,
+      due: null,
+      tags: [],
+    },
   ],
 };
 
 test("the move picker excludes the selected subtree and labels nested groups", () => {
-  assert.deepEqual(moveDestinations(workspace, ["a"]).map((entry) => entry.id), ["inbox", "p1", "p2", "d"]);
-  assert.equal(moveDestinations(workspace, ["c"]).find((entry) => entry.id === "b")?.title, "Office / Maps / Drafts");
-  assert.deepEqual(moveDestinations(workspace, ["b", "d"]).map((entry) => entry.id), ["inbox", "p1", "p2", "a"]);
+  assert.deepEqual(
+    moveDestinations(workspace, ["a"]).map((entry) => entry.id),
+    ["inbox", "p1", "p2", "d"],
+  );
+  assert.equal(
+    moveDestinations(workspace, ["c"]).find((entry) => entry.id === "b")?.title,
+    "Office / Maps / Drafts",
+  );
+  assert.deepEqual(
+    moveDestinations(workspace, ["b", "d"]).map((entry) => entry.id),
+    ["inbox", "p1", "p2", "a"],
+  );
 });
 
 test("view headings use the current project or tag name", () => {
@@ -65,23 +109,47 @@ test("Escape leaves the focused task available for navigation and clears every e
   let selection = [ids[1]!];
   const nav = {
     active: ids[1]!,
-    clearSelection() { selection = []; },
-    select(id: string) { selection = [id]; },
+    clearSelection() {
+      selection = [];
+    },
+    select(id: string) {
+      selection = [id];
+    },
     navigate() {},
   };
 
   function press(key: string) {
     handleTreeKey(
       {
-        key, target, currentTarget: target, altKey: false, ctrlKey: false, metaKey: false,
-        shiftKey: false, nativeEvent: { isComposing: false }, preventDefault() {},
+        key,
+        target,
+        currentTarget: target,
+        altKey: false,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+        nativeEvent: { isComposing: false },
+        preventDefault() {},
       },
       {
-        view, workspace, selection, rows, collapsed: new Set(),
-        toggle() {}, undo() {}, redo() {},
-        edit(task: Task) { edits.push(task.id); },
-        panel(panel) { dialogs.push(panel); },
-        run(command) { commands.push(command); return true; },
+        view,
+        workspace,
+        selection,
+        rows,
+        collapsed: new Set(),
+        toggle() {},
+        undo() {},
+        redo() {},
+        edit(task: Task) {
+          edits.push(task.id);
+        },
+        panel(panel) {
+          dialogs.push(panel);
+        },
+        run(command) {
+          commands.push(command);
+          return true;
+        },
       },
       nav,
       ids,
@@ -101,11 +169,16 @@ test("Escape leaves the focused task available for navigation and clears every e
   assert.deepEqual(commands, [{ type: "complete", ids: ["b"] }]);
 });
 
-
 test("a new command selection resets the range anchor to the newly active task", () => {
   const ids = ["first", "middle", "previous", "captured"];
   const oldCursor = { id: "first", anchor: "first", selection: ["first"] };
-  const next = extendRange(ids, oldCursor, ["captured"], "captured", "previous");
+  const next = extendRange(
+    ids,
+    oldCursor,
+    ["captured"],
+    "captured",
+    "previous",
+  );
   assert.deepEqual(next, {
     id: "previous",
     anchor: "captured",
@@ -113,6 +186,16 @@ test("a new command selection resets the range anchor to the newly active task",
   });
   const continued = extendRange(ids, next, next.selection, next.id, "middle");
   assert.deepEqual(continued.selection, ["middle", "previous", "captured"]);
-  const filtered = extendRange(["middle", "previous"], continued, continued.selection, "middle", "previous");
-  assert.deepEqual(filtered, { id: "previous", anchor: "middle", selection: ["middle", "previous"] });
+  const filtered = extendRange(
+    ["middle", "previous"],
+    continued,
+    continued.selection,
+    "middle",
+    "previous",
+  );
+  assert.deepEqual(filtered, {
+    id: "previous",
+    anchor: "middle",
+    selection: ["middle", "previous"],
+  });
 });
