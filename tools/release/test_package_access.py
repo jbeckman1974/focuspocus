@@ -1,10 +1,25 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from package_access import check_package
 
 
 class PackageAccessTests(unittest.TestCase):
+    def test_every_registry_job_establishes_its_own_session(self):
+        workflow = Path(".github/workflows/release.yml").read_text()
+        for job in ("package-access", "qualify", "publish", "readback", "promote"):
+            with self.subTest(job=job):
+                section = workflow.split("\n  " + job + ":\n", 1)[1]
+                lines = []
+                for line in section.splitlines():
+                    if line.startswith("  ") and not line.startswith("    "):
+                        break
+                    lines.append(line)
+                self.assertIn("bash tools/release/check-session.sh", "\n".join(lines))
+        session = Path("tools/release/check-session.sh").read_text()
+        self.assertLess(session.index("docker login"), session.index("package_access.py"))
+
     def test_missing_marker_stops_before_any_write(self):
         with patch("package_access.management_visibility", return_value=None), \
                 patch("package_access.inspect_digest", return_value=None) as inspect, \
