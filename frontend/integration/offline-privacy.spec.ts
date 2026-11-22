@@ -2,7 +2,12 @@ import { expect, test, type Page } from "@playwright/test";
 import { task } from "../e2e/controls.ts";
 import { signIn, submitCapture, withProfile } from "./account.ts";
 import { queued, trustDevice, withDevice } from "./offline-device.ts";
-import { closeTools, createShared, toolsPanel } from "./workspace-tools.ts";
+import {
+  closeTools,
+  createShared,
+  selectWorkspace,
+  toolsPanel,
+} from "./workspace-tools.ts";
 
 test("AT-20 · an untrusted browser can reopen its public shell without revealing a previous account", async () => {
   await withDevice(async (device) => {
@@ -65,6 +70,7 @@ test("AT-20 · cancel or discard on offline sign-out, block the old cookie and p
   await withDevice(async (device) => {
     const page = await device.launch();
     await signIn(page, "planner");
+    const space = await createShared(page, "Logout test workspace");
     await trustDevice(page);
     const sibling = await page.context().newPage();
     await sibling.goto("/app/");
@@ -72,7 +78,6 @@ test("AT-20 · cancel or discard on offline sign-out, block the old cookie and p
       sibling.getByRole("tree", { name: "Task outline" }),
     ).toBeVisible();
     await device.connect(false);
-    const space = await page.getByLabel("Active workspace").inputValue();
     await submitCapture(page, title);
     await queued(page);
     await expect(
@@ -110,6 +115,7 @@ test("AT-20 · cancel or discard on offline sign-out, block the old cookie and p
     await signIn(locked, "neighbor");
     await expect(task(locked, title)).toHaveCount(0);
     await withProfile(browser, "planner", async (peer) => {
+      await selectWorkspace(peer, space);
       await expect(task(peer, title)).toHaveCount(0);
     });
   });

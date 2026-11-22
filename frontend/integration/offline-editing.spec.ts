@@ -14,8 +14,9 @@ async function moveTask(page: Page, title: string, destination: string) {
   await task(page, title).getByText(title, { exact: true }).click();
   await page.getByRole("button", { name: "Move…", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Move tasks" });
+  await expect(dialog).toBeVisible();
   await dialog
-    .getByLabel("Move to", { exact: true })
+    .getByRole("combobox", { name: "Move to" })
     .selectOption({ label: destination });
   await dialog.getByRole("button", { name: "Move tasks", exact: true }).click();
 }

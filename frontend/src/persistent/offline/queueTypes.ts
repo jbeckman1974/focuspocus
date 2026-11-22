@@ -63,6 +63,63 @@ function strings(value: unknown): value is string[] {
   );
 }
 
+const intentTypes = new Set([
+  "capture",
+  "rename",
+  "setTitle",
+  "setDue",
+  "setTag",
+  "complete",
+  "reopen",
+  "group",
+  "indent",
+  "outdent",
+  "move",
+  "content",
+  "bulk-inspect",
+  "planning-review",
+  "set-schedule",
+  "set-date-settings",
+  "repeat",
+  "lifecycle",
+  "folder",
+  "set-properties",
+  "project",
+  "tag",
+  "undo",
+  "redo",
+]);
+
+function supportedContent(value: unknown) {
+  if (
+    !record(value) ||
+    typeof value.itemId !== "string" ||
+    !Number.isSafeInteger(value.itemVersion as number)
+  )
+    return false;
+  if (value.action === "save")
+    return (
+      (value.originalText === undefined ||
+        typeof value.originalText === "string") &&
+      record(value.document) &&
+      Array.isArray(value.document.paragraphs) &&
+      value.document.paragraphs.every(
+        (line) =>
+          Array.isArray(line) &&
+          line.every((run) => record(run) && typeof run.text === "string"),
+      )
+    );
+  if (typeof value.fileId !== "string") return false;
+  if (value.action === "remove") return true;
+  return (
+    value.action === "upload" &&
+    typeof value.name === "string" &&
+    typeof value.sha256 === "string" &&
+    typeof value.mediaType === "string" &&
+    Number.isSafeInteger(value.size as number) &&
+    Number(value.size) >= 0
+  );
+}
 // A newer client may have stored an envelope this version cannot replay.
 // Keep unknown records opaque until the current member reviews the partition.
 export function supportedQueue(value: unknown): value is QueueEntry[] {
@@ -99,6 +156,7 @@ export function supportedQueue(value: unknown): value is QueueEntry[] {
         typeof write.name !== "string" ||
         !record(write.intent) ||
         typeof write.intent.type !== "string" ||
+        !intentTypes.has(write.intent.type) ||
         !record(write.envelope) ||
         write.envelope.operationId !== row.id ||
         typeof write.envelope.context !== "string" ||
@@ -106,13 +164,9 @@ export function supportedQueue(value: unknown): value is QueueEntry[] {
         !record(write.envelope.payload)
       )
         return false;
-      return (
-        row.content === undefined ||
-        (record(row.content) &&
-          ["save", "upload", "remove"].includes(String(row.content.action)) &&
-          typeof row.content.itemId === "string" &&
-          Number.isSafeInteger(row.content.itemVersion as number))
-      );
+      return row.content === undefined
+        ? write.intent.type !== "content"
+        : write.intent.type === "content" && supportedContent(row.content);
     })
   );
 }

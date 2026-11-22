@@ -414,6 +414,30 @@ test("unrecognized stored envelopes stay opaque before optimistic rendering or t
     supportedQueue([
       {
         ...doc.queue[0],
+        write: { ...doc.queue[0].write, intent: { type: "future-edit" } },
+      },
+    ]),
+    false,
+  );
+  assert.equal(
+    supportedQueue([
+      {
+        ...doc.queue[0],
+        write: { ...doc.queue[0].write, intent: { type: "content" } },
+        content: {
+          itemId: "task",
+          itemVersion: 2,
+          action: "save",
+          document: { paragraphs: [null] },
+        },
+      },
+    ]),
+    false,
+  );
+  assert.equal(
+    supportedQueue([
+      {
+        ...doc.queue[0],
         guards: [{ key: "row:id", value: "1", predecessors: 24 }],
       },
     ]),

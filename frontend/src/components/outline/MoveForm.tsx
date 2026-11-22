@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Command, Workspace } from "../../outline/index.ts";
 import { INBOX } from "../../outline/index.ts";
 import { moveDestinations } from "./controls.ts";
@@ -10,6 +10,8 @@ interface Props {
 }
 
 export function MoveForm({ workspace, selection, submit }: Props) {
+  const destinationLabel = useId();
+  const positionLabel = useId();
   const targets = moveDestinations(workspace, selection);
   const firstParent = workspace.tasks.find((task) =>
     selection.includes(task.id),
@@ -35,8 +37,9 @@ export function MoveForm({ workspace, selection, submit }: Props) {
       }}
     >
       <label>
-        Move to
+        <span id={destinationLabel}>Move to</span>
         <select
+          aria-labelledby={destinationLabel}
           autoFocus
           value={parentId}
           onChange={(event) => {
@@ -52,8 +55,9 @@ export function MoveForm({ workspace, selection, submit }: Props) {
         </select>
       </label>
       <label>
-        Position
+        <span id={positionLabel}>Position</span>
         <select
+          aria-labelledby={positionLabel}
           value={beforeId}
           onChange={(event) => setBeforeId(event.currentTarget.value)}
         >

@@ -8,7 +8,8 @@ import {
 import { reauthFence } from "./storeLock.ts";
 import type { WorkspaceInfo } from "../tools/WorkspaceRouter.tsx";
 import {
-  currentEpoch,
+  currentBinding,
+  lockOfflineActor,
   finishLogout,
   observeSession,
   offlineBoot,
@@ -28,7 +29,9 @@ export async function openAccount(
   allowOffline: boolean,
 ): Promise<AccountState> {
   const barrier = await pendingLogout();
-  const epoch = await currentEpoch().catch(() => "");
+  const { epoch, actorId, authenticated } = await currentBinding().catch(
+    () => ({ epoch: "", actorId: null, authenticated: false }),
+  );
   const observedFence = epoch ? reauthFence(epoch) : null;
   let session: Session;
   try {
@@ -39,6 +42,13 @@ export async function openAccount(
       throw new Error(
         "Signed out on this device. Connect to finish signing out.",
       );
+    if (
+      cause instanceof HttpError &&
+      cause.status === 401 &&
+      actorId &&
+      authenticated
+    )
+      await lockOfflineActor(actorId, epoch);
     if (!allowOffline || cause instanceof HttpError) throw cause;
     const cached = await offlineBoot();
     if (!cached)
@@ -66,6 +76,12 @@ export async function openAccount(
       });
     signal.throwIfAborted();
     await finishLogout(barrier);
+  }
+  if (!session.user && actorId && authenticated) {
+    // A successful session response can also report an expired login. Use
+    // the same durable barrier as an HTTP 401 even when device storage is full.
+    await lockOfflineActor(actorId, epoch);
+    return { session, epoch: "", initialSpace: null, offlineBootstrap: false };
   }
   const observed = epoch
     ? await observeSession(session, epoch, observedFence)

@@ -88,7 +88,7 @@ export async function offlineBoot() {
 
 // Obtain this fence before an online request so a delayed response from an old
 // account cannot switch the browser back or unlock a completed sign-out.
-export async function currentEpoch() {
+export async function currentBinding() {
   const result = await transaction(
     "readwrite",
     null,
@@ -100,11 +100,21 @@ export async function currentEpoch() {
         Object.assign(profile, freshProfile());
         saveProfile();
       }
-      return { epoch: profile.epoch, actor, intent };
+      return {
+        epoch: profile.epoch,
+        actor,
+        intent,
+        actorId: profile.actorId,
+        authenticated: profile.authenticated,
+      };
     },
   );
   if (result.actor && result.intent) clearPurge(result.actor, result.intent);
-  return result.epoch;
+  return {
+    epoch: result.epoch,
+    actorId: result.actorId,
+    authenticated: result.authenticated,
+  };
 }
 
 export async function observeSession(

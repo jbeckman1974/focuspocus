@@ -4,9 +4,11 @@ import { signIn, submitCapture, withProfile } from "./account.ts";
 import { queued, trustDevice, withDevice } from "./offline-device.ts";
 
 async function authority(page: Page) {
-  const id = await page.getByLabel("Active workspace").inputValue();
-  return page.evaluate(async (workspace) => {
+  return page.evaluate(async () => {
     const session = await (await fetch("/api/v1/session")).json();
+    if (session.workspaces.length !== 1)
+      throw new Error("Expected the restore probe’s single private workspace.");
+    const workspace = session.workspaces[0].id as string;
     const response = await fetch(
       "/api/v1/workspaces/" + workspace + "/snapshot",
       {
@@ -23,7 +25,7 @@ async function authority(page: Page) {
       grant: snapshot.offlineGrant.id as string,
       membership: snapshot.offlineGrant.membershipId as string,
     };
-  }, id);
+  });
 }
 
 async function files(page: Page, title: string) {
@@ -127,6 +129,7 @@ test("AT-20/22 · preserve a trusted draft and its file across a real fenced SQL
     await expect
       .poll(inspectServer, { timeout: 20000 })
       .toEqual({ captures: 1, files: 0 });
+    await expect(capture).toHaveCount(0);
     await upload.getByRole("button", { name: "Reapply change" }).click();
     await expect
       .poll(inspectServer, { timeout: 20000 })
