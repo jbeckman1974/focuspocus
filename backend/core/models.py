@@ -24,7 +24,7 @@ class Membership(models.Model):
     workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     role = models.CharField(max_length=12)
-    role_epoch = models.PositiveBigIntegerField(default=1, editable=False)
+    incarnation = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
 
     class Meta:
         constraints = [

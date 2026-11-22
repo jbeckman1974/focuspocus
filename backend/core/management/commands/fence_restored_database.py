@@ -6,7 +6,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from core.integrations.membership import hold_after_restore
-from core.models import Job, PasswordRecovery, Receipt, WorkerHeartbeat, Workspace
+from core.models import CaptureAcknowledgement, Job, PasswordRecovery, Receipt, WorkerHeartbeat, Workspace
 from core.oidc.models import LoginChallenge
 
 
@@ -23,6 +23,8 @@ class Command(BaseCommand):
         # Legacy completion inverses do not identify their original database
         # generation. Keep their receipts but retire compensation across restoration.
         Receipt.objects.exclude(inverse={}).filter(inverse__journal__isnull=True).update(inverse={})
+        # Every restored capture credential belongs to a retired generation.
+        CaptureAcknowledgement.objects.all().delete()
         Session.objects.all().delete()
         LoginChallenge.objects.all().delete()
         PasswordRecovery.objects.all().delete()

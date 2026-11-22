@@ -20,7 +20,7 @@ class StaleCursor(ValueError):
 
 
 def cursor_for(workspace, user, revision, *, grant=None):
-    grant = grant if grant is not None else grants.grant_id(workspace, user)
+    grant = grant if grant is not None else grants.for_member(workspace, user)
     return signing.dumps([*grants.claims(workspace, user, grant), revision], salt=CURSOR_SALT)
 
 
@@ -44,7 +44,7 @@ def read_cursor(token, workspace, user, grant):
 
 
 def snapshot(workspace, user, view_zone=None):
-    grant = grants.grant_id(workspace, user)
+    grant = grants.for_member(workspace, user)
     rows, tags, metadata = read_records(workspace, view_zone)
     return {
         "workspaceId": str(workspace.pk),
@@ -65,7 +65,7 @@ def snapshot(workspace, user, view_zone=None):
 
 
 def changes_since(workspace, user, token, limit):
-    grant = grants.grant_id(workspace, user)
+    grant = grants.for_member(workspace, user)
     after = read_cursor(token, workspace, user, grant)
     end = min(workspace.revision, after + limit)
     changes = list(

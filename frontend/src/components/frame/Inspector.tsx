@@ -75,8 +75,10 @@ export function Inspector({
     setDrafts((current) => ({ ...current, [field]: value }));
   }
 
-  function discard(field: string) {
+  function discard(field: string, savedValue?: string) {
     setDrafts((current) => {
+      if (savedValue !== undefined && current[field] !== savedValue)
+        return current;
       const next = { ...current };
       delete next[field];
       return next;
@@ -91,11 +93,12 @@ export function Inspector({
       ids.length > 1
         ? { type: "setTitle", ids, title: value }
         : { type: "rename", id: first.id, title: value };
-    if (await run(command)) discard(titleKey);
+    if (await run(command)) discard(titleKey, title);
   }
 
   async function saveDate(value: string) {
-    if (await run({ type: "setDue", ids, due: value || null })) discard(dateKey);
+    if (await run({ type: "setDue", ids, due: value || null }))
+      discard(dateKey, drafts[dateKey] ?? "");
   }
 
   return (

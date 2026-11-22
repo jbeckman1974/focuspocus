@@ -33,7 +33,10 @@ export function useRuleOutline(
   const target = "id" in view ? view.id : "";
   const local = useMemo(() => {
     if (!snapshot || !useLocal) return undefined;
-    const scope: View = kind === "project" || kind === "folder" || kind === "tag" ? { kind, id: target } : { kind };
+    const scope: View =
+      kind === "project" || kind === "folder" || kind === "tag"
+        ? { kind, id: target }
+        : { kind };
     return cachedOutline(snapshot, scope, availability);
   }, [snapshot, useLocal, kind, target, availability]);
   useEffect(() => {
@@ -84,7 +87,17 @@ export function useRuleOutline(
       abort.abort();
       window.clearTimeout(timer);
     };
-  }, [id, actorId, revision, generation, query, key, attempt, refresh, useLocal]);
+  }, [
+    id,
+    actorId,
+    revision,
+    generation,
+    query,
+    key,
+    attempt,
+    refresh,
+    useLocal,
+  ]);
   const current = state?.key === key ? state : undefined;
   return {
     result: local ?? current?.result,

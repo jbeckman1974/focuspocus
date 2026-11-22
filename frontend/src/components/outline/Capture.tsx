@@ -41,7 +41,13 @@ export function Capture({
     saving.current = true;
     try {
       if (await submit(titles)) {
-        setDrafts(previous => previous[identity] === draft ? {...previous,[identity]:""} : previous);
+        setDrafts((previous) =>
+          previous[identity] === draft
+            ? { ...previous, [identity]: "" }
+            : previous,
+        );
+        if (input.current?.form?.contains(document.activeElement))
+          input.current.focus();
       }
     } finally {
       saving.current = false;

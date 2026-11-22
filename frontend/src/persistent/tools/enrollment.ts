@@ -48,3 +48,27 @@ export async function enrollSubscription(
   await checkAccount();
   await save(current.endpoint);
 }
+
+interface ExistingDevice {
+  getSubscription(): Promise<{ unsubscribe(): Promise<boolean> } | null>;
+}
+
+export async function selectPushManager<M extends ExistingDevice>(
+  installed: M,
+  legacy: M,
+  replace: boolean,
+  checkAccount: () => Promise<void>,
+): Promise<M> {
+  const previous = await legacy.getSubscription();
+  if (!previous) return installed;
+  if (!replace) {
+    // An existing M5 device can check its enrollment without changing the endpoint.
+    return (await installed.getSubscription()) ? installed : legacy;
+  }
+  await checkAccount();
+  if (!(await previous.unsubscribe()))
+    throw new Error(
+      "The browser could not release the previous notification subscription.",
+    );
+  return installed;
+}

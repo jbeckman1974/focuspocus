@@ -18,14 +18,19 @@ export interface Snapshot {
   revision: number;
   generation: string;
   context: string;
-  offlineGrant?: { id: string; protocol: number; expiresAt: string };
+  offlineGrant?: {
+    id: string;
+    membershipId?: string;
+    protocol: number;
+    expiresAt: string;
+  };
   cursor: string;
   timeZone?: string;
   viewZone?: string;
   dateDefaults?: DateDefaults;
   nextDateBoundary?: string | null;
   perspectiveVersion?: number;
-  focusScopeIds?:string[];
+  focusScopeIds?: string[];
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task &
@@ -140,7 +145,8 @@ export function workspaceApi(
       }),
     async verifySession() {
       const session = await readSession(signal);
-      if (!session.user) throw new HttpError(401, "Sign in again to verify your workspace.");
+      if (!session.user)
+        throw new HttpError(401, "Sign in again to verify your workspace.");
       const membership = session.workspaces.find((space) => space.id === id);
       if (session.user?.id !== actorId || !membership) {
         throw new HttpError(403, "Workspace access changed.");
@@ -165,9 +171,18 @@ export function workspaceApi(
       }>(actorId, base + "/changes?after=" + encodeURIComponent(cursor), {
         signal,
       }),
-    submitContent: async (content:OfflineContent,bytes:Blob|null,envelope:{context:string;operationId:string;expectedRevision:number}) => {
-      const {sendOfflineContent}=await import("./content/offlineContent.ts");
-      return sendOfflineContent(actorId,id,content,bytes,envelope,signal);
+    submitContent: async (
+      content: OfflineContent,
+      bytes: Blob | null,
+      envelope: {
+        context: string;
+        operationId: string;
+        expectedRevision: number;
+      },
+    ) => {
+      const { sendOfflineContent } =
+        await import("./content/offlineContent.ts");
+      return sendOfflineContent(actorId, id, content, bytes, envelope, signal);
     },
     submit: (name: string, envelope: object) =>
       actorRequest<Receipt>(actorId, base + "/commands/" + name, {
@@ -178,4 +193,5 @@ export function workspaceApi(
 }
 
 type OnlineApi = ReturnType<typeof workspaceApi>;
-export type WorkspaceApi = Omit<OnlineApi, "submitContent"> & Partial<Pick<OnlineApi,"submitContent">>;
+export type WorkspaceApi = Omit<OnlineApi, "submitContent"> &
+  Partial<Pick<OnlineApi, "submitContent">>;

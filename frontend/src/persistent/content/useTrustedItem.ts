@@ -2,11 +2,20 @@ import { useEffect, useRef, useState } from "react";
 import { HttpError, type Snapshot } from "../api.ts";
 import { offlineEvents } from "../offline/storeEvents.ts";
 import type { OfflineLease } from "../offline/storeTypes.ts";
-import { contentLease, openTrustedContent, readSavedContent } from "./trustedItem.ts";
+import {
+  contentLease,
+  openTrustedContent,
+  readSavedContent,
+} from "./trustedItem.ts";
 
 type SavedItem = Awaited<ReturnType<typeof readSavedContent>>;
 
-export function useTrustedItem(enabled: boolean, actorId: number, snapshot: Snapshot, itemId: string) {
+export function useTrustedItem(
+  enabled: boolean,
+  actorId: number,
+  snapshot: Snapshot,
+  itemId: string,
+) {
   const [item, setItem] = useState<SavedItem>();
   const [error, setError] = useState("");
   const current = useRef(snapshot);
@@ -47,9 +56,15 @@ export function useTrustedItem(enabled: boolean, actorId: number, snapshot: Snap
         setError("");
       } catch (exception) {
         if (!signal.aborted && ticket === order) {
-          denied = exception instanceof HttpError && [401,403,404].includes(exception.status);
+          denied =
+            exception instanceof HttpError &&
+            [401, 403, 404].includes(exception.status);
           setItem(undefined);
-          setError(exception instanceof Error ? exception.message : "Content unavailable.");
+          setError(
+            exception instanceof Error
+              ? exception.message
+              : "Content unavailable.",
+          );
         }
       } finally {
         if (ticket === order) checkingServer = false;
@@ -68,7 +83,9 @@ export function useTrustedItem(enabled: boolean, actorId: number, snapshot: Snap
       }
       void refresh(false);
     });
-    const reconnected = () => { void refresh(true); };
+    const reconnected = () => {
+      void refresh(true);
+    };
     window.addEventListener("online", reconnected);
     void refresh(true);
     return () => {
@@ -76,6 +93,13 @@ export function useTrustedItem(enabled: boolean, actorId: number, snapshot: Snap
       changed();
       window.removeEventListener("online", reconnected);
     };
-  }, [actorId, enabled, grantId, itemId, snapshot.generation, snapshot.workspaceId]);
+  }, [
+    actorId,
+    enabled,
+    grantId,
+    itemId,
+    snapshot.generation,
+    snapshot.workspaceId,
+  ]);
   return enabled ? { item, error } : { item: undefined, error: "" };
 }

@@ -28,7 +28,7 @@ function BulkDialog({
 }: {
   base: Snapshot;
   ids: string[];
-  submit: (patch: BulkChanges) => boolean;
+  submit: (patch: BulkChanges) => Promise<boolean>;
   close: () => void;
 }) {
   const [rows] = useState(() => {
@@ -48,12 +48,12 @@ function BulkDialog({
   }, []);
   const update = (field: BulkField, value: string) =>
     setValues({ ...values, [field]: value });
-  function save() {
+  async function save() {
     try {
       const patch = bulkPatch(enabled, values, tags);
       if (!Object.keys(patch).length)
         return setMessage("Choose a field or tag to change.");
-      if (submit(patch)) close();
+      if (await submit(patch)) close();
       else
         setMessage("Finish the pending write before applying these changes.");
     } catch (error) {
@@ -198,7 +198,7 @@ export function BulkInspector({ snapshot, ids, channel, disabled }: Props) {
           ids={draft.ids}
           close={() => setDraft(undefined)}
           submit={(changes) =>
-            channel.run(
+            channel.runDurable(
               { type: "bulk-inspect", ids: draft.ids, changes },
               draft.base,
             )

@@ -1,6 +1,7 @@
 """Bound each maintenance transaction and serialize it with export and receipt replay."""
 
 from django.db import transaction
+from django.db.models import F
 from django.utils import timezone
 
 from core.models import Change, Receipt, Workspace
@@ -42,9 +43,9 @@ def prune_batch(*, limit=BATCH_SIZE):
     locked = set(Workspace.objects.filter(pk__in=workspace_ids).order_by("pk")
                  .select_for_update(skip_locked=True).values_list("pk", flat=True))
     expired = Receipt.objects.filter(pk__in=[pk for pk, workspace in receipts if workspace in locked])
-    active = set(CaptureCredential.objects.filter(pk__in=expired.values("context_id"))
+    active = set(CaptureCredential.objects.filter(pk__in=expired.values("context_id"), generation=F("workspace__generation"))
                  .values_list("pk", "workspace_id", "user_id"))
-    for receipt in expired.iterator(chunk_size=1):
+    for receipt in expired.order_by("created_at", "pk").iterator(chunk_size=1):
         preserve_receipt(receipt, active)
     receipt_count, _ = expired.delete()
     change_count, _ = Change.objects.filter(pk__in=[pk for pk, workspace in changes if workspace in locked]).delete()

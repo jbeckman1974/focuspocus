@@ -39,7 +39,7 @@ function ReviewSettings({
 }: {
   entry: ReviewEntry;
   base: Snapshot;
-  apply: (intent: ReviewIntent, base: Snapshot) => boolean;
+  apply: (intent: ReviewIntent, base: Snapshot) => Promise<boolean>;
   close: () => void;
 }) {
   const [interval, setInterval] = useState(String(entry.interval));
@@ -49,10 +49,10 @@ function ReviewSettings({
     <form
       className="planning-controls"
       aria-label="Review settings"
-      onSubmit={(event) => {
+      onSubmit={async (event) => {
         event.preventDefault();
         if (
-          apply(
+          await apply(
             {
               type: "planning-review",
               name: "set-review",
@@ -226,7 +226,7 @@ export function Review({
             <button
               disabled={disabled}
               onClick={() =>
-                channel.run(
+                channel.runDurable(
                   {
                     type: "planning-review",
                     name: "mark-reviewed",
@@ -254,7 +254,7 @@ export function Review({
             <ReviewSettings
               key={edit.entry.projectId}
               {...edit}
-              apply={(intent, base) => channel.run(intent, base)}
+              apply={(intent, base) => channel.runDurable(intent, base)}
               close={() => setEdit(undefined)}
             />
           )}

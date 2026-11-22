@@ -332,6 +332,15 @@ body {
   }
 }
 
+@media (min-width: 601px) {
+  .fp-workspace-menu,
+  .fp-workspace-menu > div {
+    display: contents;
+  }
+  .fp-workspace-menu summary {
+    display: none;
+  }
+}
 @media (max-width: 600px) {
   .fp-topbar:has(.fp-workspace-menu) {
     position: relative;
@@ -371,11 +380,16 @@ body {
   }
 }
 @media (pointer: coarse) and (max-width: 850px) {
-  .fp-top-actions button, .fp-workspace-menu summary, .outline-capture button,
-  .outline-check, .outline-disclosure, .fp-nav-link {
+  .fp-top-actions button,
+  .fp-workspace-menu summary,
+  .outline-capture button,
+  .outline-check,
+  .outline-disclosure,
+  .fp-nav-link {
     min-height: 44px;
   }
-  .outline-check, .outline-disclosure {
+  .outline-check,
+  .outline-disclosure {
     min-width: 44px;
   }
 }

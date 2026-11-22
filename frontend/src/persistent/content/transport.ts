@@ -1,7 +1,4 @@
-import {
-  HttpError,
-  readSession,
-} from "../api.ts";
+import { HttpError, readSession } from "../api.ts";
 import type { NoteDocument } from "./document.ts";
 
 export interface Attachment {

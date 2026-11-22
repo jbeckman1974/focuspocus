@@ -17,8 +17,8 @@ export interface Properties {
 }
 
 export interface RuleFields extends Properties {
-  changedAt?:string|null;
-  completedAt?:string|null;
+  changedAt?: string | null;
+  completedAt?: string | null;
   repeat?: Occurrence | null;
   schedule?: Schedule;
   durationMinutes?: number | null;

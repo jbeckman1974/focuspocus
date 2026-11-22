@@ -20,7 +20,10 @@ export function appIcon(size: number) {
       const py = ((y + 0.5) / size) * 24;
       const lines = [6.2 + dx / 2, 11.4 - dx / 2, 14.7 - dx / 2, 18 - dx / 2];
       const distance = Math.min(...lines.map((line) => Math.abs(py - line)));
-      const coverage = Math.max(0, Math.min(1, (Math.min(5.6 - dx, 0.5 - distance) * size) / 24 + 0.5));
+      const coverage = Math.max(
+        0,
+        Math.min(1, (Math.min(5.6 - dx, 0.5 - distance) * size) / 24 + 0.5),
+      );
       const offset = y * stride + 1 + x * 3;
       pixels[offset] = 36 + Math.round(203 * coverage);
       pixels[offset + 1] = 87 + Math.round(159 * coverage);

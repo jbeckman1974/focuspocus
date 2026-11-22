@@ -10,7 +10,8 @@ function deliver(kind: unknown, remote: boolean) {
 }
 
 function storageMessage(event: StorageEvent) {
-  if (event.key === channelName && event.newValue) deliver(event.newValue.split("/")[0], true);
+  if (event.key === channelName && event.newValue)
+    deliver(event.newValue.split("/")[0], true);
 }
 
 function start() {
@@ -18,7 +19,9 @@ function start() {
     try {
       channel = new BroadcastChannel(channelName);
       channel.onmessage = (event) => deliver(event.data, true);
-    } catch { /* Private profiles may disable messaging. */ }
+    } catch {
+      /* Private profiles may disable messaging. */
+    }
   }
 }
 
@@ -43,7 +46,10 @@ export function notifyOffline(kind: OfflineEvent) {
   start();
   if (channel) channel.postMessage(kind);
   else {
-    try { localStorage.setItem(channelName, kind + "/" + crypto.randomUUID()); }
-    catch { /* Database transactions still enforce identity after missed events. */ }
+    try {
+      localStorage.setItem(channelName, kind + "/" + crypto.randomUUID());
+    } catch {
+      /* Database transactions still enforce identity after missed events. */
+    }
   }
 }

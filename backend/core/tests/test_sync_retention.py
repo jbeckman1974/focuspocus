@@ -20,6 +20,8 @@ class SyncRetentionTests(OutlineApiMixin, TestCase):
         Receipt.objects.update(created_at=previous)
         Change.objects.update(created_at=previous)
         self.capture(["Fresh"])
+        RestoredHistory.objects.create(workspace=self.space, occurred_at=previous + timedelta(seconds=1),
+                                       action="capture", item_ids=[])
         endpoint = self.base + "portability/history"
         before = self.client.get(endpoint).json()
         self.assertEqual(prune_batch(limit=1), (1, 1))
@@ -27,7 +29,7 @@ class SyncRetentionTests(OutlineApiMixin, TestCase):
         self.assertEqual(prune_batch(limit=1), (0, 0))
         self.assertEqual(Receipt.objects.count(), 1)
         self.assertEqual(Change.objects.count(), 1)
-        self.assertEqual(RestoredHistory.objects.count(), 2)
+        self.assertEqual(RestoredHistory.objects.count(), 3)
         self.assertEqual(self.client.get(endpoint).json(), before)
         self.assertEqual(self.client.get(self.base + "changes", {"after": initial["cursor"]}).status_code, 410)
         fresh = self.client.get(self.base + "snapshot").json()

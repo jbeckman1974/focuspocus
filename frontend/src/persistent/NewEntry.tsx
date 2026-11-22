@@ -34,7 +34,7 @@ export function NewEntry({
       <form
         onSubmit={async (event) => {
           event.preventDefault();
-          if (title.trim() && await onCreate(title.trim())) onClose();
+          if (title.trim() && (await onCreate(title.trim()))) onClose();
         }}
       >
         <label>

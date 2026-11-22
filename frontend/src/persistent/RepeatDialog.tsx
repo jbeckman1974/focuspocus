@@ -17,7 +17,7 @@ export function RepeatDialog({
   revision,
 }: {
   entry: Entry & RuleFields;
-  apply: (change: RepeatChange) => boolean;
+  apply: (change: RepeatChange) => Promise<boolean>;
   close: () => void;
   preview: RepeatPreviewRequest;
   revision: number;
@@ -45,8 +45,8 @@ export function RepeatDialog({
     element?.showModal();
     return () => element?.close();
   }, []);
-  function submit(change: RepeatChange) {
-    if (apply(change)) close();
+  async function submit(change: RepeatChange) {
+    if (await apply(change)) close();
     else setError("Finish the pending change before editing this series.");
   }
   return (

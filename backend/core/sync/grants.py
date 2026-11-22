@@ -1,5 +1,6 @@
 """Membership identity shared by signed command contexts and change cursors."""
 
+from dataclasses import dataclass
 from datetime import timedelta
 from uuid import uuid5
 
@@ -13,21 +14,28 @@ PROTOCOL = 1
 RETENTION = timedelta(days=90)
 
 
-def grant_id(workspace, user):
+@dataclass(frozen=True)
+class WorkspaceGrant:
+    id: str
+    membership_id: str
+
+
+def for_member(workspace, user):
     member = (Membership.objects.filter(workspace=workspace, user=user)
-              .values_list("pk", "role", "role_epoch").first())
+              .values_list("role", "incarnation").first())
     if member is None:
         raise CommandError("Workspace unavailable.", 404)
-    member_id, role, epoch = member
-    return str(uuid5(workspace.generation, f"{workspace.pk}/{user.pk}/{member_id}/{role}/{epoch}"))
+    role, incarnation = member
+    bound_id = uuid5(workspace.generation, f"{workspace.pk}/{user.pk}/{incarnation}/{role}")
+    return WorkspaceGrant(id=str(bound_id), membership_id=str(incarnation))
 
 
 def claims(workspace, user, grant):
-    return [PROTOCOL, str(user.pk), str(workspace.pk), str(workspace.generation), grant]
+    return [PROTOCOL, str(user.pk), str(workspace.pk), str(workspace.generation), grant.id]
 
 
 def descriptor(grant):
     # Django signs integer-second timestamps. Round down to keep the advertised
     # offline deadline within the validity of the subsequently issued context.
     deadline = timezone.now().replace(microsecond=0) + RETENTION
-    return {"id": grant, "protocol": PROTOCOL, "expiresAt": deadline.isoformat()}
+    return {"id": grant.id, "membershipId": grant.membership_id, "protocol": PROTOCOL, "expiresAt": deadline.isoformat()}

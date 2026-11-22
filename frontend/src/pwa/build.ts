@@ -29,7 +29,10 @@ export function publicShell(): Plugin {
       if (!dir) throw new Error("An application build directory is required.");
       const shell = join(dir, "app");
       const assets = join(dir, "assets");
-      await writeFile(join(shell, "manifest.webmanifest"), JSON.stringify(manifest));
+      await writeFile(
+        join(shell, "manifest.webmanifest"),
+        JSON.stringify(manifest),
+      );
       for (const size of [192, 512]) {
         await writeFile(join(shell, "icon-" + size + ".png"), appIcon(size));
       }
@@ -55,8 +58,13 @@ export function publicShell(): Plugin {
         .update(JSON.stringify(resources))
         .update(worker)
         .digest("hex");
-      await writeFile(workerPath, "const __FP_SHELL__ = " +
-        JSON.stringify({ version, resources }) + ";\n" + worker);
+      await writeFile(
+        workerPath,
+        "const __FP_SHELL__ = " +
+          JSON.stringify({ version, resources }) +
+          ";\n" +
+          worker,
+      );
     },
   };
 }

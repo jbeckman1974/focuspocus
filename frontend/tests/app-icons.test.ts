@@ -17,7 +17,11 @@ test("install icons have reproducible PNG chunks and their advertised dimensions
       const type = data.toString("ascii", 0, 4);
       chunks.push(type);
       assert.equal(crc32(data), png.readUInt32BE(offset + length + 8));
-      if (type === "IDAT") assert.equal(inflateSync(data.subarray(4)).length, (1 + size * 3) * size);
+      if (type === "IDAT")
+        assert.equal(
+          inflateSync(data.subarray(4)).length,
+          (1 + size * 3) * size,
+        );
       offset += length + 12;
     }
     assert.deepEqual(chunks, ["IHDR", "IDAT", "IEND"]);

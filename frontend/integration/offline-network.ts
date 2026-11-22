@@ -14,7 +14,8 @@ function operationIdentity(req: IncomingMessage) {
     "x-file-sha256",
     "x-workspace-revision",
     "x-item-version",
-  ]) hash.update(JSON.stringify([key, req.headers[key] ?? ""]));
+  ])
+    hash.update(JSON.stringify([key, req.headers[key] ?? ""]));
   return hash;
 }
 
@@ -22,6 +23,7 @@ function operationIdentity(req: IncomingMessage) {
 // The peer browser contacts the real disposable QA server directly.
 export async function createOfflineNetwork() {
   let connected = true;
+  let backend = "127.0.0.1";
   let watch: RegExp | undefined;
   let interrupt: Interruption | undefined;
   let transmitted = 0;
@@ -37,7 +39,7 @@ export async function createOfflineNetwork() {
     const fault = observed ? interrupt : undefined;
     if (observed) interrupt = undefined;
     const upstream = request({
-      host: "127.0.0.1",
+      host: backend,
       port: 8000,
       path,
       method: req.method,
@@ -93,6 +95,12 @@ export async function createOfflineNetwork() {
     origin: "http://127.0.0.1:" + (server.address() as AddressInfo).port,
     online(value: boolean) {
       connected = value;
+    },
+    openRestoredDatabase() {
+      const name = process.env.FOCUSPOCUS_QA_RESTORE_HOST ?? "";
+      if (connected || !/^focuspocus-qa-stack-[a-z0-9]+-restored-web$/.test(name))
+        throw new Error("Recovery needs the disconnected profile and its isolated restore service.");
+      backend = name;
     },
     interrupt(path: RegExp, disruption: Interruption) {
       watch = path;

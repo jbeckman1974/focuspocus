@@ -7,15 +7,21 @@ import type { Content } from "./transport.ts";
 type ItemQueueEntry = Pick<QueueEntry, "id" | "content" | "state" | "reason">;
 
 export function cachedItem(
-  data: Pick<OfflineData<ItemQueueEntry>, "confirmed" | "projection" | "content" | "queue">,
+  data: Pick<
+    OfflineData<ItemQueueEntry>,
+    "confirmed" | "projection" | "content" | "queue"
+  >,
   itemId: string,
 ) {
   const item = (snapshot: Snapshot) =>
     snapshot.tasks.find((task) => task.id === itemId);
   const visible = item(data.projection);
-  if (!visible) throw new Error("This task is unavailable in the saved workspace.");
+  if (!visible)
+    throw new Error("This task is unavailable in the saved workspace.");
   const stored = data.content[itemId];
-  const pending = data.queue.filter((entry) => entry.content?.itemId === itemId);
+  const pending = data.queue.filter(
+    (entry) => entry.content?.itemId === itemId,
+  );
   const pendingNotes = pending.flatMap((entry) =>
     entry.content?.action === "save" ? [entry.content.document] : [],
   );

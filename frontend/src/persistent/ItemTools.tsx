@@ -54,7 +54,11 @@ export function ItemTools({
         pending={pending}
         disabled={disabled}
         change={(properties) =>
-          channel.run({ type: "set-properties", ids: [entry.id], properties })
+          channel.runDurable({
+            type: "set-properties",
+            ids: [entry.id],
+            properties,
+          })
         }
       />
       {kind !== "folder" && (
@@ -84,7 +88,7 @@ export function ItemTools({
           entry={editor.item}
           close={() => setEditor(undefined)}
           apply={(change) =>
-            channel.run({ type: "repeat", change }, editor.base)
+            channel.runDurable({ type: "repeat", change }, editor.base)
           }
         />
       )}
@@ -99,7 +103,7 @@ export function ItemTools({
           entry={editor.item}
           close={() => setEditor(undefined)}
           apply={(changes) =>
-            channel.run(
+            channel.runDurable(
               { type: "set-schedule", ids: [editor.item.id], changes },
               editor.base,
             )

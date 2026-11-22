@@ -2,7 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { actorRequest, HttpError } from "../api.ts";
 import { PrivateWorkspace } from "../PrivateWorkspace.tsx";
 import { useOfflineIdentity } from "../offline/TrustedDevice.tsx";
-import { markOfflineActive, pruneOfflineDirectory } from "../offline/store.ts";
+import {
+  lockOfflineActor,
+  markOfflineActive,
+  pruneOfflineDirectory,
+} from "../offline/store.ts";
 
 export interface WorkspaceInfo {
   id: string;
@@ -24,7 +28,9 @@ export function WorkspaceRouter({
   onSignOut: () => void;
 }) {
   const { epoch, initialSpace } = useOfflineIdentity();
-  const [spaces, setSpaces] = useState<WorkspaceInfo[] | undefined>(()=>initialSpace ? [initialSpace] : undefined);
+  const [spaces, setSpaces] = useState<WorkspaceInfo[] | undefined>(() =>
+    initialSpace ? [initialSpace] : undefined,
+  );
   const [active, setActive] = useState(initialSpace?.id ?? "");
   const selectedId = useRef(active);
   const [error, setError] = useState("");
@@ -51,12 +57,16 @@ export function WorkspaceRouter({
         );
         if (signal.aborted || order !== sequence.current) return;
         const target = result.workspaces.find((s) => s.id === requested);
-        const selected = target ?? result.workspaces.find((s) => s.id === selectedId.current) ??
-          result.workspaces.find((s) => s.private) ?? result.workspaces[0];
+        const selected =
+          target ??
+          result.workspaces.find((s) => s.id === selectedId.current) ??
+          result.workspaces.find((s) => s.private) ??
+          result.workspaces[0];
         try {
           await pruneOfflineDirectory(actorId, result.workspaces, epoch);
           if (signal.aborted || order !== sequence.current) return;
-          if (selected && selected.id !== selectedId.current) await markOfflineActive(actorId,selected.id,epoch);
+          if (selected && selected.id !== selectedId.current)
+            await markOfflineActive(actorId, selected.id, epoch);
         } catch {
           if (!signal.aborted && order === sequence.current) onLostAccess();
           return;
@@ -69,9 +79,16 @@ export function WorkspaceRouter({
         setError("");
       } catch (e) {
         if (signal.aborted || order !== sequence.current) return;
-        if (e instanceof HttpError && [401, 403].includes(e.status))
+        if (e instanceof HttpError && [401, 403].includes(e.status)) {
+          if (e.status === 401) {
+            try {
+              await lockOfflineActor(actorId, epoch);
+            } catch {
+              /* Mask the workspace even when local storage fails. */
+            }
+          }
           onLostAccess();
-        else {
+        } else {
           setError("Unable to refresh your workspaces.");
           if (requested) {
             setFailedTarget(requested);

@@ -1,7 +1,12 @@
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { chromium, expect, type BrowserContext, type Page } from "@playwright/test";
+import {
+  chromium,
+  expect,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import { createOfflineNetwork } from "./offline-network.ts";
 
 export async function withDevice(
@@ -25,7 +30,7 @@ export async function withDevice(
       timezoneId: "America/New_York",
       reducedMotion: "reduce",
     });
-    return context.pages()[0] ?? await context.newPage();
+    return context.pages()[0] ?? (await context.newPage());
   }
   try {
     await exercise({
@@ -52,11 +57,22 @@ export async function withDevice(
 }
 
 export async function trustDevice(page: Page) {
-  await page.getByRole("button", { name: "Enable offline editing on this device" }).click();
-  await expect(page.getByText("Offline editing enabled on this device.", { exact: true })).toBeVisible();
-  await expect.poll(() => page.evaluate(() => !!navigator.serviceWorker.controller)).toBe(true);
+  await page
+    .getByRole("button", { name: "Enable offline editing on this device" })
+    .click();
+  await expect(
+    page.getByText("Offline editing enabled on this device.", { exact: true }),
+  ).toBeVisible();
+  await expect
+    .poll(() => page.evaluate(() => !!navigator.serviceWorker.controller))
+    .toBe(true);
 }
 
 export async function queued(page: Page) {
-  await expect(page.getByRole("region", { name: "Offline changes" }).getByRole("listitem").first()).toBeVisible();
+  await expect(
+    page
+      .getByRole("region", { name: "Offline changes" })
+      .getByRole("listitem")
+      .first(),
+  ).toBeVisible();
 }

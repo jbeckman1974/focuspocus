@@ -1,14 +1,19 @@
 import { useEffect, useRef, useState } from "react";
 import { actorRequest, HttpError, type Snapshot } from "../api.ts";
 import { emptyNote, type NoteDocument } from "./document.ts";
+import { AttachmentPanel } from "./AttachmentPanel.tsx";
 import { NoteEditor } from "./NoteEditor.tsx";
-import { describeUpload, sendContentRequest, type OfflineContent, type StageContent } from "./offlineContent.ts";
+import {
+  describeUpload,
+  sendContentRequest,
+  type OfflineContent,
+  type StageContent,
+} from "./offlineContent.ts";
 import { useTrustedItem } from "./useTrustedItem.ts";
 import {
   ContentReadOnly,
   contentUrl,
   identity,
-  type Attachment,
   type Content,
 } from "./transport.ts";
 
@@ -23,7 +28,7 @@ type PendingWrite = {
   change: OfflineContent;
   bytes: Blob | null;
   base: Snapshot;
-  envelope: {context:string; operationId:string; expectedRevision:number};
+  envelope: { context: string; operationId: string; expectedRevision: number };
 };
 
 export function ContentTools(props: Props) {
@@ -35,7 +40,12 @@ export function ContentTools(props: Props) {
       </button>
       {open && (
         <ContentDialog
-          key={[props.actorId, props.snapshot.workspaceId, props.itemId, props.stageContent ? "trusted" : "online"].join("/")}
+          key={[
+            props.actorId,
+            props.snapshot.workspaceId,
+            props.itemId,
+            props.stageContent ? "trusted" : "online",
+          ].join("/")}
           {...props}
           close={() => setOpen(false)}
         />
@@ -54,12 +64,16 @@ function ContentDialog({
 }: Props & { close: () => void }) {
   const [online, setContent] = useState<Content>();
   const trusted = Boolean(stageContent);
-  const {item:saved,error:storageError} = useTrustedItem(trusted, actorId, snapshot, itemId);
+  const { item: saved, error: storageError } = useTrustedItem(
+    trusted,
+    actorId,
+    snapshot,
+    itemId,
+  );
   const content = trusted ? saved?.base : online;
   const noteBase = useRef<Content | undefined>(undefined);
   const [note, setNote] = useState<NoteDocument>(emptyNote);
-  const [file, setFile] = useState<File | null>(null);
-  const [preview, setPreview] = useState<Attachment>();
+  const [completedUploads, setCompletedUploads] = useState(0);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -69,7 +83,6 @@ function ContentDialog({
   const [lostWrite, setLostWrite] = useState(false);
   const life = useRef<AbortController | null>(null);
   const locked = useRef(false);
-  const fileInput = useRef<HTMLInputElement>(null);
   const dialog = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const element = dialog.current;
@@ -87,8 +100,6 @@ function ContentDialog({
     setDenied(true);
     setNote(emptyNote);
     setContent(undefined);
-    setFile(null);
-    setPreview(undefined);
     setRetry(undefined);
   }
   useEffect(() => {
@@ -142,9 +153,23 @@ function ContentDialog({
     }
   }
 
-  function prepare(change:OfflineContent, bytes: Blob | null = null): PendingWrite {
-    const revision = (change.action === "save" ? noteBase.current : undefined)?.revision ?? content!.revision;
-    return {change,bytes,base:{...snapshot,revision},envelope:{context:snapshot.context,operationId:crypto.randomUUID(),expectedRevision:revision}};
+  function prepare(
+    change: OfflineContent,
+    bytes: Blob | null = null,
+  ): PendingWrite {
+    const revision =
+      (change.action === "save" ? noteBase.current : undefined)?.revision ??
+      content!.revision;
+    return {
+      change,
+      bytes,
+      base: { ...snapshot, revision },
+      envelope: {
+        context: snapshot.context,
+        operationId: crypto.randomUUID(),
+        expectedRevision: revision,
+      },
+    };
   }
 
   async function write(make: () => Promise<PendingWrite> | PendingWrite) {
@@ -170,30 +195,44 @@ function ContentDialog({
         await stageContent(attempt.change, attempt.bytes, attempt.base);
         if (signal.aborted) return;
         if (attempt.change.action === "save") noteBase.current = undefined;
-        if (attempt.change.action === "upload") {
-          setFile(null);
-          if (fileInput.current) fileInput.current.value = "";
-        }
-        setMessage(attempt.change.action === "upload" ? "File saved on this device for sync." : "Change saved on this device for sync.");
+        if (attempt.change.action === "upload")
+          setCompletedUploads((count) => count + 1);
+        setMessage(
+          attempt.change.action === "upload"
+            ? "File saved on this device for sync."
+            : "Change saved on this device for sync.",
+        );
         return;
       }
       const csrf = await identity(snapshot.workspaceId, actorId, signal, true);
-      await sendContentRequest(actorId,snapshot.workspaceId,attempt.change,attempt.bytes,attempt.envelope,csrf,signal);
+      await sendContentRequest(
+        actorId,
+        snapshot.workspaceId,
+        attempt.change,
+        attempt.bytes,
+        attempt.envelope,
+        csrf,
+        signal,
+      );
       const current = await actorRequest<Content>(actorId, base, { signal });
       if (signal.aborted) return;
       setContent(current);
-      if (attempt.change.action === "save") { noteBase.current = undefined; setNote(current.document); }
-      if (attempt.change.action === "upload") {
-        setFile(null);
-        if (fileInput.current) fileInput.current.value = "";
+      if (attempt.change.action === "save") {
+        noteBase.current = undefined;
+        setNote(current.document);
       }
-      if (attempt.change.action === "remove") setPreview(undefined);
+      if (attempt.change.action === "upload")
+        setCompletedUploads((count) => count + 1);
       setRetry(undefined);
       setMessage("Saved.");
     } catch (error) {
       if (signal.aborted) return;
       if (trusted) {
-        setMessage(error instanceof Error ? error.message : "The change could not be saved on this device.");
+        setMessage(
+          error instanceof Error
+            ? error.message
+            : "The change could not be saved on this device.",
+        );
         return;
       }
       if (
@@ -275,14 +314,33 @@ function ContentDialog({
         </button>
       ) : content ? (
         <>
-          {trusted && saved && !saved.known && <p>Connect to load the existing note and file list. You can attach a file now.</p>}
-          <NoteEditor value={note} change={(value) => {noteBase.current ??= content;setNote(value);}} disabled={disabled || (trusted && !saved?.known)} />
+          {trusted && saved && !saved.known && (
+            <p>
+              Connect to load the existing note and file list. You can attach a
+              file now.
+            </p>
+          )}
+          <NoteEditor
+            value={note}
+            change={(value) => {
+              noteBase.current ??= content;
+              setNote(value);
+            }}
+            disabled={disabled || (trusted && !saved?.known)}
+          />
           <button
             type="button"
             disabled={disabled || (trusted && !saved?.known)}
-            onClick={() => void write(() => prepare({
-              action:"save",itemId,itemVersion:(noteBase.current ?? content).itemVersion,document:note,
-            }))}
+            onClick={() =>
+              void write(() =>
+                prepare({
+                  action: "save",
+                  itemId,
+                  itemVersion: (noteBase.current ?? content).itemVersion,
+                  document: note,
+                }),
+              )
+            }
           >
             Save note
           </button>
@@ -297,84 +355,50 @@ function ContentDialog({
               <NoteEditor value={content.document} change={() => {}} disabled />
             </details>
           )}
-          {saved && saved.pending.length > 0 && <ul aria-label="Content changes on this device">
-            {saved.pending.map(({id,content:change,state,reason}) => <li key={id}>
-              {change?.action === "upload" ? change.name : change?.action === "save" ? "Note" : "Attachment removal"}
-              {" · "}{state === "conflict" ? reason : "Awaiting sync"}
-            </li>)}
-          </ul>}
-          <h4>Attachments</h4>
-          <ul>
-            {content.files.map((attachment) => {
-              const url = base + "/files/" + encodeURIComponent(attachment.id);
-              return (
-                <li key={attachment.id}>
-                  <a href={url + "/download"} download={attachment.name}>
-                    Download {attachment.name}
-                  </a>
+          {saved && saved.pending.length > 0 && (
+            <ul aria-label="Content changes on this device">
+              {saved.pending.map(({ id, content: change, state, reason }) => (
+                <li key={id}>
+                  {change?.action === "upload"
+                    ? change.name
+                    : change?.action === "save"
+                      ? "Note"
+                      : "Attachment removal"}
                   {" · "}
-                  {attachment.size} bytes
-                  {attachment.previewable && (
-                    <button
-                      type="button"
-                      onClick={() => setPreview(attachment)}
-                    >
-                      Preview {attachment.name}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => void write(() => prepare({
-                      action:"remove",itemId,itemVersion:content.itemVersion,fileId:attachment.id,
-                    }))}
-                  >
-                    Remove {attachment.name}
-                  </button>
+                  {state === "conflict" ? reason : "Awaiting sync"}
                 </li>
-              );
-            })}
-          </ul>
-          {preview && content.files.some((f) => f.id === preview.id) && (
-            <figure>
-              <img
-                alt={preview.name}
-                style={{ maxWidth: "100%" }}
-                src={
-                  base + "/files/" + encodeURIComponent(preview.id) + "/preview"
-                }
-              />
-              <button type="button" onClick={() => setPreview(undefined)}>
-                Close preview
-              </button>
-            </figure>
+              ))}
+            </ul>
           )}
-          <label>
-            Attach file
-            <input
-              ref={fileInput}
-              type="file"
-              disabled={disabled}
-              onChange={(e) => setFile(e.currentTarget.files?.[0] ?? null)}
-            />
-          </label>
-          {file && file.size > content.maxFileBytes && (
-            <p role="status">
-              File exceeds the {content.maxFileBytes} byte limit.
-            </p>
-          )}
-          <button
-            type="button"
-            disabled={disabled || !file || file.size > content.maxFileBytes}
-            onClick={() => {
-              if (file)
-                void write(async () => prepare(
-                  await describeUpload(itemId,content.itemVersion,file,content.maxFileBytes),file,
-                ));
-            }}
-          >
-            Upload file
-          </button>
+          <AttachmentPanel
+            key={completedUploads}
+            base={base}
+            content={content}
+            disabled={disabled}
+            remove={(fileId) =>
+              void write(() =>
+                prepare({
+                  action: "remove",
+                  itemId,
+                  itemVersion: content.itemVersion,
+                  fileId,
+                }),
+              )
+            }
+            upload={(file) =>
+              void write(async () =>
+                prepare(
+                  await describeUpload(
+                    itemId,
+                    content.itemVersion,
+                    file,
+                    content.maxFileBytes,
+                  ),
+                  file,
+                ),
+              )
+            }
+          />
           {retry && (
             <button
               type="button"

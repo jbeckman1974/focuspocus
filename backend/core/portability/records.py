@@ -1,5 +1,7 @@
 """Explicit version-one workspace record schema and data extraction."""
 from dataclasses import dataclass
+from heapq import merge
+from operator import itemgetter
 
 from django.db.models import Count, F
 from core.content.models import AttachmentBlob, AttachmentBody, AttachmentLink, ItemNote
@@ -47,11 +49,12 @@ def journal_summary(stamp, journal):
 
 
 def history_rows(workspace):
-    for row in RestoredHistory.objects.filter(workspace=workspace).order_by("occurred_at", "pk"):
-        yield {"at": row.occurred_at, "action": row.action, "items": row.item_ids}
-    shared = Receipt.objects.filter(workspace=workspace, inverse__journal__isnull=False)
-    for stamp, journal in shared.order_by("created_at", "pk").values_list("created_at", "inverse__journal").iterator():
-        yield journal_summary(stamp, journal)
+    saved = RestoredHistory.objects.filter(workspace=workspace).order_by("occurred_at", "pk")
+    summaries = ({"at": row.occurred_at, "action": row.action, "items": row.item_ids} for row in saved.iterator())
+    shared = (Receipt.objects.filter(workspace=workspace, inverse__journal__isnull=False)
+              .order_by("created_at", "pk").values_list("created_at", "inverse__journal"))
+    current = (journal_summary(stamp, journal) for stamp, journal in shared.iterator())
+    yield from merge(summaries, current, key=itemgetter("at"))
 
 
 def review_sources(workspace):

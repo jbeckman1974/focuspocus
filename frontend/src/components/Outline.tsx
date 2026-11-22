@@ -59,6 +59,8 @@ export function Outline(props: OutlineProps) {
     editId && Object.hasOwn(titles, editId)
       ? { id: editId, title: titles[editId]! }
       : undefined;
+  const activeDraft = useRef(draft);
+  activeDraft.current = draft;
   const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
   const title = viewTitle(view, workspace);
   const count = props.count ?? rows.length;
@@ -102,9 +104,14 @@ export function Outline(props: OutlineProps) {
   async function saveEdit() {
     if (
       draft &&
-      await props.run({ type: "rename", id: draft.id, title: draft.title })
-    )
-      cancelEdit();
+      (await props.run({ type: "rename", id: draft.id, title: draft.title }))
+    ) {
+      if (
+        activeDraft.current?.id === draft.id &&
+        activeDraft.current?.title === draft.title
+      )
+        cancelEdit();
+    }
   }
 
   return (

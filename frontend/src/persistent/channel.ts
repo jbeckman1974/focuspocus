@@ -22,8 +22,13 @@ type Phase =
 export interface ChannelState {
   snapshot: Snapshot | null;
   queue: QueueNotice[];
+  reviewOnly: boolean;
   offline: boolean;
-  lastStaged:{operationId:string;selection:string[];intent:Intent}|null;
+  lastStaged: {
+    operationId: string;
+    selection: string[];
+    intent: Intent;
+  } | null;
   phase: Phase;
   pending: Write | null;
   undo: Receipt | null;
@@ -35,10 +40,10 @@ export interface ChannelState {
 
 export class WorkspaceChannel {
   private api: WorkspaceApi;
-  private durable?:OfflineQueue;
-  private staging=false;
+  private durable?: OfflineQueue;
+  private staging = false;
   private history = new CommandHistory();
-  private lostAccess: () => void;
+  private lostAccess: (status?: number) => void;
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
@@ -49,7 +54,10 @@ export class WorkspaceChannel {
     null;
   private state: ChannelState = {
     snapshot: null,
-    queue:[],offline:false,lastStaged:null,
+    queue: [],
+    reviewOnly: false,
+    offline: false,
+    lastStaged: null,
     phase: "loading",
     pending: null,
     ...this.history.clear(),
@@ -58,17 +66,44 @@ export class WorkspaceChannel {
     lastChange: null,
   };
 
-  constructor(api: WorkspaceApi, lostAccess: () => void,lease?:OfflineLease|null) {
+  constructor(
+    api: WorkspaceApi,
+    lostAccess: (status?: number) => void,
+    lease?: OfflineLease | null,
+  ) {
     this.api = api;
     this.lostAccess = lostAccess;
-    if(lease)this.durable=new OfflineQueue(api,lease,{
-      view:(snapshot,queue,offline,message)=>this.update({
-        snapshot,queue,offline,message,phase:snapshot?"ready":"loading",
-        ...(!snapshot ? {...this.history.clear(),lastStaged:null,lastChange:null,pending:null}:{}),
-      }),
-      saved:(entry,receipt)=>this.update({...this.history.acknowledge(entry.write.name,receipt),lastChange:{receipt,intent:entry.write.intent}}),
-      lost:()=>{if(this.active){this.stop();lostAccess();}},
-    });
+    if (lease)
+      this.durable = new OfflineQueue(api, lease, {
+        view: (snapshot, queue, offline, message, reviewOnly = false) =>
+          this.update({
+            snapshot,
+            queue,
+            reviewOnly,
+            offline,
+            message,
+            phase: snapshot ? "ready" : "loading",
+            ...(!snapshot
+              ? {
+                  ...this.history.clear(),
+                  lastStaged: null,
+                  lastChange: null,
+                  pending: null,
+                }
+              : {}),
+          }),
+        saved: (entry, receipt) =>
+          this.update({
+            ...this.history.acknowledge(entry.write.name, receipt),
+            lastChange: { receipt, intent: entry.write.intent },
+          }),
+        lost: (status) => {
+          if (this.active) {
+            this.stop();
+            lostAccess(status);
+          }
+        },
+      });
   }
 
   getSnapshot = () => this.state;
@@ -102,7 +137,7 @@ export class WorkspaceChannel {
       });
       this.accessCheck = null;
       this.stop();
-      this.lostAccess();
+      this.lostAccess(error.status);
       return true;
     }
     return false;
@@ -129,13 +164,13 @@ export class WorkspaceChannel {
   };
 
   refresh = async () => {
-    if(this.durable)return this.durable.tick(true);
+    if (this.durable) return this.durable.tick(true);
     this.requestedSnapshot++;
     await this.tick();
   };
 
   tick = async () => {
-    if(this.durable)return this.durable.tick();
+    if (this.durable) return this.durable.tick();
     if (!this.active || this.polling || this.state.phase === "sending") return;
     const epoch = this.epoch;
     const request = this.requestedSnapshot;
@@ -232,9 +267,9 @@ export class WorkspaceChannel {
 
   run(intent: Intent, base = this.state.snapshot): boolean {
     if (!this.active || !base || this.state.phase !== "ready") return false;
-    if(this.durable){
-      if(this.staging)return false;
-      void this.runDurable(intent,base);
+    if (this.durable) {
+      if (this.staging) return false;
+      void this.runDurable(intent, base);
       return true;
     }
     const write = prepare(intent, base);
@@ -242,33 +277,62 @@ export class WorkspaceChannel {
     return true;
   }
 
-  runDurable = async (intent:Intent,base=this.state.snapshot):Promise<boolean> => {
-    if(!this.durable)return this.run(intent,base);
-    if(!this.active || !base || this.staging || this.state.phase!=="ready")return false;
-    const write=prepare(intent,base);
-    this.staging=true;
-    try{
-      await this.durable.stage(write,base);
-      const {payload,operationId}=write.envelope;
-      const selection=Array.isArray(payload.items)?payload.items.map((v:{id:string})=>v.id):
-        typeof payload.id==="string"?[payload.id]:Array.isArray(payload.ids)?payload.ids as string[]:[];
-      this.update({lastStaged:{operationId,selection,intent}});
-      return true;
-    }catch(error){
-      this.update({message:"Could not save this edit on the device. "+(error instanceof Error?error.message:"Check device storage.")});
+  runDurable = async (
+    intent: Intent,
+    base = this.state.snapshot,
+  ): Promise<boolean> => {
+    if (!this.durable) return this.run(intent, base);
+    if (!this.active || !base || this.staging || this.state.phase !== "ready")
       return false;
-    }finally{this.staging=false;}
+    const write = prepare(intent, base);
+    this.staging = true;
+    try {
+      await this.durable.stage(write, base);
+      const { payload, operationId } = write.envelope;
+      const selection = Array.isArray(payload.items)
+        ? payload.items.map((v: { id: string }) => v.id)
+        : typeof payload.id === "string"
+          ? [payload.id]
+          : Array.isArray(payload.ids)
+            ? (payload.ids as string[])
+            : [];
+      this.update({ lastStaged: { operationId, selection, intent } });
+      return true;
+    } catch (error) {
+      this.update({
+        message:
+          "Could not save this edit on the device. " +
+          (error instanceof Error ? error.message : "Check device storage."),
+      });
+      return false;
+    } finally {
+      this.staging = false;
+    }
   };
 
-  stageContent: StageContent = async (content,bytes,base) => {
-    if(!this.active || !this.durable || this.state.phase!=="ready")throw new Error("Open this workspace on a trusted device before saving offline.");
-    const write=prepare({type:"content",action:content.action,id:content.itemId},base);
-    await this.durable.stage(write,base,content,bytes);
+  stageContent: StageContent = async (content, bytes, base) => {
+    if (!this.active || !this.durable || this.state.phase !== "ready")
+      throw new Error(
+        "Open this workspace on a trusted device before saving offline.",
+      );
+    const write = prepare(
+      { type: "content", action: content.action, id: content.itemId },
+      base,
+    );
+    await this.durable.stage(write, base, content, bytes);
   };
 
-  resolveQueued = async (id:string,action:"reapply"|"discard") => {
-    try{await this.durable?.resolve(id,action);}
-    catch(error){this.update({message:error instanceof Error?error.message:"Unable to resolve this draft."});}
+  resolveQueued = async (id: string, action: "reapply" | "discard") => {
+    try {
+      await this.durable?.resolve(id, action);
+    } catch (error) {
+      this.update({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to resolve this draft.",
+      });
+    }
   };
 
   retry() {

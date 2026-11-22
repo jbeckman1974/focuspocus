@@ -23,6 +23,8 @@ class OfflineGrantTests(OutlineApiMixin, TestCase):
         owner = self.snapshot()
         stamp = owner["offlineGrant"]
         self.assertEqual(str(UUID(stamp["id"])), stamp["id"])
+        self.assertEqual(str(UUID(stamp["membershipId"])), stamp["membershipId"])
+        self.assertNotEqual(stamp["id"], stamp["membershipId"])
         self.assertEqual(stamp["protocol"], 1)
         self.assertLess(abs(datetime.fromisoformat(stamp["expiresAt"]) - timezone.now() - grants.RETENTION),
                         timedelta(seconds=5))
@@ -67,11 +69,15 @@ class OfflineGrantTests(OutlineApiMixin, TestCase):
         returned = self.snapshot()
         self.assertNotEqual(initial["offlineGrant"]["id"], returned["offlineGrant"]["id"])
         self.assertEqual(self.send("capture", body).status_code, 410)
+        self.assertNotEqual(initial["offlineGrant"]["membershipId"], returned["offlineGrant"]["membershipId"])
+        earlier_pk = member.pk
         member.delete()
         self.assertEqual(self.send("capture", body).status_code, 404)
-        Membership.objects.create(workspace=self.space, user=self.other, role="editor")
+        # A fork of a restored database can reuse a relational primary key.
+        Membership.objects.create(pk=earlier_pk, workspace=self.space, user=self.other, role="editor")
         rejoined = self.snapshot()
         self.assertNotEqual(returned["offlineGrant"]["id"], rejoined["offlineGrant"]["id"])
+        self.assertNotEqual(returned["offlineGrant"]["membershipId"], rejoined["offlineGrant"]["membershipId"])
         for snapshot in (initial, returned):
             self.assertEqual(self.client.get(self.base + "changes", {"after": snapshot["cursor"]}).status_code, 410)
             self.assertEqual(self.send("capture", {**body, "context": snapshot["context"]}).status_code, 410)
@@ -89,5 +95,7 @@ class OfflineGrantTests(OutlineApiMixin, TestCase):
         call_command("fence_restored_database", stdout=StringIO())
         self.assertEqual(self.send("capture", body).status_code, 401)
         self.client.force_login(self.owner)
-        self.assertNotEqual(self.snapshot()["offlineGrant"]["id"], initial["offlineGrant"]["id"])
+        recovered = self.snapshot()["offlineGrant"]
+        self.assertNotEqual(recovered["id"], initial["offlineGrant"]["id"])
+        self.assertEqual(recovered["membershipId"], initial["offlineGrant"]["membershipId"])
         self.assertEqual(self.send("capture", body).status_code, 410)

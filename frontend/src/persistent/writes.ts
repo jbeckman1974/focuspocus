@@ -10,7 +10,7 @@ import type { Properties } from "./rules.ts";
 import type { BulkChanges } from "./preferences/bulk.ts";
 
 export type Intent =
-  | {type:"content"; id:string; action:"save"|"upload"|"remove"}
+  | { type: "content"; id: string; action: "save" | "upload" | "remove" }
   | { type: "bulk-inspect"; ids: string[]; changes: BulkChanges }
   | ReviewIntent
   | { type: "set-schedule"; ids: string[]; changes: DateChanges }
@@ -51,7 +51,7 @@ export function prepare(
   });
   switch (intent.type) {
     case "content":
-      return command("content-"+intent.action,{id:intent.id});
+      return command("content-" + intent.action, { id: intent.id });
     case "bulk-inspect":
       return command(intent.type, { ids: intent.ids, changes: intent.changes });
     case "planning-review":
@@ -126,7 +126,7 @@ export function prepare(
 }
 
 export function describeDraft(intent: Intent, snapshot: Snapshot) {
-  if (intent.type === "content") return intent.action+" content";
+  if (intent.type === "content") return intent.action + " content";
   if (intent.type === "bulk-inspect") return JSON.stringify(intent.changes);
   if (intent.type === "set-schedule") return JSON.stringify(intent.changes);
   if (intent.type === "set-date-settings")

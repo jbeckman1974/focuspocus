@@ -1,3 +1,4 @@
+import { WorkspaceMenu } from "./frame/WorkspaceMenu.tsx";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Command, View, Workspace } from "../outline/index.ts";
@@ -206,12 +207,11 @@ export function Frame({
             <span>{workspaceLabel ?? "Sample workspace"}</span>
           </div>
           <div className="fp-top-actions">
-            {width <= 600 && accountControls ? (
-              <details className="fp-workspace-menu">
-                <summary>Workspace</summary>
-                <div>{accountControls}</div>
-              </details>
-            ) : accountControls}
+            {accountControls && (
+              <WorkspaceMenu narrow={width <= 600}>
+                {accountControls}
+              </WorkspaceMenu>
+            )}
             {compact && (
               <button
                 ref={browseToggle}

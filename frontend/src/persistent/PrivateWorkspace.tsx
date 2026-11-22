@@ -51,9 +51,18 @@ interface Props {
 }
 
 export function PrivateWorkspace(props: Props) {
-  const connection = useWorkspaceChannel(props.id, props.actorId,props.csrf,props.onLostAccess);
+  const connection = useWorkspaceChannel(
+    props.id,
+    props.actorId,
+    props.csrf,
+    props.onLostAccess,
+  );
   return connection ? (
-    <ConnectedOutline {...props} channel={connection.channel} trusted={Boolean(connection.lease)} />
+    <ConnectedOutline
+      {...props}
+      channel={connection.channel}
+      trusted={Boolean(connection.lease)}
+    />
   ) : (
     <p role="status">Opening workspace…</p>
   );
@@ -72,7 +81,7 @@ function ConnectedOutline({
   onSignOut,
   channel,
   trusted,
-}: Props & { channel: WorkspaceChannel; trusted:boolean }) {
+}: Props & { channel: WorkspaceChannel; trusted: boolean }) {
   const state = useSyncExternalStore(channel.subscribe, channel.getSnapshot);
   const snapshot = state.snapshot;
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
@@ -146,9 +155,13 @@ function ConnectedOutline({
   useEffect(() => {
     const change = state.lastChange;
     const staged = state.lastStaged;
-    const navigation = staged ?? (change && snapshot && snapshot.revision >= change.receipt.revision
-      ? { ...change.receipt, intent:change.intent } : null);
-    if (!snapshot || !navigation || observed.current === navigation.operationId) return;
+    const navigation =
+      staged ??
+      (change && snapshot && snapshot.revision >= change.receipt.revision
+        ? { ...change.receipt, intent: change.intent }
+        : null);
+    if (!snapshot || !navigation || observed.current === navigation.operationId)
+      return;
     observed.current = navigation.operationId;
     const ids = navigation.selection;
     if (!ids.length) return;
@@ -194,6 +207,16 @@ function ConnectedOutline({
       <main className="account-page">
         <section className="account-card">
           <p role="status">{state.message || "Loading workspace…"}</p>
+          {state.reviewOnly && (
+            <OfflineChanges state={state} channel={channel} />
+          )}
+          {state.reviewOnly && (
+            <TrustDeviceControl
+              actor={{ id: actorId, username }}
+              space={activeSpace}
+              snapshot={null}
+            />
+          )}
           <button onClick={() => channel.tick()}>Retry connection</button>
           <button onClick={onSignOut}>Sign out</button>
         </section>
@@ -202,7 +225,9 @@ function ConnectedOutline({
 
   async function run(command: Command) {
     const draft = drafts.forCommand(command);
-    const accepted = trusted ? await channel.runDurable(command,draft.base) : channel.run(command, draft.base);
+    const accepted = trusted
+      ? await channel.runDurable(command, draft.base)
+      : channel.run(command, draft.base);
     if (accepted) draft.clear();
     return accepted;
   }
@@ -353,7 +378,11 @@ function ConnectedOutline({
         workspaceLabel={activeSpace.private ? username : activeSpace.name}
         accountControls={
           <>
-            <TrustDeviceControl actor={{id:actorId,username}} space={activeSpace} snapshot={snapshot}/>
+            <TrustDeviceControl
+              actor={{ id: actorId, username }}
+              space={activeSpace}
+              snapshot={snapshot}
+            />
             <WorkspaceTools
               actorId={actorId}
               csrf={csrf}
@@ -390,7 +419,7 @@ function ConnectedOutline({
         message={state.message}
       >
         <WriteNotice state={state} channel={channel} />
-        {trusted && <OfflineChanges state={state} channel={channel}/>}
+        {trusted && <OfflineChanges state={state} channel={channel} />}
         <PlanningArea
           session={{
             snapshot,

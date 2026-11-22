@@ -36,7 +36,7 @@ export interface QueueNotice {
   base: string;
   draft: string;
   current: string;
-  content?:OfflineContent;
+  content?: OfflineContent;
 }
 
 export const rows = (s: Snapshot) => [
