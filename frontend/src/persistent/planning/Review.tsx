@@ -7,6 +7,7 @@ import type { ViewActions } from "./results.tsx";
 import type { WorkspaceChannel } from "../channel.ts";
 import type { OutlineResult } from "../rules.ts";
 import type { Snapshot } from "../api.ts";
+import { formatCalendarDay } from "../schedule.ts";
 
 export type ReviewUnit = "day" | "week" | "month" | "year";
 export interface ReviewEntry {
@@ -127,7 +128,7 @@ export function Review({
   const [scope, setScope] = useState<"due" | "all">("due");
   const [chosen, choose] = useState("");
   const [edit, setEdit] = useState<{ entry: ReviewEntry; base: Snapshot }>();
-  const queue = usePlanningRead<{ projects: ReviewEntry[] }>(
+  const queue = usePlanningRead<{ projects: ReviewEntry[]; viewZone: string }>(
     session,
     "planning/review?scope=" + scope,
     undefined,
@@ -204,7 +205,7 @@ export function Review({
           </button>
         ))}
       </div>
-      {project && (
+      {queue.data && project && (
         <section aria-label="Project review" className="planning-group">
           <h2>{project.title}</h2>
           <p>
@@ -217,7 +218,7 @@ export function Review({
             <p>
               Last reviewed{" "}
               <time dateTime={project.lastReviewedAt}>
-                {new Date(project.lastReviewedAt).toLocaleDateString()}
+                {formatCalendarDay(project.lastReviewedAt, queue.data.viewZone)}
               </time>
             </p>
           )}

@@ -28,6 +28,8 @@ python3 -B tools/vm/tumbleweed.py verify
 
 Only the small utilities, their tests and the public source catalog belong in Git. The repository checks verify that Git ignores the reference archive and guest disks and tracks no path beneath `build/`.
 
+The November 22 reference archive contains verified local copies of all 88 cataloged publisher resources, including the OmniFocus 4.10.1 release record, 11 manual chapters and two support articles. The upstream collection adds 41 technical documents, 15 licenses and one notice. Open `build/OmniFocus/index.html` from the project checkout.
+
 ## Daily development on the MacBook
 
 Use Git, an editor, Docker Desktop for Apple Silicon (or an equivalent native ARM64 Linux Docker VM), and a browser on macOS. Pin the development services in the Mac-specific Compose file to `linux/arm64`. Keep the shared Dockerfile and production Compose configuration usable on both target platforms. Confirm the active context points to the local VM with `docker context show` and `docker info --format '{{.OSType}}/{{.Architecture}}'`. Expect Linux and `aarch64` or `arm64` from the daemon. [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) · [Docker Desktop virtual machine options](https://docs.docker.com/desktop/features/vmm/)

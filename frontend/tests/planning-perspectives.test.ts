@@ -9,6 +9,7 @@ import {
 } from "../src/persistent/planning/perspective.ts";
 import { planningLinks } from "../src/persistent/planning/links.ts";
 import { prepare } from "../src/persistent/writes.ts";
+import { formatCalendarDay } from "../src/persistent/schedule.ts";
 import type { Snapshot } from "../src/persistent/api.ts";
 
 test("perspective groups preserve nested exclusions and edit copies only", () => {
@@ -53,6 +54,19 @@ test("only favorite saved perspectives appear on the rail, by stable identity", 
   );
   assert.equal(links.at(-1)?.icon, "changed");
 });
+test("a review near midnight displays the calendar day in the queue's timezone", () => {
+  const instant = "2026-11-22T07:30:00Z";
+  const utc = new Intl.DateTimeFormat(undefined, { timeZone: "UTC" });
+  assert.equal(
+    formatCalendarDay(instant, "America/Los_Angeles"),
+    utc.format(new Date("2026-11-21T12:00:00Z")),
+  );
+  assert.equal(
+    formatCalendarDay(instant, "America/New_York"),
+    utc.format(new Date("2026-11-22T12:00:00Z")),
+  );
+});
+
 test("review writes use the shared guarded command envelope and project version", () => {
   const base: Snapshot = {
     workspaceId: "w",
