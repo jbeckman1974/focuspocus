@@ -45,6 +45,18 @@ test("AT-16/17/24 · organize a private outline by keyboard and keep its named s
   );
   await expect(tripod).toHaveAccessibleDescription(/Active/);
   await expect(tripod).toHaveCSS("outline-style", "solid");
+  await expect(tripod).toBeInViewport();
+  expect(
+    await tripod.evaluate((element) => {
+      const bounds = element.getBoundingClientRect();
+      const center = document.elementFromPoint(
+        bounds.left + bounds.width / 2,
+        bounds.top + bounds.height / 2,
+      );
+      return element.contains(center);
+    }),
+    "The visible focus row is unobscured",
+  ).toBe(true);
   await page.keyboard.press("i");
   await expect(tripod).toHaveAttribute("aria-level", "2");
   await expect(tripod).toHaveAttribute("aria-posinset", "2");

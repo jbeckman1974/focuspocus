@@ -81,13 +81,13 @@ The check signs in twice as the first synthetic account and once as the second, 
 
 ### Private Tumbleweed x64 test server
 
-From a clean checkout on the designated test server, check out the exact commit to exercise and pass its full 40-character hash. The runner requires Git, Python 3.10+, Bash, a local Docker Engine socket and Compose. It checks the native architecture and host OS, then builds both the application and browser runner from that checkout.
+From a clean checkout on the designated test server, check out the exact commit to exercise and pass its full 40-character hash. The runner requires Git, Python 3.10+, OpenSSL 3, Bash, a local Docker Engine socket and Compose. It checks the native architecture and host OS, then builds both the application and browser runner from that checkout.
 
 ```sh
 python3 -B ops/test-host.py "$(git rev-parse HEAD)"
 ```
 
-The runner exercises frontend formatting, type checks, unit and browser tests, then runs the persistent stack verification below. Its web port uses an ephemeral loopback binding. The database and worker stay on a project-private network. Leave the test project out of the reverse proxy. Testing requires outbound access to fetch pinned build dependencies. Use separate evidence for production deployment.
+The runner exercises frontend formatting, type checks, unit and browser tests. It runs the persistent stack and encrypted recovery, the 10,000-action benchmark, cross-browser checks and the PostgreSQL major upgrade. Each suite gets a fresh run directory under the verified data parent. The benchmark and upgrade reports remain under the checkout’s ignored `build/` directory. Its web port uses an ephemeral loopback binding. The database and worker stay on a project-private network. Leave the test project out of the reverse proxy. Testing requires outbound access to fetch pinned build dependencies. Use separate evidence for production deployment.
 
 The host runner identifies the existing container data parent from sibling bind mounts used by two different containers or Compose projects. It looks beneath the operating user's home directory and at existing mount parents named `docker`, `containers` or `appdata`. For an ambiguous layout or another path, set `FOCUSPOCUS_TEST_DATA_PARENT` to the existing absolute parent. The runner verifies that directory against the same mount evidence. It creates two distinct database directories under `focuspocus/qa-<run-id>/` there. The application and restore test both use those bind mounts.
 

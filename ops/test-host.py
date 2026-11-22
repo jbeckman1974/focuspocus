@@ -11,7 +11,7 @@ from uuid import uuid4
 
 
 LABEL = "io.github.focuspocus.test-run"
-TARGETS = {"application": ".", "browser-tests": "frontend"}
+TARGETS = {"application": ".", "browser-tests": "frontend", "accessibility-tests": "frontend"}
 
 
 def output(*args):
@@ -95,9 +95,14 @@ def verify(revision, record, lock_fd):
         run(
             "docker", "run", "--rm", "--network", "none", "--shm-size=512m", "-e", "CI=true", browser,
         )
-        run("python3", "-B", "ops/host_test_data.py", env={
-            **os.environ, "FOCUSPOCUS_IMAGE": tags["application"], "FOCUSPOCUS_TEST_BROWSER_IMAGE": browser,
-        })
+        suite_env = {
+            **os.environ,
+            "FOCUSPOCUS_IMAGE": tags["application"],
+            "FOCUSPOCUS_TEST_BROWSER_IMAGE": browser,
+            "FOCUSPOCUS_ACCESSIBILITY_IMAGE": tags["accessibility-tests"],
+        }
+        for options in ((), ("--performance",), ("--accessibility",), ("--pg-upgrade",)):
+            run("python3", "-B", "ops/host_test_data.py", *options, env=suite_env)
     finally:
         cleanup(record)
 

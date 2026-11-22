@@ -32,10 +32,12 @@ def openssl(*args):
     return [openssl_binary(), *map(str, args)]
 
 
-def checksum(source):
+def checksum(source, copy_to=None):
     digest = hashlib.sha256()
     for block in iter(lambda: source.read(1024 * 1024), b""):
         digest.update(block)
+        if copy_to is not None:
+            copy_to.write(block)
     return digest.hexdigest()
 
 
@@ -74,14 +76,15 @@ def seal(cert, destination, dump_command):
 def unseal(cert, key, source, expected, destination):
     if not re.fullmatch(r"[0-9a-f]{64}", expected):
         raise ValueError("Supply the trusted ciphertext SHA-256 from the backup record.")
-    with source.open("rb") as archive:
-        if not hmac.compare_digest(checksum(archive), expected):
-            raise ValueError("Encrypted archive checksum mismatch.")
-        archive.seek(0)
-        with new_file(destination) as clear:
-            subprocess.run(openssl(
-                "cms", "-decrypt", "-binary", "-inform", "DER", "-recip", cert, "-inkey", key,
-            ), stdin=archive, stdout=clear, check=True)
+    # Retrieved storage can change while being read. Authenticate and decrypt the same private copy.
+    with new_file(destination) as clear, tempfile.TemporaryFile(dir=destination.parent) as verified:
+        with source.open("rb") as archive:
+            if not hmac.compare_digest(checksum(archive, copy_to=verified), expected):
+                raise ValueError("Encrypted archive checksum mismatch.")
+        verified.seek(0)
+        subprocess.run(openssl(
+            "cms", "-decrypt", "-binary", "-inform", "DER", "-recip", cert, "-inkey", key,
+        ), stdin=verified, stdout=clear, check=True)
 
 
 def main():

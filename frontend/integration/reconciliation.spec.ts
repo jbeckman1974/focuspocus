@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { task, taskId } from "../e2e/controls.ts";
+import { activate, task, taskId } from "../e2e/controls.ts";
 import { signIn, submitCapture, submitRename, withProfile } from "./account.ts";
 
 const workspaceWrites =
@@ -29,10 +29,16 @@ test("AT-18 · retry a capture after the database commits but the acknowledgemen
     await expect(notice.getByRole("alert")).toHaveText(/\S/);
     await expect(task(observer, title)).toHaveCount(1, { timeout: 5000 });
     const committedId = await taskId(observer, title);
-    await page.getByRole("button", { name: "Retry original change" }).click();
+    await activate(
+      page,
+      notice.getByRole("button", { name: "Retry original change" }),
+    );
     await expect(
       page.getByRole("button", { name: "Retry original change" }),
     ).toHaveCount(0);
+    await expect(
+      page.getByRole("tree", { name: "Task outline" }),
+    ).toBeFocused();
     await expect(
       page.getByRole("button", { name: "New project", exact: true }),
     ).toBeEnabled();
@@ -103,8 +109,11 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
       page.getByText(`Current task: ${winning}`, { exact: false }),
     ).toBeVisible();
     await expect(task(other, winning)).toHaveAttribute("data-task-id", itemId);
-    await reapply.click();
+    await activate(page, reapply);
     await expect(reapply).toHaveCount(0);
+    await expect(
+      page.getByRole("tree", { name: "Task outline" }),
+    ).toBeFocused();
     await expect(task(other, draft)).toHaveAttribute("data-task-id", itemId, {
       timeout: 5000,
     });

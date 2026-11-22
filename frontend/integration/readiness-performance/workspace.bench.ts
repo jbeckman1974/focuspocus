@@ -2,7 +2,8 @@ import { expect, test } from "@playwright/test";
 import { signIn } from "../account.ts";
 import { nearestRank, recorder } from "./evidence.ts";
 import { measureEditing, measureSearch, measureViews } from "./interactions.ts";
-import { convergence, idleClones } from "./sessions.ts";
+import { convergence } from "./sessions.ts";
+import { idleClones } from "./idle.ts";
 
 test("10,000-action authenticated release workspace", async ({
   page,

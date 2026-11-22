@@ -31,7 +31,7 @@ def require(condition, message):
 
 
 def client():
-    return Client(HTTP_HOST="localhost", enforce_csrf_checks=True)
+    return Client(HTTP_HOST="localhost", REMOTE_ADDR="192.0.2.40", enforce_csrf_checks=True)
 
 
 @transaction.atomic

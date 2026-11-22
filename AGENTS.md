@@ -15,6 +15,8 @@ Joe has authorized implementation of the maintained plan, its tests, milestone b
 - Before a release, follow the [private registry procedure](docs/OPERATIONS.md#private-release-package). The source repository is public. The current release policy requires a pre-provisioned private package and a successful read-only marker check before an application image can be pushed.
 - Exercise trusted-device edits through the signed-in workspace, a full browser restart and a separate online reader. Preserve the original identity and preconditions of a transmitted operation. SQL recovery can preserve the same membership while rotating the database generation. Hold these drafts for comparison and purge data for revoked or reissued memberships. Keep the service-worker cache restricted to verified public shell assets. [Offline protocol](docs/OFFLINE_PROTOCOL.md)
 
+- For M7 use a release build, record the native architecture and run the documented 10,000-action fixture without relaxing the timing limits. Use the same verified data parent for every test-host suite. Keep browser credentials, database dumps, encrypted archives and keys out of Actions artifacts. Preserve separate results for a physical host, assistive technology and Joe’s pilot.
+
 ## Steps and milestones
 
 1. At each independently reviewable step update the affected documentation and `docs/PROGRESS.md`, run the applicable checks, then commit and push that step to the milestone branch. Update these instructions whenever the workflow or conventions change.

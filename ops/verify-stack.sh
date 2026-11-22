@@ -43,6 +43,7 @@ trap cleanup EXIT
 python3 ops/init-secrets.py "$FOCUSPOCUS_SECRET_DIR"
 dc config --format json | python3 -B ops/check-test-network.py
 bash ops/assert-native.sh
+python3 -B -m unittest discover -s tools/release -p test_recovery.py
 image_id=$(docker image inspect --format '{{.Id}}' "$FOCUSPOCUS_IMAGE")
 test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$FOCUSPOCUS_IMAGE")" = "linux/$EXPECTED_ARCH"
 docker run --rm "$image_id" python /srv/ops/check-runtime.py

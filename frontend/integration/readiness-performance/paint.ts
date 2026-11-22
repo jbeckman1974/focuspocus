@@ -124,8 +124,13 @@ export async function armPaint(
             const listen = (input: Event) => {
               if (!input.isTrusted) return;
               window.removeEventListener(event, listen, true);
+              clearTimeout(timeout);
               start(input.timeStamp);
             };
+            const timeout = window.setTimeout(() => {
+              window.removeEventListener(event, listen, true);
+              resolve(-1);
+            }, 60_000);
             window.addEventListener(event, listen, true);
           } else start(performance.now());
         },

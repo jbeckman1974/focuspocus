@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import type { DragEvent, RefObject } from "react";
+import { useMemo, useRef, useState } from "react";
+import type { DragEvent, MouseEvent, RefObject } from "react";
 import { effectiveDone, INBOX } from "../../outline/index.ts";
 import type {
   Command,
@@ -46,7 +46,7 @@ export function TaskTree(props: TreeProps) {
   const { rows, selection, workspace, view } = props;
   const ids = useMemo(() => rows.map(({ task }) => task.id), [rows]);
   const identity = viewKey(view);
-  const window = useOutlineWindow(identity, ids, props.tree);
+  const rowWindow = useOutlineWindow(identity, ids, props.tree);
   const nav = useTreeNavigation(
     identity,
     ids,
@@ -72,11 +72,26 @@ export function TaskTree(props: TreeProps) {
     });
     return { positions, siblingSizes };
   }, [rows]);
-  const indices = window.layout?.mounted(
-    window.viewport.top,
-    window.viewport.height,
+  const indices = rowWindow.layout?.mounted(
+    rowWindow.viewport.top,
+    rowWindow.viewport.height,
     [nav.active, props.draft?.id, dragSource],
   );
+  const pointerFocus = useRef(false);
+  function pressRow(event: MouseEvent<HTMLDivElement>) {
+    if (
+      !(event.target instanceof Element) ||
+      !event.target.closest("[data-task-id]")
+    )
+      return;
+    // Native focus occurs before click. Jumping to the previous cursor here
+    // can unmount the pressed row before it receives the selection gesture.
+    pointerFocus.current = true;
+    window.setTimeout(() => {
+      pointerFocus.current = false;
+    }, 0);
+  }
+
   function endDrag() {
     setDragSource(undefined);
     setDragIds([]);
@@ -95,8 +110,8 @@ export function TaskTree(props: TreeProps) {
     return (
       <TaskRow
         key={task.id}
-        observe={window.observe}
-        top={window.layout?.offsets[index]}
+        observe={rowWindow.observe}
+        top={rowWindow.layout?.offsets[index]}
         task={task}
         id={nav.rowId(task.id)}
         depth={depth}
@@ -198,16 +213,19 @@ export function TaskTree(props: TreeProps) {
         aria-activedescendant={nav.active ? nav.rowId(nav.active) : undefined}
         tabIndex={0}
         onKeyDown={(event) => handleTreeKey(event, props, nav, ids, shortcut)}
+        onPointerDownCapture={pressRow}
+        onMouseDownCapture={pressRow}
         onFocus={(event) => {
-          if (event.target === event.currentTarget) nav.revealActive();
+          if (event.target === event.currentTarget && !pointerFocus.current)
+            nav.revealActive();
         }}
-        onScroll={window.onScroll}
+        onScroll={rowWindow.onScroll}
       >
-        {window.layout && indices ? (
+        {rowWindow.layout && indices ? (
           <div
             className="outline-window"
             role="presentation"
-            style={{ height: window.layout.offsets.at(-1) }}
+            style={{ height: rowWindow.layout.offsets.at(-1) }}
           >
             {indices.map(renderRow)}
           </div>

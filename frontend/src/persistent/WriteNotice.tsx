@@ -1,6 +1,13 @@
 import type { ChannelState, WorkspaceChannel } from "./channel.ts";
 import { describeDraft } from "./writes.ts";
 
+function resolveFrom(button: HTMLButtonElement, resolve: () => void) {
+  const main = button.closest("main");
+  resolve();
+  // Resolving removes the button. Keep the keyboard user in the current view.
+  (main?.querySelector<HTMLElement>('[role="tree"]') ?? main)?.focus();
+}
+
 export function WriteNotice({
   state,
   channel,
@@ -48,19 +55,33 @@ export function WriteNotice({
             <p key={project.id}>Current project: {project.title}</p>
           ))}
       {(state.phase === "uncertain" || state.phase === "retryable") && (
-        <button onClick={() => channel.retry()}>Retry original change</button>
+        <button
+          onClick={(event) =>
+            resolveFrom(event.currentTarget, () => channel.retry())
+          }
+        >
+          Retry original change
+        </button>
       )}
       {state.phase !== "uncertain" && (
         <>
           {state.phase === "conflict" && (
             <button
               disabled={!state.conflictFresh}
-              onClick={() => channel.reapply()}
+              onClick={(event) =>
+                resolveFrom(event.currentTarget, () => channel.reapply())
+              }
             >
               Reapply my change
             </button>
           )}
-          <button onClick={() => channel.discard()}>Discard my change</button>
+          <button
+            onClick={(event) =>
+              resolveFrom(event.currentTarget, () => channel.discard())
+            }
+          >
+            Discard my change
+          </button>
         </>
       )}
     </section>

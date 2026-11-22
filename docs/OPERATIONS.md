@@ -146,6 +146,8 @@ Use the same procedure for an operator-triggered Compose/Portainer update and an
 
 ## Backups and clean-stack restoration
 
+The [recovery drill](RECOVERY.md) exercises encrypted backups, a deliberately failed migration and validation on a clean database. The [major-upgrade rehearsal](../ops/pg-upgrade/) moves the representative workspace between two distinct PostgreSQL majors. A production record additionally needs the real backup location, key custodian, transfer time and target host.
+
 Proposed initial objectives are **at most 24 hours of data loss** following complete host loss (RPO) and **restored, validated service within 4 hours** (RTO). Measure from the backup’s consistent recovery point and from service loss respectively. Trial the objectives against the measured pilot database, including its SQL attachments, destination bandwidth and restore hardware. Record achieved values before depending on them.
 
 - For one small database, start with a consistent custom-format logical dump using the matching PostgreSQL tools. Include schema, data, `bytea` attachments, users, memberships, auth/recovery state, recurrence, review, views, jobs/outbox and operation history. Capture required cluster roles/grants separately, plus role membership, necessary keys/config, release manifests, image references and instructions to recover registry access. Use protected storage for the recovery set. [PostgreSQL backup methods](https://www.postgresql.org/docs/18/backup.html) · [Database dumps](https://www.postgresql.org/docs/18/app-pgdump.html) · [Cluster globals](https://www.postgresql.org/docs/18/app-pg-dumpall.html)

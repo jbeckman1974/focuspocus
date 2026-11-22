@@ -64,7 +64,7 @@ class HostImagesTests(unittest.TestCase):
     def test_second_build_failure_still_cleans_recorded_app_image(self):
         self.record.unlink()
         failure = subprocess.CalledProcessError(1, ["docker", "build"])
-        with patch.object(runner, "tagged_id", side_effect=["", "", "app", "app", ""]):
+        with patch.object(runner, "tagged_id", side_effect=["", "", "", "app", "app", "", ""]):
             with patch.object(runner, "output", side_effect=[self.run_id, ""]):
                 with patch.object(runner.subprocess, "run", side_effect=[None, failure, None]) as command:
                     with self.assertRaises(subprocess.CalledProcessError):
@@ -72,6 +72,17 @@ class HostImagesTests(unittest.TestCase):
                     self.assertEqual(command.call_args_list[0].kwargs["pass_fds"], (7,))
                     self.assertEqual(command.call_args.args[0], ["docker", "image", "rm", "--no-prune", self.tags["application"]])
         self.assertFalse(self.record.exists())
+
+    def test_all_host_suites_allocate_their_databases_under_verified_sibling_storage(self):
+        self.record.unlink()
+        with patch.object(runner, "tagged_id", return_value=""), patch.object(runner.subprocess, "run") as execute:
+            runner.verify("c" * 40, self.record, 7)
+        checks = [call for call in execute.call_args_list if call.args[0][:3] == ("python3", "-B", "ops/host_test_data.py")]
+        self.assertEqual([call.args[0][3:] for call in checks], [(), ("--performance",), ("--accessibility",), ("--pg-upgrade",)])
+        for call in checks:
+            self.assertEqual(call.kwargs["env"]["FOCUSPOCUS_IMAGE"], self.tags["application"])
+            self.assertEqual(call.kwargs["env"]["FOCUSPOCUS_ACCESSIBILITY_IMAGE"], self.tags["accessibility-tests"])
+            self.assertEqual(call.kwargs["pass_fds"], (7,))
 
     def test_tag_collision_stops_before_building_or_registering(self):
         self.record.unlink()
