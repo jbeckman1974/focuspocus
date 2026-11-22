@@ -11,6 +11,7 @@ import type {
 export type OutlinePanel = "commands" | "group" | "move";
 
 interface KeyActions {
+  mutationsDisabled?: boolean;
   view: View;
   workspace: Workspace;
   selection: string[];
@@ -78,6 +79,7 @@ export function handleTreeKey(
     actions.panel("commands");
     return;
   }
+  if (actions.mutationsDisabled && ["u","x","g","m","i","o"].includes(key.toLowerCase())) return;
   if (key.toLowerCase() === "u") {
     event.preventDefault();
     if (event.shiftKey) actions.redo();

@@ -3,6 +3,7 @@ import { Frame } from "../components/Frame.tsx";
 import { Outline } from "../components/Outline.tsx";
 import {
   homeView,
+  revealSelection,
   inbox,
   viewExists,
   viewKey,
@@ -65,6 +66,7 @@ export function PrivateWorkspace(props: Props) {
 
 function ConnectedOutline({
   username,
+  actorId,
   onSignOut,
   channel,
 }: Props & { channel: WorkspaceChannel }) {
@@ -111,7 +113,7 @@ function ConnectedOutline({
     snapshot,
     result: projection.result,
     rows: matches,
-    scope: JSON.stringify([key, availability, viewZone]),
+    scope: JSON.stringify([actorId, key, availability, viewZone]),
     collapsed,
     cleanupEpoch,
   });
@@ -201,6 +203,21 @@ function ConnectedOutline({
     ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase)
       ? tagIntent
       : undefined;
+  function showSource(id:string) {
+    if (!snapshot) return;
+    if (snapshot.tags.some(item => item.id === id)) return setView({kind:"tag", id});
+    if (snapshot.projects.some(item => item.id === id)) return setView({kind:"project", id});
+    if (snapshot.folders?.some(item => item.id === id)) return setView({kind:"folder", id});
+    if (!snapshot.tasks.some(item => item.id === id)) return;
+    const destination=homeView(snapshot,id);
+    const destinationKey=viewKey(destination);
+    const memory=revealSelection(snapshot,destination,collapsedRows[destinationKey] ?? new Set(),[id]);
+    setFilters(current => ({...current,[destinationKey]:"everything"}));
+    setCollapsed(current => ({...current,[destinationKey]:new Set(memory.collapsed)}));
+    setSelected(current => ({...current,[destinationKey]:[id]}));
+    setView(destination);
+  }
+
   function controls(
     entry: Entry & RuleFields,
     kind: "project" | "group" | "action" | "folder",
@@ -216,6 +233,7 @@ function ConnectedOutline({
     return (
       <ItemTools
         key={entry.id}
+        showSource={showSource}
         entry={entry}
         kind={kind}
         snapshot={snapshot!}
@@ -294,6 +312,7 @@ function ConnectedOutline({
       >
         <WriteNotice state={state} channel={channel} />
         <Outline
+          mutationsDisabled={state.phase !== "ready"}
           rows={rows}
           count={projection.result?.count}
           retainedCount={Math.max(0, rows.length - matches.length)}

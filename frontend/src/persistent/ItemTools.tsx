@@ -14,6 +14,7 @@ export function ItemTools({
   channel,
   pending,
   disabled,
+  showSource,
 }: {
   entry: Entry & RuleFields;
   kind: "project" | "group" | "folder" | "action";
@@ -21,15 +22,22 @@ export function ItemTools({
   channel: WorkspaceChannel;
   pending?: Properties;
   disabled: boolean;
+  showSource:(id:string)=>void;
 }) {
   const [editor, setEditor] = useState<{
     type: "schedule" | "repeat";
     base: Snapshot;
     item: Entry & RuleFields;
   }>();
+  function sourceLink(id:string|null|undefined) {
+    if(!id || id===entry.id) return null;
+    const source=[...snapshot.projects,...snapshot.tasks,...snapshot.tags,...(snapshot.folders ?? [])].find(item=>item.id===id);
+    return source ? <button type="button" onClick={()=>showSource(id)}>{source.title}</button> : null;
+  }
   return (
     <div className="item-tools">
       <RuleControls
+        sourceLink={sourceLink}
         entry={entry}
         kind={kind}
         pending={pending}
@@ -71,6 +79,7 @@ export function ItemTools({
       )}
       {editor?.type === "schedule" && (
         <ScheduleDialog
+          showSource={(id)=>{setEditor(undefined);showSource(id);}}
           base={editor.base}
           entry={editor.item}
           close={() => setEditor(undefined)}

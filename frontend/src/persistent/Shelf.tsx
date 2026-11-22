@@ -119,7 +119,8 @@ export function Shelf({
                   }
                 />
                 {item.title}
-                {Boolean(item.descendantCount) && ` (includes ${item.descendantCount} descendants)`}
+                {Boolean(item.descendantCount) &&
+                  ` (includes ${item.descendantCount} descendants)`}
               </label>
             ) : item.shelfRootId === item.id ? (
               <button

@@ -30,6 +30,7 @@ for (const mode of ["sequential", "parallel", "single-action"]) {
     const ids = await Promise.all(titles.map((title) => taskId(page, title)));
     expect(new Set(ids).size).toBe(3);
     const modeControl = page.getByLabel("Project mode", { exact: true });
+    await expect(modeControl).toBeVisible();
     await modeControl.selectOption(mode);
     await expect(modeControl).toHaveValue(mode);
     const first = ids.slice(0, 1);

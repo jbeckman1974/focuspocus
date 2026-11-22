@@ -20,6 +20,7 @@ interface RowProps {
   done: boolean;
   tags: string[];
   draft?: EditDraft;
+  mutationsDisabled?: boolean;
   context?: boolean;
   dropBefore: boolean;
   select: (event: MouseEvent) => void;
@@ -65,7 +66,7 @@ export function TaskRow(props: RowProps) {
       data-drop-before={props.dropBefore}
       className="outline-row"
       style={{ "--depth": props.depth } as CSSProperties}
-      draggable={!editing}
+      draggable={!editing && !props.mutationsDisabled}
       onDragStart={props.dragStart}
       onDragOver={props.dragOver}
       onDrop={props.drop}
@@ -110,7 +111,7 @@ export function TaskRow(props: RowProps) {
         type="button"
         className="outline-check"
         aria-label={`${props.done ? "Reopen" : "Complete"} ${task.title}`}
-        disabled={props.done && !task.done}
+        disabled={props.mutationsDisabled || (props.done && !task.done)}
         title={props.done && !task.done ? "Completed by its group" : undefined}
         tabIndex={-1}
         onClick={(event) => {
@@ -144,7 +145,7 @@ export function TaskRow(props: RowProps) {
           />
           <button
             type="submit"
-            disabled={!draft.title.trim()}
+            disabled={props.mutationsDisabled || !draft.title.trim()}
             aria-label="Save title"
           >
             Save

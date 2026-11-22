@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 
 interface CaptureProps {
+  disabled?: boolean;
   identity: string;
   destination: string;
   signal: number;
@@ -10,6 +11,7 @@ interface CaptureProps {
 export function Capture({
   identity,
   destination,
+  disabled,
   signal,
   submit,
 }: CaptureProps) {
@@ -34,7 +36,7 @@ export function Capture({
       .split(/\r\n|\n|\r/)
       .map((line) => line.trim())
       .filter(Boolean);
-    if (titles.length && submit(titles)) {
+    if (!disabled && titles.length && submit(titles)) {
       update("");
       input.current?.focus();
     }
@@ -71,7 +73,7 @@ export function Capture({
           }
         }}
       />
-      <button type="submit" disabled={!draft.trim()} aria-label="Add tasks">
+      <button type="submit" disabled={disabled || !draft.trim()} aria-label="Add tasks">
         Add
       </button>
     </form>

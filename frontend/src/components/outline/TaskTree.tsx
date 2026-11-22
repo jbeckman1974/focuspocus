@@ -18,6 +18,7 @@ import { handleTreeKey } from "./keyboard.ts";
 import type { OutlinePanel } from "./keyboard.ts";
 
 interface TreeProps {
+  mutationsDisabled?: boolean;
   workspace: Workspace;
   view: View;
   rows: OutlineRow[];
@@ -127,6 +128,7 @@ export function TaskTree(props: TreeProps) {
               tags={task.tags.map((id) => tagTitles.get(id) ?? id)}
               done={effectiveDone(workspace, task.id)}
               draft={props.draft}
+              mutationsDisabled={props.mutationsDisabled}
               context={context}
               dropBefore={dropBefore === task.id}
               select={(event) =>

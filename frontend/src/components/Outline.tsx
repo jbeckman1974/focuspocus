@@ -19,6 +19,7 @@ import { viewTitle } from "./outline/controls.ts";
 import "./outline/outline.css";
 
 interface OutlineProps {
+  mutationsDisabled?: boolean;
   rows?: OutlineRow[];
   tools?: ReactNode;
   count?: number;
@@ -140,6 +141,7 @@ export function Outline(props: OutlineProps) {
       </header>
       {props.tools}
       <Capture
+        disabled={props.mutationsDisabled}
         identity={identity}
         destination={view.kind === "project" ? title : "Inbox"}
         signal={props.captureSignal}
@@ -172,14 +174,14 @@ export function Outline(props: OutlineProps) {
           </button>
           <button
             type="button"
-            disabled={!selection.length}
+            disabled={props.mutationsDisabled || !selection.length}
             onClick={() => setPanel("group")}
           >
             Group…
           </button>
           <button
             type="button"
-            disabled={!selection.length}
+            disabled={props.mutationsDisabled || !selection.length}
             onClick={() => setPanel("move")}
           >
             Move…
@@ -203,6 +205,7 @@ export function Outline(props: OutlineProps) {
         </p>
       )}
       <TaskTree
+        mutationsDisabled={props.mutationsDisabled}
         workspace={workspace}
         view={view}
         rows={rows}
@@ -229,6 +232,7 @@ export function Outline(props: OutlineProps) {
         <ActionDialog
           key={panel}
           panel={panel}
+          mutationsDisabled={props.mutationsDisabled}
           manualOrder={canReorder(view)}
           workspace={workspace}
           selection={selection}

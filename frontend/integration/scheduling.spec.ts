@@ -36,10 +36,33 @@ test("AT-07/09 · preview a due date and complete a repeating action", async ({
   await repeat.getByLabel("Skip missed occurrences").uncheck();
   await repeat.getByLabel("Repeat ending").selectOption("count");
   await repeat.getByLabel("Occurrence count").fill("4");
-  await repeat.getByRole("button", { name: "Save repeat" }).click();
-  await task(page, title)
-    .getByRole("button", { name: `Complete ${title}`, exact: true })
-    .click();
+  const complete = task(page, title).getByRole("button", {
+    name: `Complete ${title}`,
+    exact: true,
+  });
+  let release!: () => void;
+  const hold = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    /\/commands\/set-repeat$/,
+    async (route) => {
+      await hold;
+      await route.continue();
+    },
+    { times: 1 },
+  );
+  const savedRule = page.waitForResponse(/\/commands\/set-repeat$/);
+  try {
+    await repeat.getByRole("button", { name: "Save repeat" }).click();
+    await expect(complete).toBeDisabled();
+  } finally {
+    release();
+  }
+  expect((await savedRule).status()).toBe(200);
+  const completed = page.waitForResponse(/\/commands\/complete$/);
+  await complete.click();
+  expect((await completed).status()).toBe(200);
   const sameTitle = task(page, title);
   await expect(sameTitle).toHaveCount(2);
   const identities = await sameTitle.evaluateAll((elements) =>

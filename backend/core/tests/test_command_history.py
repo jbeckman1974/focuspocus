@@ -77,3 +77,22 @@ class CommandHistoryTests(OutlineApiMixin, TestCase):
         self.context = issue_context(self.space, self.owner)
         self.command("undo", reference(newer), 409)
         self.assertEqual(Item.objects.get(pk=item).title, "Newer")
+
+    def test_redo_of_recurring_completion_restores_one_exact_successor(self):
+        from core.models import Occurrence
+
+        task, = self.capture(["Battery"])
+        self.command("bulk-edit", {"ids": [task], "due": "2026-11-21"})
+        self.command("set-repeat", {"id": task, "rule": {"schedule": "regular", "unit": "day", "count": 3}})
+        completion = self.command("complete", {"ids": [task]})
+        successor = Occurrence.objects.get(predecessor__item_id=task)
+        first_ids = successor.pk, successor.item_id, successor.series_id
+        inverse = self.command("undo", reference(completion))
+        self.assertFalse(Occurrence.objects.filter(pk=first_ids[0]).exists())
+        redo = self.command("redo", reference(inverse))
+        repeated = Occurrence.objects.get(predecessor__item_id=task)
+        self.assertEqual((repeated.pk, repeated.item_id, repeated.series_id), first_ids)
+        self.assertEqual(repeated.item.schedule["due"]["value"], "2026-11-22")
+        self.assertEqual((repeated.series.remaining, Occurrence.objects.count()), (2, 2))
+        self.command("undo", reference(redo))
+        self.assertEqual(Occurrence.objects.count(), 1)

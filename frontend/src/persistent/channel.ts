@@ -89,16 +89,22 @@ export class WorkspaceChannel {
     return false;
   }
 
-  previewRepeat: RepeatPreviewRequest = async (id,rule,completedAt,signal) => {
+  previewRepeat: RepeatPreviewRequest = async (
+    id,
+    rule,
+    completedAt,
+    signal,
+  ) => {
     try {
-      return await this.api.previewRepeat(id,rule,completedAt,signal);
-    } catch(error) {
-      if(error instanceof HttpError && [401,403,404].includes(error.status)) await this.refresh();
+      return await this.api.previewRepeat(id, rule, completedAt, signal);
+    } catch (error) {
+      if (error instanceof HttpError && [401, 403, 404].includes(error.status))
+        await this.refresh();
       throw error;
     }
   };
 
-  setViewZone = async (zone:string) => {
+  setViewZone = async (zone: string) => {
     this.api.setViewZone(zone);
     await this.refresh();
   };
@@ -141,7 +147,10 @@ export class WorkspaceChannel {
         try {
           const page = await this.api.changes(snapshot.cursor);
           refresh =
-            page.changes.length > 0 || page.revision !== snapshot.revision || (page.resolvedCleanup !== undefined && page.resolvedCleanup !== snapshot.resolvedCleanup);
+            page.changes.length > 0 ||
+            page.revision !== snapshot.revision ||
+            (page.resolvedCleanup !== undefined &&
+              page.resolvedCleanup !== snapshot.resolvedCleanup);
         } catch (error) {
           if (!(error instanceof HttpError && error.status === 410))
             throw error;

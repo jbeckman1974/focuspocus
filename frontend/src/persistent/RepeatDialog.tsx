@@ -19,8 +19,8 @@ export function RepeatDialog({
   entry: Entry & RuleFields;
   apply: (change: RepeatChange) => boolean;
   close: () => void;
-  preview:RepeatPreviewRequest;
-  revision:number;
+  preview: RepeatPreviewRequest;
+  revision: number;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const occurrence = entry.repeat;
@@ -230,8 +230,13 @@ export function RepeatDialog({
               />
             </label>
           )}
-          <RepeatPreview id={entry.id} rule={rule} revision={revision} read={preview}/>
-        <button
+          <RepeatPreview
+            id={entry.id}
+            rule={rule}
+            revision={revision}
+            read={preview}
+          />
+          <button
             type="submit"
             disabled={
               Boolean(patternError) ||

@@ -1,3 +1,4 @@
+import type {ReactNode} from "react";
 import type { Entry } from "../outline/index.ts";
 import type {
   Availability,
@@ -18,6 +19,7 @@ export function AvailabilityFilter({
     <label className="rule-field">
       Availability
       <select
+        aria-label="Availability"
         value={value}
         onChange={(event) => change(event.currentTarget.value as Availability)}
       >
@@ -34,6 +36,7 @@ export function AvailabilityFilter({
 export function RuleControls({
   entry,
   kind,
+  sourceLink,
   pending,
   disabled,
   change,
@@ -41,6 +44,7 @@ export function RuleControls({
   entry: Entry & RuleFields;
   kind: "project" | "group" | "action" | "folder";
   pending?: Properties;
+  sourceLink:(id:string|null|undefined)=>ReactNode;
   disabled: boolean;
   change: (properties: Properties) => void;
 }) {
@@ -54,6 +58,7 @@ export function RuleControls({
         <label className="rule-field">
           {label} mode
           <select
+            aria-label={label + " mode"}
             value={direct.mode ?? "parallel"}
             onChange={(event) =>
               change({ mode: event.currentTarget.value as Mode })
@@ -70,6 +75,7 @@ export function RuleControls({
       <label className="rule-field">
         {label} status
         <select
+          aria-label={label + " status"}
           value={direct.status ?? "active"}
           onChange={(event) =>
             change({ status: event.currentTarget.value as ItemStatus })
@@ -106,10 +112,10 @@ export function RuleControls({
         </label>
       )}
       {entry.effective?.blocked && entry.effective.reason && (
-        <p>{entry.effective.reason}</p>
+        <p>{entry.effective.reason} {sourceLink(entry.effective.reasonSource)}</p>
       )}
       {!entry.flagged && entry.effective?.flagged && (
-        <p>Flag inherited from an ancestor</p>
+        <p>Flag inherited from {sourceLink(entry.effective.flagSource) ?? "an ancestor"}</p>
       )}
     </fieldset>
   );
