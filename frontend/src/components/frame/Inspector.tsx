@@ -141,7 +141,9 @@ export function Inspector({
               type="submit"
               className="fp-secondary"
               disabled={
-                mutationsDisabled || !title.trim() || (!mixedTitle && title.trim() === currentTitle)
+                mutationsDisabled ||
+                !title.trim() ||
+                (!mixedTitle && title.trim() === currentTitle)
               }
             >
               Apply title
@@ -177,7 +179,8 @@ export function Inspector({
                 type="submit"
                 className="fp-secondary"
                 disabled={
-                  mutationsDisabled || drafts[dateKey] === undefined ||
+                  mutationsDisabled ||
+                  drafts[dateKey] === undefined ||
                   (!mixedDue && date === currentDate)
                 }
               >

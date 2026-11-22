@@ -79,7 +79,8 @@ export function AccountApp() {
     <PrivateWorkspace
       key={session.user.id + ":" + privateId}
       id={privateId}
-      actorId={session.user.id} username={session.user.username}
+      actorId={session.user.id}
+      username={session.user.username}
       csrf={session.csrfToken}
       onSignOut={signOut}
       onLostAccess={reconnect}

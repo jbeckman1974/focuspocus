@@ -1,6 +1,6 @@
 # Verification plan
 
-Planning baseline, November 21, 2026, America/New_York. **All acceptance cases below are planned.** This revision contains fixture definitions and expected results. Native runs, application runs, benchmarks, restore drills and pilot results still need evidence.
+The November 21, 2026 baseline defines fixtures and expected results. Each execution is recorded separately by build and environment. The [progress log](PROGRESS.md) links the completed M1 automated checks and M2 integration runs. Personal walkthroughs, target-host checks, benchmarks and pilot results have their own evidence requirements.
 
 Use the [parity register](FEATURE_PARITY.md) for requirement definitions, conformance categories and numbered observation tasks. The [architecture](ARCHITECTURE.md) defines the application contract, the [operations plan](OPERATIONS.md) defines operator procedures, and the [project plan](PROJECT_PLAN.md) assigns their milestones.
 
