@@ -6,7 +6,13 @@ let channel: BroadcastChannel | undefined;
 
 function deliver(kind: unknown, remote: boolean) {
   if (kind === "identity" || kind === "workspace" || kind === "data")
-    for (const listener of listeners) listener(kind, remote);
+    for (const listener of listeners) {
+      try {
+        listener(kind, remote);
+      } catch {
+        /* A view closing during delivery cannot invalidate a committed edit. */
+      }
+    }
 }
 
 function storageMessage(event: StorageEvent) {
@@ -44,12 +50,17 @@ export function offlineEvents(observer: Observer) {
 export function notifyOffline(kind: OfflineEvent) {
   deliver(kind, false);
   start();
-  if (channel) channel.postMessage(kind);
-  else {
+  if (channel) {
     try {
-      localStorage.setItem(channelName, kind + "/" + crypto.randomUUID());
+      channel.postMessage(kind);
+      return;
     } catch {
-      /* Database transactions still enforce identity after missed events. */
+      /* Use the content-free storage signal if messaging is suspended. */
     }
+  }
+  try {
+    localStorage.setItem(channelName, kind + "/" + crypto.randomUUID());
+  } catch {
+    /* Database transactions still enforce identity after missed events. */
   }
 }

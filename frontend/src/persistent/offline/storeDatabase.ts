@@ -72,7 +72,11 @@ export async function transaction<T, R>(
 ): Promise<R> {
   const db = await openDatabase();
   return new Promise<R>((resolve, reject) => {
-    const tx = db.transaction([profileTable, workspaceTable], mode);
+    const tx = db.transaction(
+      [profileTable, workspaceTable],
+      mode,
+      mode === "readwrite" ? { durability: "strict" } : undefined,
+    );
     const profiles = tx.objectStore(profileTable),
       records = tx.objectStore(workspaceTable);
     const profileRequest = profiles.get("device");

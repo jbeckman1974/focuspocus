@@ -161,8 +161,22 @@ export function changedResources(
   });
 }
 
-export function comparison(snapshot: Snapshot, keys: string[]) {
-  const data = rows(snapshot);
+export function comparison(snapshot: Snapshot, keys: string[], write?: Write) {
+  const data = new Map(rows(snapshot).map((row) => [row.id, row]));
+  if (keys.includes("workspace") && write) {
+    const payload = write.envelope.payload;
+    const targets = Array.isArray(payload.ids)
+      ? payload.ids
+      : typeof payload.id === "string"
+        ? [payload.id]
+        : [];
+    keys = [
+      ...keys,
+      ...targets
+        .filter((id): id is string => typeof id === "string")
+        .map((id) => "row:" + id),
+    ];
+  }
   return keys
     .slice(0, 12)
     .map((key) => {
@@ -171,15 +185,46 @@ export function comparison(snapshot: Snapshot, keys: string[]) {
         const members = children(snapshot, key.slice(5));
         const names = members
           .slice(0, 6)
-          .map((id) => data.find((row) => row.id === id)?.title ?? id);
+          .map((id) => data.get(id)?.title ?? id);
         return (
           "Order: " +
           (names.join(", ") || "empty") +
           (members.length > 6 ? "…" : "")
         );
       }
-      const row = data.find((row) => row.id === key.slice(4));
-      return row ? row.title + " (version " + row.version + ")" : "Item absent";
+      const row = data.get(key.slice(4));
+      if (!row) return "Item absent";
+      const summary = [row.title + " (version " + row.version + ")"];
+      const name = write?.name;
+      if (
+        name &&
+        ["move", "group", "indent", "outdent", "delete"].includes(name)
+      )
+        summary.push(
+          "under " +
+            (data.get(row.parentId ?? "")?.title ?? row.parentId ?? "root"),
+        );
+      if (
+        "schedule" in row &&
+        (name === "set-schedule" ||
+          name === "bulk-inspect" ||
+          write?.intent.type === "setDue")
+      )
+        summary.push("dates " + JSON.stringify(row.schedule ?? {}));
+      if ("tags" in row && (name === "set-tags" || name === "bulk-inspect"))
+        summary.push(
+          "tags " +
+            ((row.tags as string[])
+              .map((id) => data.get(id)?.title ?? id)
+              .join(", ") || "none"),
+        );
+      if (
+        "status" in row &&
+        name &&
+        ["complete", "reopen", "bulk-inspect", "set-properties"].includes(name)
+      )
+        summary.push("status " + row.status);
+      return summary.join(" · ");
     })
     .join(" · ");
 }

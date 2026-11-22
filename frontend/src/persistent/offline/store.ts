@@ -147,3 +147,11 @@ export async function revokeOffline(lease: OfflineLease) {
   });
   notifyOffline("workspace");
 }
+
+export function offlinePendingCount(lease: OfflineLease) {
+  return transaction("readonly", null, ({ profile }) => {
+    const header = checkLease(profile, lease);
+    requireReadable(header);
+    return header.pending;
+  });
+}

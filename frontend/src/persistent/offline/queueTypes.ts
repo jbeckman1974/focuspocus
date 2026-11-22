@@ -29,6 +29,7 @@ export type QueueEntry = {
 };
 
 export interface QueueNotice {
+  canReapply: boolean;
   id: string;
   description: string;
   status: QueueEntry["state"] | "blocked";

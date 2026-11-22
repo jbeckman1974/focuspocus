@@ -59,7 +59,7 @@ export function OfflineChanges({
                       snapshot={state.snapshot}
                       change={change.content}
                       offline={state.offline}
-                      canReapply={change.status === "conflict"}
+                      canReapply={change.canReapply}
                       reapply={(reviewed) =>
                         void channel.resolveQueued(
                           change.id,
@@ -78,7 +78,7 @@ export function OfflineChanges({
                         <dt>On the server</dt>
                         <dd>{change.current}</dd>
                       </dl>
-                      {!state.reviewOnly && change.status === "conflict" && (
+                      {!state.reviewOnly && change.canReapply && (
                         <button
                           disabled={state.offline}
                           onClick={() =>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { SignIn } from "./AccountSignIn.tsx";
 import { WorkspaceRouter } from "./tools/WorkspaceRouter.tsx";
 import { OfflineIdentityContext } from "./offline/TrustedDevice.tsx";
@@ -42,6 +43,21 @@ export function AccountApp() {
     return () => request.abort();
   }, [reload]);
   useEffect(() => {
+    // A back/forward cache entry can stay frozen while a different tab logs out.
+    // Store a locked screen in the browser snapshot and use the ordinary identity
+    // handshake before mounting a private workspace on restoration.
+    const hide = (event: PageTransitionEvent) => {
+      if (event.persisted)
+        flushSync(() => {
+          setAccount(null);
+          setError("");
+        });
+    };
+    const show = (event: PageTransitionEvent) => {
+      if (event.persisted) reconnect(true);
+    };
+    window.addEventListener("pagehide", hide);
+    window.addEventListener("pageshow", show);
     const unsubscribe = offlineEvents((kind, remote) => {
       if (remote && kind === "identity") reconnect(false);
     });
@@ -52,6 +68,8 @@ export function AccountApp() {
     return () => {
       unsubscribe();
       window.removeEventListener("online", online);
+      window.removeEventListener("pagehide", hide);
+      window.removeEventListener("pageshow", show);
     };
   }, [account, reconnect]);
   useEffect(() => {

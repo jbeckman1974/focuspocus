@@ -21,6 +21,7 @@ import { projectQueue } from "./queueProjection.ts";
 import type { QueueEntry, QueueNotice, ReviewedContent } from "./queueTypes.ts";
 import {
   offlineEvents,
+  offlinePendingCount,
   discardIncompatibleEntry,
   lockOfflineActor,
   reviewIncompatible,
@@ -31,6 +32,11 @@ import {
   updateOffline,
   type OfflineLease,
 } from "./store.ts";
+
+type FeedState = Pick<
+  Snapshot,
+  "cursor" | "revision" | "perspectiveVersion" | "resolvedCleanup"
+>;
 
 interface Observer {
   view(
@@ -48,7 +54,7 @@ export class OfflineQueue {
   private active = true;
   private syncing = false;
   private offline = false;
-  private loaded = false;
+  private feed?: FeedState;
   private reviewOnly = false;
   private needsSnapshot = true;
   private unsubscribe: () => void;
@@ -68,10 +74,13 @@ export class OfflineQueue {
     this.active = false;
     this.unsubscribe();
     this.displayEpoch++;
+    this.feed = undefined;
   }
   private show(doc: QueueData, message?: string) {
     if (!this.active) return;
-    this.loaded = true;
+    const { cursor, revision, perspectiveVersion, resolvedCleanup } =
+      doc.confirmed;
+    this.feed = { cursor, revision, perspectiveVersion, resolvedCleanup };
     this.observer.view(
       doc.projection,
       queueNotices(doc),
@@ -99,6 +108,7 @@ export class OfflineQueue {
       return data;
     } catch (error) {
       if (this.active && order === this.displayEpoch) {
+        this.feed = undefined;
         this.observer.view(
           null,
           [],
@@ -192,11 +202,13 @@ export class OfflineQueue {
     const rows = await reviewIncompatible(this.lease, snapshot);
     if (!this.active) return;
     this.reviewOnly = true;
+    this.feed = undefined;
     this.observer.view(
       null,
       rows.map((row) => ({
         ...row,
         status: "conflict" as const,
+        canReapply: false,
         reason: "This draft uses an incompatible offline format.",
         base: "",
         draft: row.description,
@@ -217,23 +229,38 @@ export class OfflineQueue {
     this.reviewOnly = false;
     return true;
   }
-  private async observedSnapshot(base: QueueData | null, force: boolean) {
+  private async pendingCount() {
+    if (this.reviewOnly) return undefined;
+    if (this.feed) {
+      try {
+        return await offlinePendingCount(this.lease);
+      } catch (error) {
+        if (!(error instanceof OfflineAccessError)) throw error;
+        if (["locked", "revoked"].includes(error.code)) throw error;
+        this.feed = undefined;
+        this.observer.view(null, [], false, error.message);
+        return undefined;
+      }
+    }
+    return (await this.readLocal())?.queue.length;
+  }
+  private async observedSnapshot(pending: number | undefined, force: boolean) {
     if (
       !force &&
-      base &&
-      !base.queue.length &&
+      this.feed &&
+      pending === 0 &&
       !this.offline &&
       !this.needsSnapshot
     ) {
       try {
-        const page = await this.api.changes(base.confirmed.cursor);
+        const page = await this.api.changes(this.feed.cursor);
         if (
           !page.changes.length &&
-          page.revision === base.confirmed.revision &&
+          page.revision === this.feed?.revision &&
           (page.perspectiveVersion === undefined ||
-            page.perspectiveVersion === base.confirmed.perspectiveVersion) &&
+            page.perspectiveVersion === this.feed?.perspectiveVersion) &&
           (page.resolvedCleanup === undefined ||
-            page.resolvedCleanup === base.confirmed.resolvedCleanup)
+            page.resolvedCleanup === this.feed?.resolvedCleanup)
         )
           return null;
       } catch (error) {
@@ -247,7 +274,7 @@ export class OfflineQueue {
     if (!this.active || this.syncing) return;
     this.syncing = true;
     try {
-      const base = this.reviewOnly ? null : await this.readLocal();
+      const base = await this.pendingCount();
       if (!this.active) return;
       const current = await this.observedSnapshot(base, force);
       if (!this.active || !current) return;
@@ -263,10 +290,18 @@ export class OfflineQueue {
         if (error.code === "revoked" || error.code === "locked")
           this.observer.lost();
       } else {
+        const changed = !this.offline || !this.feed;
         this.offline = true;
-        const doc = await this.readLocal();
-        if (!doc && !this.loaded && this.active)
-          this.observer.view(null, [], true, "Connect to open this workspace.");
+        if (changed) {
+          const doc = await this.readLocal();
+          if (!doc && this.active)
+            this.observer.view(
+              null,
+              [],
+              true,
+              "Connect to open this workspace.",
+            );
+        }
       }
     } finally {
       this.syncing = false;
@@ -278,6 +313,7 @@ export class OfflineQueue {
       ![401, 403, 404].includes(error.status)
     )
       return false;
+    this.feed = undefined;
     this.observer.view(null, [], false, "Workspace access must be verified.");
     try {
       if (error.status === 401)

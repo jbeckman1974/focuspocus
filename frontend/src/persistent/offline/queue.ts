@@ -71,7 +71,7 @@ export function enqueue(
           ? "Save note"
           : "Remove attachment"
       : describeDraft(write.intent, base),
-    before: comparison(base, keys),
+    before: comparison(base, keys, write),
     state: "queued",
     reason: "",
     transmitted: false,
@@ -88,6 +88,32 @@ export function enqueue(
   doc.projection = projectQueue(doc.confirmed, doc.queue);
 }
 
+function canReapply(entry: QueueEntry, current: Snapshot) {
+  if (entry.content)
+    return current.tasks.some((row) => row.id === entry.content!.itemId);
+  try {
+    if (project(current, entry.write) !== current) return true;
+    // Server-derived commands can be reviewed when their original target still
+    // exists. Reconnecting never fabricates an absent row or destination.
+    const payload = entry.write.envelope.payload;
+    const ids = Array.isArray(payload.ids)
+      ? payload.ids
+      : typeof payload.id === "string"
+        ? [payload.id]
+        : [];
+    const existing = new Set(rows(current).map((row) => row.id));
+    if (
+      typeof payload.parentId === "string" &&
+      !["root", "inbox"].includes(payload.parentId) &&
+      !existing.has(payload.parentId)
+    )
+      return false;
+    return ids.every((id) => typeof id === "string" && existing.has(id));
+  } catch {
+    return false;
+  }
+}
+
 export function queueNotices(doc: QueueData): QueueNotice[] {
   const pendingIds = new Set(doc.queue.map((entry) => entry.id));
   const unresolved = new Set(
@@ -101,13 +127,17 @@ export function queueNotices(doc: QueueData): QueueNotice[] {
     return {
       id: entry.id,
       description: entry.description,
+      canReapply:
+        (blocked || entry.state === "conflict") &&
+        !entry.dependencies.some((id) => pendingIds.has(id)) &&
+        canReapply(entry, doc.confirmed),
       status: blocked ? "blocked" : entry.state,
       reason:
         entry.reason ||
         (blocked ? "Resolve the earlier related edit first." : ""),
       base: entry.before,
       draft: entry.description,
-      current: comparison(doc.confirmed, entry.affects),
+      current: comparison(doc.confirmed, entry.affects, entry.write),
       content: entry.content,
     };
   });
@@ -204,14 +234,20 @@ export function resolveEntry(
   if (decision === "discard") {
     doc.queue.splice(index, 1);
     delete doc.files[id];
+    for (const dependent of doc.queue) {
+      if (dependent.dependencies.includes(id))
+        markConflict(
+          dependent,
+          "An earlier related change was discarded. Review or discard this draft.",
+        );
+    }
   } else {
-    if (
-      entry.state !== "conflict" &&
-      !queueNotices(doc).some(
-        (notice) => notice.id === id && notice.status === "blocked",
-      )
-    )
-      return;
+    const notice = queueNotices(doc).find((row) => row.id === id);
+    if (!notice || !["conflict", "blocked"].includes(notice.status)) return;
+    if (!notice.canReapply)
+      throw new Error(
+        "An earlier edit still needs review or its target no longer exists.",
+      );
     const current = doc.confirmed;
     const freshId = crypto.randomUUID();
     const write: Write = {
@@ -247,7 +283,7 @@ export function resolveEntry(
       generation: current.generation,
       grant: current.offlineGrant!.id,
       expiresAt: current.offlineGrant!.expiresAt,
-      before: comparison(current, scope),
+      before: comparison(current, scope, write),
     };
     if (doc.files[id]) {
       doc.files[freshId] = doc.files[id];

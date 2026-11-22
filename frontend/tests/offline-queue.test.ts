@@ -500,3 +500,19 @@ test("recovery keeps draft and file bytes for deliberate review and clears old e
   assert.notEqual(chosen.id, parent.envelope.operationId);
   assert.equal(chosen.write.envelope.context, "fresh-context");
 });
+
+test("blocked reapply needs a discarded predecessor and a currently visible target", () => {
+  const original = { ...initial, tasks: [task("row", "Field notes", 1)] };
+  const doc = freshData<QueueEntry>(original);
+  const first = add(doc, { type: "rename", id: "row", title: "Earlier draft" });
+  add(doc, { type: "rename", id: "row", title: "Later draft" });
+  doc.queue[0].state = "conflict";
+  assert.deepEqual(
+    queueNotices(doc).map((n) => n.canReapply),
+    [true, false],
+  );
+  resolveEntry(doc, first.envelope.operationId, "discard");
+  assert.equal(queueNotices(doc)[0].canReapply, true);
+  doc.confirmed = { ...original, tasks: [] };
+  assert.equal(queueNotices(doc)[0].canReapply, false);
+});
