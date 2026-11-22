@@ -35,15 +35,15 @@ class Stack:
     def run(self, *args, **kwargs):
         return subprocess.run([*self.compose, *args], check=True, **kwargs)
 
-    def app_args(self, service, database, *, candidate=False):
+    def app_args(self, service, database, *, candidate=None):
         server = "db" if database == "focuspocus" else "test-db"
         args = ["run", "-T", "--rm", "--no-deps", "-v", f"{QA}:/qa-recovery:ro",
                 "-e", "PYTHONPATH=/srv/app:/qa-recovery", "-e", f"DB_HOST={server}", "-e", f"DB_NAME={database}"]
         if candidate:
-            args.extend(["-e", "DJANGO_SETTINGS_MODULE=candidate_settings"])
+            args.extend(["-e", "DJANGO_SETTINGS_MODULE=candidate_settings", "-e", f"FOCUSPOCUS_QA_BASE_MIGRATION={candidate}"])
         return [*args, service]
 
-    def fixture(self, phase, database="focuspocus", *, candidate=False, stdin=None):
+    def fixture(self, phase, database="focuspocus", *, candidate=None, stdin=None):
         args = self.app_args("worker", database, candidate=candidate)
         return self.run(*args, "python", "/qa-recovery/fixture.py", phase, stdin=stdin,
                         stdout=subprocess.PIPE, text=True).stdout.strip()
@@ -74,7 +74,8 @@ class Stack:
             subprocess.run(["docker", "rm", "--force", cid], check=True)
 
     def fail_migration(self):
-        args = [*self.compose, *self.app_args("migrate", FAILED, candidate=True)]
+        current_head = self.fixture("release_head", FAILED)
+        args = [*self.compose, *self.app_args("migrate", FAILED, candidate=current_head)]
         failed = subprocess.run(args, capture_output=True, text=True)
         if failed.returncode != 1 or "intentional QA migration failure" not in failed.stderr:
             raise RuntimeError("The injected migration did not reach its intended SQL error.")
@@ -90,7 +91,7 @@ class Stack:
         if actual != "t":
             raise RuntimeError("Partial migration ledger, row or column differed from the expected transaction boundary.")
         # Both the failed release and the previous image must decline the partial core schema.
-        self.fixture("unready", FAILED, candidate=True)
+        self.fixture("unready", FAILED, candidate=current_head)
         self.fixture("unready", FAILED)
 
 

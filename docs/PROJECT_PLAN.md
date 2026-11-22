@@ -2,7 +2,7 @@
 
 Joe wants to capture a task at home, organize it at the office, and return to the same outline in another browser. The reference is native OmniFocus 4.10.1 on Mac, including Pro workflows. The product will have its own implementation, identity, and artwork.
 
-**Status on November 22, 2026.** Milestones M0–M6 have merged. Offline capture, editing and file recovery passed browser-restart and database-restore tests on both native architectures. M7 begins with a 10,000-action workspace, cross-browser keyboard checks and failed-migration recovery. The private test-host procedure has passed native AMD64 CI. The physical Tumbleweed host, private release images and Joe’s pilot each have a separate acceptance gate. [Implementation progress](PROGRESS.md)
+**Status on November 22, 2026.** Milestones M0–M6 have merged. Offline capture, editing and file recovery passed browser-restart and database-restore tests on both native architectures. M7 begins with a 10,000-action workspace, cross-browser keyboard checks and failed-migration recovery. The physical Tumbleweed test host now runs the merged M6 build and passed a LAN sign-in and isolated two-account smoke test. The full M7 host suites, private release images, production deployment and Joe’s review cycle have separate gates. [Readiness record](READINESS.md) [Implementation progress](PROGRESS.md)
 
 ## Maintained specification
 

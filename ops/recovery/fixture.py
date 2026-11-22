@@ -136,7 +136,7 @@ def main(phase):
         "seed": ("db", "focuspocus"), "snapshot": ("db", "focuspocus"), "later": ("db", "focuspocus"),
         "source": ("db", "focuspocus"), "restored": ("test-db", "restored_fixture"),
         "fenced": ("test-db", "restored_fixture"), "isolation": ("test-db", "restored_fixture"),
-        "unready": ("test-db", "failed_fixture"),
+        "unready": ("test-db", "failed_fixture"), "release_head": ("test-db", "failed_fixture"),
     }
     require(os.environ.get("APP_ENV") == "development"
             and (connection.settings_dict["HOST"], connection.settings_dict["NAME"]) == targets[phase],
@@ -151,6 +151,12 @@ def main(phase):
         print(check_fence())
     elif phase == "isolation":
         check_isolation()
+    elif phase == "release_head":
+        from django.db.migrations.executor import MigrationExecutor
+
+        heads = MigrationExecutor(connection).loader.graph.leaf_nodes("core")
+        require(len(heads) == 1, "Expected a single merged release migration head.")
+        print(heads[0][1])
     elif phase == "unready":
         require(client().get("/api/v1/health/ready").status_code == 503, "Partial schema admitted a web process.")
     elif phase == "source":
