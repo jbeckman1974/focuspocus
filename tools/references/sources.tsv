@@ -1,0 +1,78 @@
+id	title	url
+omnifocus-release-notes	OmniFocus release notes · Mac 4.10.1, November 10, 2026	https://www.omnigroup.com/releasenotes/omnifocus/
+omnifocus-capture	OmniFocus 4.10.1 · Capture	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/capture/
+omnifocus-commands	OmniFocus 4.10.1 · Commands and shortcuts	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/commands/
+omnifocus-custom-perspectives	OmniFocus 4.10.1 · Custom perspectives	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/custom-perspectives/
+omnifocus-database	OmniFocus 4.10.1 · Managing your database and exports	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/database/
+omnifocus-glossary	OmniFocus 4.10.1 · Glossary	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/glossary/
+omnifocus-inspector	OmniFocus 4.10.1 · Inspector	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/inspector/
+omnifocus-outline	OmniFocus 4.10.1 · Outline	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/outline/
+omnifocus-perspectives	OmniFocus 4.10.1 · Standard perspectives	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/perspectives/
+omnifocus-settings	OmniFocus 4.10.1 · Settings	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/settings/
+omnifocus-system	OmniFocus 4.10.1 · Integration and automation	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/system/
+omnifocus-web	OmniFocus 4.10.1 · Web edition	https://support.omnigroup.com/documentation/omnifocus/universal/4.10.1/en/web/
+omnifocus-encryption	OmniFocus sync encryption FAQ	https://support.omnigroup.com/omnifocus-encryption-faq/
+omnifocus-taskpaper	OmniFocus TaskPaper reference	https://support.omnigroup.com/omnifocus-taskpaper-reference/
+react	React · Learn	https://react.dev/learn
+vite	Vite · Getting started	https://vite.dev/guide/
+vite-server	Vite · Development server options	https://vite.dev/config/server-options.html#server-host
+node-releases	Node.js · Previous releases	https://nodejs.org/en/about/previous-releases
+django-support	Django · Supported releases	https://www.djangoproject.com/download/
+django-auth	Django · Authentication overview	https://docs.djangoproject.com/en/stable/topics/auth/
+django-52-auth	Django 5.2 · Authentication	https://docs.djangoproject.com/en/5.2/topics/auth/default/
+django-52-databases	Django 5.2 · Database support	https://docs.djangoproject.com/en/5.2/ref/databases/
+django-52-migrations	Django 5.2 · Migrations	https://docs.djangoproject.com/en/5.2/topics/migrations/
+django-52-transactions	Django 5.2 · Database transactions	https://docs.djangoproject.com/en/5.2/topics/db/transactions/
+django-52-testing	Django 5.2 · Test database	https://docs.djangoproject.com/en/5.2/topics/testing/overview/#the-test-database
+django-52-gunicorn	Django 5.2 · Gunicorn	https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/gunicorn/
+django-52-deployment	Django 5.2 · Deployment checklist	https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
+rest-framework	Django REST framework · Requirements	https://www.django-rest-framework.org/#requirements
+rest-authentication	Django REST framework · Authentication	https://www.django-rest-framework.org/api-guide/authentication/
+rest-permissions	Django REST framework · Permissions	https://www.django-rest-framework.org/api-guide/permissions/
+postgres-versions	PostgreSQL · Version policy	https://www.postgresql.org/support/versioning/
+postgres-binary	PostgreSQL · Binary data	https://www.postgresql.org/docs/current/datatype-binary.html
+postgres-row-security	PostgreSQL · Row security	https://www.postgresql.org/docs/current/ddl-rowsecurity.html
+postgres-18-row-security	PostgreSQL 18 · Row security	https://www.postgresql.org/docs/18/ddl-rowsecurity.html
+postgres-locking	PostgreSQL · Query locking	https://www.postgresql.org/docs/current/sql-select.html#SQL-FOR-UPDATE-SHARE
+postgres-18-backup	PostgreSQL 18 · Backup and restore	https://www.postgresql.org/docs/18/backup.html
+postgres-18-pgdump	PostgreSQL 18 · pg_dump	https://www.postgresql.org/docs/18/app-pgdump.html
+postgres-18-pgdumpall	PostgreSQL 18 · pg_dumpall	https://www.postgresql.org/docs/18/app-pg-dumpall.html
+docker-postgres	Docker · PostgreSQL official image	https://hub.docker.com/_/postgres
+docker-compose-readiness	Docker Compose · Startup order	https://docs.docker.com/compose/how-tos/startup-order/
+docker-compose-secrets	Docker Compose · Secrets	https://docs.docker.com/compose/how-tos/use-secrets/
+docker-compose-up	Docker Compose · Up command	https://docs.docker.com/reference/cli/docker/compose/up/
+docker-mac	Docker Desktop · Mac installation	https://docs.docker.com/desktop/setup/install/mac-install/
+docker-vmm	Docker Desktop · Virtual machine managers	https://docs.docker.com/desktop/features/vmm/
+docker-platforms	Docker · Multi-platform images	https://docs.docker.com/build/building/multi-platform/
+docker-actions	Docker · Multi-platform publishing in GitHub Actions	https://docs.docker.com/build/ci/github-actions/multi-platform/
+docker-attestations	Docker · Attestation storage	https://docs.docker.com/build/metadata/attestations/attestation-storage/
+github-publish	GitHub Actions · Publish Docker images	https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images
+github-security	GitHub Actions · Secure use	https://docs.github.com/en/actions/reference/security/secure-use
+github-billing	GitHub Actions · Billing and usage	https://docs.github.com/en/actions/concepts/billing-and-usage
+github-runners	GitHub Actions · Hosted runners	https://docs.github.com/en/actions/reference/runners/github-hosted-runners
+github-contexts	GitHub Actions · Runner context	https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#runner-context
+authentik-oidc	Authentik · OAuth2 and OIDC	https://docs.goauthentik.io/add-secure-apps/providers/oauth2/
+authentik-mfa	Authentik · Authenticator validation	https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_validate/
+zoneinfo	Python · IANA timezone data	https://docs.python.org/3/library/zoneinfo.html
+dateutil	Dateutil · Recurrence rules	https://dateutil.readthedocs.io/en/stable/rrule.html
+indexeddb	MDN · IndexedDB	https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+http-conditional	HTTP Semantics · If-Match	https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1
+webkit-push	WebKit · Home Screen web push	https://webkit.org/blog/13878/web-push-for-web-apps-on-ios-and-ipados/
+wcag-22	W3C · Web Content Accessibility Guidelines 2.2	https://www.w3.org/TR/WCAG22/
+copyright-software	U.S. Copyright Office · Computer programs	https://www.copyright.gov/register/tx-programs.html
+copyright-circular-61	U.S. Copyright Office · Computer programs (Circular 61, PDF)	https://www.copyright.gov/circs/circ61.pdf
+uspto-confusion	USPTO · Likelihood of confusion	https://www.uspto.gov/trademarks/search/likelihood-confusion
+opensuse-tumbleweed	openSUSE · Tumbleweed	https://get.opensuse.org/tumbleweed/
+opensuse-cloud	openSUSE · Tumbleweed appliance listings	https://download.opensuse.org/tumbleweed/appliances/
+lima-arch	Lima · Multi-architecture machines	https://lima-vm.io/docs/config/multi-arch/
+lima-environment	Lima · Environment variables	https://lima-vm.io/docs/config/environment-variables/
+lima-faq	Lima · Frequently asked questions	https://lima-vm.io/docs/faq/
+lima-shell	Lima · Guest shell commands	https://lima-vm.io/docs/reference/limactl_shell/
+lima-release	Lima 2.3.0 release	https://github.com/lima-vm/lima/releases/tag/v2.3.0
+utm	UTM · Virtualization and emulation on Apple Silicon	https://getutm.app/
+owasp-spreadsheet	OWASP · Spreadsheet formula handling for CSV exports	https://community.owasp.org/attacks/CSV_Injection
+lima-install	Lima · Installation	https://lima-vm.io/docs/installation/
+lima-qemu	Lima · QEMU driver	https://lima-vm.io/docs/config/vmtype/qemu/
+lima-plain	Lima · Plain mode	https://lima-vm.io/docs/config/plain/
+compose-plugin	Docker · Linux Compose plugin	https://docs.docker.com/compose/install/linux/
+opensuse-registry	openSUSE · Official container image registry	https://registry.opensuse.org/cgi-bin/cooverview

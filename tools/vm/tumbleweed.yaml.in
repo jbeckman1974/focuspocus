@@ -1,0 +1,18 @@
+minimumLimaVersion: 2.3.0
+vmType: qemu
+arch: x86_64
+cpus: 2
+memory: 4GiB
+disk: 30GiB
+plain: true
+mounts: []
+propagateProxyEnv: false
+env:
+  FOCUSPOCUS_VM_INSTANCE_ID: __INSTANCE_ID__
+ssh:
+  loadDotSSHPubKeys: false
+  forwardAgent: false
+images:
+  - location: __LOCAL_IMAGE__
+    arch: x86_64
+    digest: sha256:__SHA256__

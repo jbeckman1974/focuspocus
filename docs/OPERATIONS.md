@@ -1,0 +1,154 @@
+# Operations and recovery
+
+**Planning baseline · November 21, 2026.** Development and daily tests run in native Linux ARM64 containers on Joe's Apple Silicon MacBook. Production uses Docker on an AMD/Intel x64 Linux host. M1 starts with the interactive fixture application. M2 introduces the persistent stack and the first GHCR version for both architectures. The private repository uses `main`. The production machine, access, domain and recovery capacity are still to be verified.
+
+The [project plan](PROJECT_PLAN.md) assigns the milestones. The [architecture](ARCHITECTURE.md) owns the command, workspace and job contracts. The [verification plan](VERIFICATION_PLAN.md) defines the acceptance evidence.
+
+## Platform contract
+
+| Environment | Native execution | Evidence |
+| --- | --- | --- |
+| Daily development | Apple Silicon MacBook with a local ARM64 Linux Docker VM. All development services use `linux/arm64`. | Check the selected local Docker context, the daemon's Linux/ARM64 identity, and the running application container. Use the Mac browser for hands-on tests. |
+| Production qualification | GitHub Actions on a native x64 Linux runner with a native `linux/amd64` Docker engine. | For the exact release candidate record passing AMD64 application tests and container startup/migration checks. Both are required for release. |
+| Release images | Build `linux/amd64` and `linux/arm64` from the same commit and locked inputs. Publish one GHCR version tag pointing to an image index with both runnable variants. | Retain the index digest, the two platform manifest digests and their test records. |
+| Tumbleweed compatibility | An emulated x86_64 openSUSE Tumbleweed VM on the Mac tests the guest OS, package, Docker and Compose workflow. Store the disposable instance under ignored `build/vm/`. | Record the refreshed Tumbleweed snapshot, kernel, guest architecture and Docker versions. Native AMD64 qualification is a separate CI run. |
+| Deployment | The actual AMD/Intel x64 openSUSE Tumbleweed Docker host pulls the approved index by digest. | Verify the selected AMD64 image, migration, web, worker, proxy and persisted task operation on that host for each deployment. |
+
+## Local reference copies and disposable Tumbleweed guest
+
+Publisher copies, capture history and the local catalog belong under `build/OmniFocus/`. The two supplied briefs are in its `project/` subdirectory. Run `python3 -B tools/references/archive.py` from the checkout to capture the listed publisher pages. Open `build/OmniFocus/index.html` to see exactly which originals are available. A failed download is recorded individually. [Archive instructions](../tools/references/README.md)
+
+For a disposable x86_64 Tumbleweed environment on Apple Silicon, run the launcher's `doctor` check, then `up`. It verifies the cloud image, uses a private Lima home under `build/vm/`, starts a QEMU guest and checks the installed Docker engine and Compose. Use `verify` for another guest check or `stop` to preserve the instance for later. [VM instructions](../tools/vm/README.md)
+
+```sh
+python3 -B tools/vm/tumbleweed.py doctor
+python3 -B tools/vm/tumbleweed.py up
+python3 -B tools/vm/tumbleweed.py verify
+```
+
+Only the small utilities, their tests and the public source catalog belong in Git. The repository checks verify that Git ignores the reference archive and guest disks and tracks no path beneath `build/`.
+
+## Daily development on the MacBook
+
+Use Git, an editor, Docker Desktop for Apple Silicon (or an equivalent native ARM64 Linux Docker VM), and a browser on macOS. Pin the development services in the Mac-specific Compose file to `linux/arm64`. Keep the shared Dockerfile and production Compose configuration usable on both target platforms. Confirm the active context points to the local VM with `docker context show` and `docker info --format '{{.OSType}}/{{.Architecture}}'`. Expect Linux and `aarch64` or `arm64` from the daemon. [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) · [Docker Desktop virtual machine options](https://docs.docker.com/desktop/features/vmm/)
+
+The following commands define the local workflow to implement. Provide `compose.dev.yaml`, its services and project test commands, and a configuration template with safe local defaults at the indicated milestones.
+
+1. **M1, start and edit the outline.** From the checkout root, start `frontend`, the Node/Vite development container. Bind-mount the editable source directories. Have Vite listen on `0.0.0.0:5173` inside the container and publish that port to `127.0.0.1:5173` on the Mac. Open that local address in Safari or Chrome and use the fixture workspace. The planned `check` script runs TypeScript checks and frontend tests once. [Vite server settings](https://vite.dev/config/server-options.html#server-host)
+
+   ```sh
+   docker compose -f compose.dev.yaml up -d --build frontend
+   docker compose -f compose.dev.yaml exec frontend node -p 'process.platform + "/" + process.arch'
+   docker compose -f compose.dev.yaml exec frontend npm run check
+   ```
+
+   The Node command should report `linux/arm64`. Run the M1 keyboard and pointer walkthrough in the Mac browser.
+
+2. **M2, start the private stack.** Build the application stages, wait for the local database, run the one-shot migration, then start the two application processes and frontend. Vite proxies API calls to Django under the development origin. The development-only seed command creates or reuses synthetic accounts and tasks. The database uses a named development volume.
+
+   ```sh
+   docker compose -f compose.dev.yaml build
+   docker compose -f compose.dev.yaml up -d --wait db
+   docker compose -f compose.dev.yaml run --rm migrate
+   docker compose -f compose.dev.yaml up -d --wait web worker frontend
+   docker compose -f compose.dev.yaml run --rm web python manage.py seed_demo
+   ```
+
+3. **Daily checks and shutdown.** Exercise the application in two browser profiles. The planned `test` service runs the ARM64 application suite against a separate, disposable `test-db`. Its setup step uses test-only credentials to create and migrate the database. The API and worker run with production-equivalent runtime grants for the permission and application checks. Keep this test database isolated from the persistent development volume. Inspect service logs if startup or a check fails. Stopping Compose preserves the development workspace for the next session. [Django test database setup](https://docs.djangoproject.com/en/5.2/topics/testing/overview/#the-test-database)
+
+   ```sh
+   docker compose -f compose.dev.yaml exec frontend npm run check
+   docker compose -f compose.dev.yaml run --rm test
+   docker compose -f compose.dev.yaml logs --tail=100 web worker
+   docker compose -f compose.dev.yaml stop
+   ```
+
+**Dependency builds.** From M1, pin npm with the frontend toolchain and run `npm ci` against the committed lockfile inside a Linux Node stage. From M2, resolve/install Python dependencies and build any native wheels in a Linux builder stage for each target CPU. Install needed system libraries inside the images. Compile frontend assets there and copy them and the matching Python environment into the release image. Start with Node 24 LTS, Python 3.13, Django 5.2 LTS, compatible DRF and Psycopg 3, Gunicorn WSGI and PostgreSQL 18. Serve the compiled assets from the application image and user attachments through the authorized API.
+
+Target openSUSE Tumbleweed for the web and worker release image on both CPU architectures. Use the same pinned Tumbleweed snapshot and Python ABI in the native wheel builder and runtime. Record the snapshot and RPM sources alongside the image digest, then inspect the OS and architecture inside each candidate. The frontend build stage can use the official Node toolchain image because only browser assets enter the application image. PostgreSQL runs as its own service. [openSUSE container registry](https://registry.opensuse.org/cgi-bin/cooverview)
+
+For a dependency update, open a one-shot development container with the checkout mounted at a separate work path, generate the updated manifests and locks there, and review and commit those files on the Mac. Keep installed dependencies and binary caches inside Docker. Pin base images to digests covering both platforms and verify platform-specific packages resolve against those locks on both native builders. Exclude host `node_modules`, virtual environments, wheels, compiled assets and database files from the Docker build context. Mount source so it cannot hide the Linux dependency directories. Key binary build caches by OS, architecture and lock hash. Rebuild after a lock or base-image change.
+
+At M2, build from two clean checkouts on the same platform with those pinned inputs and repeat the same smoke test. Record the inputs, platform, results and resulting digests. A claim of byte-for-byte reproducibility requires matching content digests on that platform.
+
+Django lists 5.2 as an LTS series with extended support through April 2028. The DRF requirements include Django 5.2 and Python 3.13. PostgreSQL 18 is supported upstream and meets Django 5.2’s database minimum. These family choices establish a compatibility starting point. Verify current patch support, advisories, resolved locks and a Linux integration build at the respective M1/M2 kickoff. Sources consulted November 21, 2026. [Django support table](https://www.djangoproject.com/download/) · [DRF requirements](https://www.django-rest-framework.org/#requirements) · [Django database backends](https://docs.djangoproject.com/en/5.2/ref/databases/) · [PostgreSQL version policy](https://www.postgresql.org/support/versioning/) · [Node releases](https://nodejs.org/en/about/previous-releases) · [Vite requirements](https://vite.dev/guide/) · [Django and Gunicorn](https://docs.djangoproject.com/en/5.2/howto/deployment/wsgi/gunicorn/)
+
+## Compose services and privileges
+
+| Service | Connections, storage and startup |
+| --- | --- |
+| Web | The Linux proxy terminates HTTPS and forwards only to the web service. Trust forwarded headers solely from the configured proxy. Use loopback for development. In production, only the proxy-facing service joins the proxy network. Check allowed hosts, CSRF origins, cookie security and proxy request limits on the chosen host. |
+| Worker | Run a second command from the exact web image digest. No inbound service port. Process the SQL job/outbox, including leases, retries and failure state. Reauthorize the job’s actor/workspace when dispatching. Give the worker outbound connectivity for enabled providers, with request timeouts and a concurrency limit. |
+| PostgreSQL | A dedicated named volume holds the database, including file bytes, settings, history and durable jobs. With the official version 18 image, mount it at `/var/lib/postgresql`. Pin the major, patch and image digest. Keep SQL on the private service network. A connection-acceptance check gates startup. Web readiness must also execute a query using the runtime role and check schema compatibility. [PostgreSQL image storage](https://hub.docker.com/_/postgres) |
+| One-shot maintenance | Bootstrap, migrate, back up and restore under distinct identities when needed. A single migration job uses the selected application digest with temporary schema privileges. Web and worker start only against a compatible schema. Neither runs migrations during its own startup. |
+
+Application roles have only the data grants they need. A separate migration role owns the schema. The backup role must read the complete database. Verify including rows belonging to two different users in a restore. If row-level security is added, test it with the actual runtime role, which must lack table ownership, superuser and `BYPASSRLS`. Enforce workspace checks in the application and verify each channel with AT-17 and AT-29. [Compose readiness, S19](https://docs.docker.com/compose/how-tos/startup-order/) · [PostgreSQL row security, S17](https://www.postgresql.org/docs/18/ddl-rowsecurity.html)
+
+Use protected per-service secret files or a compatible host secret store. Typical inputs are database credentials by role, Django’s signing secret, integration encryption keys, and optional OIDC credentials. Bind only the required secrets to each container. Keep the backup decryption key recoverable off-host, separately from the encrypted backup. Keep private fixtures, real database dumps, credentials and local environment files out of build contexts, source, images, logs and CI artifacts. Store user integration records in SQL and protect their credentials with a deployment-held key. Test key recovery and rotation before retiring an old key. [Compose secrets](https://docs.docker.com/compose/how-tos/use-secrets/)
+
+M2 starts with local accounts and private workspaces. Use protected storage and secure cookie sessions, CSRF protection, login throttling, account recovery and session revocation. Verify each in the intended proxy configuration. Before enabling internet-facing traffic, demonstrate enforced MFA through every interactive login path, including local fallback, and exercise recovery. An Authentik deployment can supply MFA via its configured authentication flow. Account administrators manage accounts without ordinary access to private tasks. The database/host operator remains trusted with readable data. [Django deployment checklist](https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/) · [Authentik provider, S18](https://docs.goauthentik.io/add-secure-apps/providers/oauth2/) · [Authenticator validation](https://docs.goauthentik.io/add-secure-apps/flows-stages/stages/authenticator_validate/)
+
+## GitHub checks and GHCR identities
+
+| Trigger | Result |
+| --- | --- |
+| Pull request | Read-only checks on native Linux AMD64. Run lint, type checks, applicable application and browser tests against PostgreSQL, migration and image startup checks. Keep deploy credentials and package-write permissions out of the job. |
+| Merge to `main` | Check the exact merge commit. A development image can be tied to that commit after checks pass. |
+| Version release | Run the release sequence below for the exact tagged commit, or promote its previously tested, identical candidate digests with the recorded evidence. Publish the version tag and advance the stable channel only after both native AMD64 checks pass and the dual-platform index is verified. |
+| Scheduled maintenance | Check weekly for changed dependency locks, Action SHAs and base digests. Each released maintenance build goes through the same native checks and dual-platform assembly, including when the application version is unchanged. |
+| Host update | The operator selects a published index digest and verifies deployment on the target x64 Linux host. The publishing job has no production credentials or deployment step. |
+
+### Native validation and release publication
+
+AT-30 defines the pass/fail evidence for each build and publication step. AT-23 verifies the running release after the operator deploys it. [Platform qualification cases](VERIFICATION_PLAN.md#platform-qualification)
+
+1. **Build one candidate per target.** Use the same commit, Dockerfile, locks and base-image set on native Linux builders. The proposed GitHub-hosted labels are `ubuntu-24.04` for AMD64 and `ubuntu-24.04-arm` for ARM64. Record the runner OS and architecture, the Docker daemon OS/architecture, the application build inputs and each candidate digest. Require Linux/X64 on the AMD64 runner and a local x86_64/amd64 Linux daemon for its tests. QEMU or Rosetta execution on the Mac provides no native AMD64 release evidence. A trusted candidate may be staged by digest for testing before any release version tag is assigned. [GitHub-hosted runner architectures](https://docs.github.com/en/actions/reference/runners/github-hosted-runners) · [Runner context](https://docs.github.com/en/actions/reference/workflows-and-actions/contexts#runner-context)
+2. **Require both AMD64 results.** Run the application suite, including domain rules, API/permissions and database transactions, inside Linux AMD64 containers against native PostgreSQL. Run frontend checks and a representative browser workflow for the features in that release. Separately use the exact production candidate, without development source mounts, to migrate an empty database and one seeded at the previous supported release. The first schema release has only the empty-database path. Use the migration role once per path, verify expected schema and preserved fixture data, start the web and worker entry points, check database-backed readiness and worker heartbeat, then exercise login and a persisted task mutation. Link both results to the source commit and candidate digest.
+3. **Qualify the ARM64 image.** On native Linux ARM64, smoke-test the ARM64 release candidate with a clean migration, web/worker startup and a persisted task read/write. Keep its platform digest and result. Daily Mac development remains the primary ARM64 test loop.
+4. **Assemble and promote the tested images.** Use Buildx to assemble a candidate OCI image index from the exact tested platform manifests. Inspect it by digest and compare its runnable `linux/arm64` and `linux/amd64` child digests to the test records. Build attestations can add other descriptors. For a new application version, tag the verified index with the version and build tags. For a maintenance rebuild of an existing version, apply only its new build tag. Read back each newly assigned tag, verify it resolves to the tested index and check existing immutable tags before moving `stable`. Skip rebuilding during promotion. Missing, skipped, canceled, failed or stale AMD64 evidence, or a missing/mismatched platform image, blocks publication and promotion. A private-repository runner outage or exhausted quota leaves the release pending. [Docker multi-platform images](https://docs.docker.com/build/building/multi-platform/) · [Docker multi-platform builds in Actions](https://docs.docker.com/build/ci/github-actions/multi-platform/) · [Attestation descriptors](https://docs.docker.com/build/metadata/attestations/attestation-storage/)
+
+Each new version has one pull reference, for example `ghcr.io/jbeckman1974/focuspocus:vX.Y.Z`. Docker selects the appropriate image from its index. Build tags use `v<app-version>-b<run-id>-<attempt>` and also select both architectures. Record the full commit, dependency lock hashes, base-image digests, CI run and time, verified index digest, and both platform manifest digests. Retain prior version/build identities and recovery artifacts. Serialize channel publication. A retry may reuse an existing immutable label only when its digest matches. [Docker image selection](https://docs.docker.com/build/building/multi-platform/)
+
+Use job-scoped permissions with read-only contents by default and `packages: write` only for trusted publication. Pin external Actions to full reviewed commit SHAs. Keep untrusted PR code and its build artifacts out of privileged execution. If artifact attestations are available in the repository’s plan, verify their producer and subject digest. Always retain the release manifest and test evidence. Confirm package visibility separately from the private repository, pull credentials, Actions access, included usage and storage before the first GHCR publish. Keep tests runnable locally and choose schedules within the owner’s actual allowance. [GitHub container publication, S21](https://docs.github.com/en/actions/tutorials/publish-packages/publish-docker-images) · [Actions secure use, S23](https://docs.github.com/en/actions/reference/security/secure-use) · [Usage, S28](https://docs.github.com/en/actions/concepts/billing-and-usage)
+
+## Controlled host update
+
+Use the same procedure for an operator-triggered Compose/Portainer update and any future automatic stable installer. Keep generic automatic container replacement disabled for this stack while updates require coordination.
+
+1. Acquire an exclusive deployment lock on the **actual AMD/Intel x64 Linux host**. Verify the host reports Linux x86_64 and the selected Docker server reports Linux on x86_64/amd64. Record the prior digests, schema, Engine/Compose versions and time. Inspect the approved index by digest, match its `linux/amd64` child digest to the CI release record, and pull the pinned index for that platform. Verify proxy configuration, storage, free disk and supported schema path before interrupting service.
+2. Validate the most recent off-host backup, available keys and last successful restore drill. For changes that may require database restoration, close writes, drain in-flight requests and worker leases, and take a fresh encrypted recovery point after the final acknowledged write. Keep other writers and external deliveries paused until verification finishes.
+3. Run the versioned Django migrations once, using the migration role. Record applied steps and exit status. Prefer additive changes compatible with old and new versions, restartable backfills and a later cleanup release. A failed migration leaves the application in maintenance mode for inspection. Check the actual applied schema before any retry. [Django migrations, S22](https://docs.djangoproject.com/en/5.2/topics/migrations/)
+4. Start web and worker using the same pinned index and native AMD64 variant used by the migration. Compare each running container's image ID with the config digest referenced by the approved AMD64 child manifest. The index digest identifies the whole release, the child manifest identifies the platform and the config digest identifies the local image. Check the applied schema, database-backed web readiness and worker heartbeat. With general writes and external delivery gated, use the target proxy/HTTPS path to log in to a synthetic workspace, capture and reread a task from a second session, retry safely, and check private-account isolation.
+5. Accept deployment after the target-host checks pass. Record the host, backup ID, old/new index digests, selected AMD64 child, applied schema, smoke results, timings and operator. Resume traffic and delivery and release the lock. A failed check keeps deployment open and invokes the recovery table below.
+
+| Failure | Recovery decision |
+| --- | --- |
+| Registry, preflight or backup check fails | Leave the healthy version running. Record the failed step and retry after restoring reachability, capacity or a verified recovery point. |
+| No schema change, or old build proven compatible with current schema | Select the recorded previous digest for both services and run the same readiness and smoke checks. |
+| Partial migration, incompatible schema or failed smoke | Keep writes quiesced. Inspect applied steps and release notes. Apply a rehearsed forward fix, or restore a matching database/configuration set into a fresh volume and start the paired earlier image. Preserve the failed volume for investigation. If writes were already reopened, quantify the affected interval and reconcile acknowledged changes before switching a restored copy into service. |
+| PostgreSQL major upgrade | Schedule separately. Check upstream upgrade prerequisites, extensions and free disk. Rehearse dump/restore or `pg_upgrade` with matching binaries against a restored copy. Keep the old cluster recoverable and isolated, measure downtime, and rerun integrity and application checks before switching. A major image tag change alone provides no data conversion. [PostgreSQL version policy](https://www.postgresql.org/support/versioning/) |
+
+## Backups and clean-stack restoration
+
+Proposed initial objectives are **at most 24 hours of data loss** following complete host loss (RPO) and **restored, validated service within 4 hours** (RTO). Measure from the backup’s consistent recovery point and from service loss respectively. Trial the objectives against the measured pilot database, including its SQL attachments, destination bandwidth and restore hardware. Record achieved values before depending on them.
+
+- For one small database, start with a consistent custom-format logical dump using the matching PostgreSQL tools. Include schema, data, `bytea` attachments, users, memberships, auth/recovery state, recurrence, review, views, jobs/outbox and operation history. Capture required cluster roles/grants separately, plus role membership, necessary keys/config, release manifests, image references and instructions to recover registry access. Use protected storage for the recovery set. [PostgreSQL backup methods](https://www.postgresql.org/docs/18/backup.html) · [Database dumps](https://www.postgresql.org/docs/18/app-pgdump.html) · [Cluster globals](https://www.postgresql.org/docs/18/app-pg-dumpall.html)
+- Schedule encrypted off-host copies every 12 hours for headroom. Verify transfer, checksum and archive readability. Retain all copies for 48 hours, then 7 daily, 4 weekly and 6 monthly points. Keep a pre-upgrade point until the release has been accepted. Alert on a missed copy and escalate before the newest recoverable snapshot reaches 24 hours old. If database size, frequency of changes or restore measurements outgrow these objectives, trial physical base backups with continuous WAL archiving for point-in-time recovery.
+- **Quarterly and before an incompatible change**, use an empty isolated volume, same supported database major, trusted backup and recovered config/keys. Keep external traffic and all deliveries disabled. Restore roles and grants, database, and matched web/worker build. Verify counts by workspace, file lengths/checksums, membership boundaries, one repeat and one review, pending job state and operation identity. Test login with controlled accounts. Measure end-to-end recovery time and store a redacted drill report with date, data volume, durations and discrepancies.
+- Following an actual database rewind, issue a new sync generation before accepting browser mutations. Invalidate restored sessions and stale tokens as appropriate, reconcile account changes, revocations and external deliveries since the recovery point, and keep uncertain memberships/deliveries suspended until verified. Require fresh login and a fresh snapshot. Preserve pending local input for explicit reconciliation if its operation history or base revision cannot be established. A routine container restart retains the current generation. Rehearse both paths under AT-19, AT-20 and AT-23.
+
+A user’s versioned workspace export is a separate M5 portability deliverable. Restoring the export must recreate the workspace records, relationships and files. An operational restore must also recover accounts, permissions, worker state, history, configuration and service operation. Exercise both paths independently in AT-22.
+
+## Operating signals and responsibility
+
+The repository maintainer owns release checks. The operator Joe designates for the selected host owns deployment, backup and recovery. Begin with structured service logs, a restricted system-status view and a scheduled health/backup check. Keep task text, files, search terms, tokens and personal calendar payloads out of diagnostics. Basic liveness reports process health. Readiness checks a runtime-role SQL query and compatible schema. An operator can see app version, source/build and selected/observed image digests, schema/API versions, worker heartbeat, queue age, failed jobs, last backup verification and last restore date. A public health check returns only the status it needs.
+
+| Signal or cadence | Initial action and owner |
+| --- | --- |
+| Missing worker heartbeat for 2 minutes, oldest **due** job over 5 minutes late, or exhausted retry | Notify the host operator. Check connectivity, release/schema match and expired leases. Retry using the original delivery identity after verifying actor permissions. If a provider may already have acted and offers no idempotency or receipt, quarantine the job for reconciliation. AT-31 checks duplicate handling and a visible terminal failure. |
+| Sustained readiness failure, incompatible schema or differing web/worker digests | Operator pauses the update, keeps incompatible workers stopped, diagnoses the recorded release and follows the recovery table. Check client/API compatibility and refresh required browser assets. |
+| Database/backup volume at 80% capacity or projected to run out before the next drill | Operator reviews attachment growth, job/operation history and backup retention. Check proxy body limits, multipart overhead and SQL capacity against the configured attachment quotas. Increase capacity before reducing retention. Retain sync changes, tombstones and operation receipts for the 90-day replay window in the architecture. Beyond that window require resnapshot and review of ambiguous pending operations. |
+| Weekly and at releases | Maintainer reviews failing checks, dependency advisories, base-image changes and supported runtime dates. Track exact inputs through to the running digest. Verify the supported browser matrix after relevant browser changes. Expose backup/worker failures through an operator-selected notification target. |
+| Quarterly and before DB upgrades | Operator performs the clean-stack drill and reviews recovery objectives, key access, actual host size, database support dates and upgrade runway. |
+
+M2 evidence covers the Mac ARM64 rebuild, private isolation, image/volume replacement, native AMD64 CI gates and the first dual-platform index. Each deployment has its own target-host verification. M5 adds sharing, export and provider recovery. M6 exercises stale client recovery. M7 requires recorded clean-stack restore and upgrade rehearsals on representative data and a verified deployment on the target AMD64 host. Keep dated results under AT-17, AT-22, AT-23, AT-29, AT-30 and AT-31 as their features arrive. [Verification plan](VERIFICATION_PLAN.md)
