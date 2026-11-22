@@ -1,18 +1,12 @@
-name: Generate initial frontend lock
+name: Refresh frontend dependency lock
 
-on:
-  pull_request:
-    paths:
-      - frontend/package.json
-      - frontend/package-lock.json
-      - .github/workflows/frontend-lock.yml
+on: workflow_dispatch
 
 permissions:
   contents: read
 
 jobs:
   bootstrap:
-    if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-24.04
     timeout-minutes: 9
     steps:
@@ -20,7 +14,6 @@ jobs:
         with:
           persist-credentials: false
       - name: Resolve and validate the lock in a native AMD64 container
-        if: hashFiles('frontend/package-lock.json') == ''
         env:
           NODE_IMAGE: node:24.22.3-bookworm-slim@sha256:dc26ae92c9fb15cf6b1d63e20f0944b2efe0f115b20e00be48fb23fceb061c54
         run: |
