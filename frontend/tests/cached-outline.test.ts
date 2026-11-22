@@ -2,6 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Snapshot } from "../src/persistent/api.ts";
 import { cachedOutline } from "../src/persistent/offline/cachedOutline.ts";
+import { enqueue, type QueueData } from "../src/persistent/offline/queue.ts";
+import { freshData } from "../src/persistent/offline/storeTypes.ts";
+import { prepare } from "../src/persistent/writes.ts";
 
 function sample(): Snapshot {
   const row = {
@@ -75,5 +78,33 @@ test("parent tag views retain ancestors for navigation without counting them as 
       ["group", true],
       ["second", false],
     ],
+  );
+});
+
+test("a durably staged move appears in its project after reloading the stored projection", () => {
+  const initial = sample();
+  initial.offlineGrant = {
+    id: "grant",
+    protocol: 1,
+    expiresAt: "2099-12-01T00:00:00Z",
+  };
+  const data: QueueData = freshData(initial);
+  const move = prepare(
+    { type: "move", ids: ["inbox-item"], parentId: "project" },
+    data.projection,
+  );
+  enqueue(data, data.projection, move);
+  const reopened = structuredClone(data);
+  assert.equal(reopened.queue[0]?.id, move.envelope.operationId);
+  assert.ok(
+    cachedOutline(
+      reopened.projection,
+      { kind: "project", id: "project" },
+      "everything",
+    ).matchIds.includes("inbox-item"),
+  );
+  assert.equal(
+    cachedOutline(reopened.projection, { kind: "inbox" }, "everything").count,
+    0,
   );
 });

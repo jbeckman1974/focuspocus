@@ -19,6 +19,7 @@ async function moveTask(page: Page, title: string, destination: string) {
     .getByRole("combobox", { name: "Move to" })
     .selectOption({ label: destination });
   await dialog.getByRole("button", { name: "Move tasks", exact: true }).click();
+  await expect(dialog).not.toBeVisible();
 }
 
 async function trash(page: Page, title: string) {
@@ -82,7 +83,16 @@ test("AT-19 · restart Chromium offline and deliver a task hierarchy and depende
         await trash(page, unwanted);
         await expect(task(page, unwanted)).toHaveCount(0);
         await moveTask(page, existing, project);
-        await queued(page);
+        await expect(
+          page
+            .getByRole("region", { name: "Offline changes" })
+            .getByText("Move to " + project, { exact: true }),
+        ).toBeVisible();
+        await sidebarDestination(page, project).click();
+        await expect(
+          task(page, existing),
+          "The stored move is visible before shutdown",
+        ).toHaveAttribute("data-task-id", existingId);
       },
       { timeout: 16000 },
     );
