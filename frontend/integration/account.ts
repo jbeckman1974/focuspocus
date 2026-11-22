@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, type Browser, type Page } from "@playwright/test";
 import { sidebarDestination, task } from "../e2e/controls.ts";
 
-type Person = "owner" | "neighbor";
+type Person = "owner" | "neighbor" | "planner";
 type Credentials = { username: string; password: string };
 
 export async function signIn(page: Page, person: Person) {

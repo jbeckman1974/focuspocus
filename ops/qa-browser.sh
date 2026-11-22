@@ -37,14 +37,14 @@ import sys
 
 accounts = {
     role: {"username": "qa_" + secrets.token_hex(10), "password": secrets.token_urlsafe(32)}
-    for role in ("owner", "neighbor")
+    for role in ("owner", "neighbor", "planner")
 }
 Path(sys.argv[1]).write_text(json.dumps(accounts), encoding="utf-8")
 PY
 read_field() {
   python3 -c 'import json,sys; print(json.load(sys.stdin)[sys.argv[1]][sys.argv[2]])' "$1" "$2" < "$qa_dir/accounts.json"
 }
-for role in owner neighbor; do
+for role in owner neighbor planner; do
   username=$(read_field "$role" username)
   read_field "$role" password | "${compose[@]}" exec -T web python manage.py provision_account "$username" --password-file /dev/stdin
 done

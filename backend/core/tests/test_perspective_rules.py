@@ -34,6 +34,24 @@ class PerspectiveRuleTests(unittest.TestCase):
         self.assertTrue(evaluator.predicate(pred)(row))
         self.assertEqual(grouping([row], "due", evaluator)[0]["key"], "2026-11-21")
 
+    def test_nested_predicates_use_tree_identity_and_scoped_tag_branches(self):
+        project = item("project", "Solo", kind="project", parentId="root", mode="single-action")
+        tagged = item("task", "Inspect", parentId="project", tags=["field"], repeat={"active": True})
+        inbox = item("capture", "Inspect")
+        tagged["effective"]["flagged"] = True
+        rows = [inbox, project, tagged]
+        tags = [{"id": "venue", "title": "Venue", "parentId": None},
+                {"id": "field", "title": "Outside", "parentId": "venue"}]
+        evaluator = Evaluation(rows, tags, tree_order(rows, None), {}, "UTC")
+        expr = {"all": [{"field": "contains", "value": "project"}, {"field": "singleAction", "value": True},
+                        {"field": "repeating", "value": True}, {"field": "tag", "value": "venue"},
+                        {"field": "text", "value": "venue"}, {"field": "kind", "value": "action"},
+                        {"none": [{"field": "inbox", "value": True}]},
+                        {"any": [{"field": "status", "value": "completed"}, {"field": "flagged", "value": True}]}]}
+        self.assertEqual([row["id"] for row in rows if evaluator.predicate(expr)(row)], ["task"])
+        self.assertEqual(grouping([tagged], "project", evaluator),
+                         [{"key": "project", "label": "Solo", "ids": ["task"]}])
+
     def test_grammar_is_bounded_and_dates_and_types_are_checked(self):
         nested = {"all": []}
         for _ in range(9):

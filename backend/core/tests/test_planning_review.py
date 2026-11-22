@@ -2,7 +2,7 @@ from datetime import date, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError, connection, transaction
 
 from core.models import Item, Membership, Workspace
 from core.planning.cadence import advance
@@ -76,6 +76,17 @@ class ReviewApiTests(ReferenceWorkspaceCase):
         self.send("mark-reviewed", {"projectId": self.project}, status=403)
         self.assertEqual(self.read("planning/review", scope="all")["projects"], initial["projects"])
 
+    def test_project_creation_and_duplicate_initialize_independent_stable_calendars(self):
+        project_id = str(uuid4())
+        with patch("django.utils.timezone.now", return_value=datetime(2026, 11, 21, 1, tzinfo=ZONE)):
+            self.send("create-container", {"id": project_id, "title": "New project"})
+            copy_id = self.send("duplicate", {"ids": [project_id]})["selection"][0]
+        self.send("set-date-settings", {"timeZone": "America/Los_Angeles"})
+        for project in (project_id, copy_id):
+            persisted = ProjectReview.objects.get(workspace=self.space, project_id=project)
+            self.assertEqual(persisted.next_review, date(2026, 11, 28))
+            self.assertIsNone(persisted.last_actor)
+
     def test_calendar_units_and_cross_workspace_constraint(self):
         self.assertEqual(advance(date(2028, 1, 31), 1, "month"), date(2028, 2, 29))
         self.assertEqual(advance(date(2028, 2, 29), 1, "year"), date(2029, 2, 28))
@@ -83,6 +94,5 @@ class ReviewApiTests(ReferenceWorkspaceCase):
         foreign = Workspace.objects.exclude(pk=self.space.pk).get()
         with self.assertRaises(IntegrityError), transaction.atomic():
             ProjectReview.objects.filter(project=project).update(workspace=foreign)
-            from django.db import connection
             with connection.cursor() as cursor:
                 cursor.execute("SET CONSTRAINTS review_owned_project IMMEDIATE")

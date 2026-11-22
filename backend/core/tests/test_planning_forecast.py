@@ -64,8 +64,10 @@ class ForecastApiTests(ReferenceWorkspaceCase):
         foreign = Workspace.objects.exclude(pk=self.space.pk).get()
         url = f"/api/v1/workspaces/{foreign.pk}/planning/forecast"
         self.assertEqual(self.client.get(url).status_code, 404)
-        for params in ({"days": "63"}, {"days": "0"}, {"deferred": "yes"}, {"viewZone": "../none"},
-                       {"start": "9999-12-31", "days": "2"}):
-            self.assertEqual(self.client.get(self.base + "planning/forecast", params).status_code, 400)
+        for params, status in (({"days": "63"}, 400), ({"days": "0"}, 400), ({"deferred": "yes"}, 400),
+                               ({"viewZone": "../none"}, 422), ({"start": "bad"}, 422),
+                               ({"tagId": "bad"}, 422), ({"start": "9999-12-31", "days": "2"}, 400)):
+            with self.subTest(params=params):
+                self.assertEqual(self.client.get(self.base + "planning/forecast", params).status_code, status)
         self.client.logout()
         self.assertEqual(self.client.get(self.base + "planning/forecast").status_code, 401)

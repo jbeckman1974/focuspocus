@@ -52,6 +52,7 @@ export function handleTreeKey(
   actions: KeyActions,
   nav: Navigation,
   ids: string[],
+  shortcut = "x",
 ) {
   if (
     event.target !== event.currentTarget ||
@@ -81,7 +82,7 @@ export function handleTreeKey(
   }
   if (
     actions.mutationsDisabled &&
-    ["u", "x", "g", "m", "i", "o"].includes(key.toLowerCase())
+    ["u", shortcut, "g", "m", "i", "o"].includes(key.toLowerCase())
   )
     return;
   if (key.toLowerCase() === "u") {
@@ -137,7 +138,7 @@ export function handleTreeKey(
         ids: selection,
       });
       break;
-    case "x":
+    case shortcut:
       if (!selection.length) return;
       actions.run({
         type: selection.every((id) => effectiveDone(workspace, id))

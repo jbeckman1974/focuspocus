@@ -2,6 +2,7 @@
 
 from django.db.models.deletion import ProtectedError
 
+from core.content.files import check_inverse_capacity, prune_retained
 from core.commands.state import Changes
 from core.commands.validation import CommandError, fields, identifier
 from core.models import Item, Receipt, Tag
@@ -152,6 +153,7 @@ def reverse(tree, user, name, payload, legacy):
     rows = checked_rows(workspace, journal, receipt.result["revision"])
     check_destinations(rows, workspace)
     check_inbound(rows, workspace)
+    restored_files = check_inverse_capacity(workspace, rows)
     result = Changes(receipt.result["selection"])
     for model, obj, entry in rows:
         if obj is not None and entry["before"] is not None:
@@ -175,5 +177,7 @@ def reverse(tree, user, name, payload, legacy):
             restored.save(force_insert=True)
             if model in (Item, Tag):
                 result.touch(restored)
+    if restored_files:
+        prune_retained(workspace)
     frame.destination = journal["start"]
     return result

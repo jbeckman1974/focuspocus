@@ -149,6 +149,7 @@ export class WorkspaceChannel {
           refresh =
             page.changes.length > 0 ||
             page.revision !== snapshot.revision ||
+            (page.perspectiveVersion !== undefined && page.perspectiveVersion !== snapshot.perspectiveVersion) ||
             (page.resolvedCleanup !== undefined &&
               page.resolvedCleanup !== snapshot.resolvedCleanup);
         } catch (error) {

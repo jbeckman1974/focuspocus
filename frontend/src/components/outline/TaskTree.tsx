@@ -14,6 +14,7 @@ import { TaskRow } from "./TaskRow.tsx";
 import type { EditDraft } from "./TaskRow.tsx";
 import { useTreeNavigation } from "./useTreeNavigation.ts";
 
+import { useCompletionShortcut } from "../frame/shortcuts.ts";
 import { handleTreeKey } from "./keyboard.ts";
 import type { OutlinePanel } from "./keyboard.ts";
 
@@ -40,6 +41,7 @@ interface TreeProps {
 }
 
 export function TaskTree(props: TreeProps) {
+  const shortcut = useCompletionShortcut();
   const { rows, selection, workspace, view } = props;
   const ids = useMemo(() => rows.map(({ task }) => task.id), [rows]);
   const nav = useTreeNavigation(
@@ -106,7 +108,7 @@ export function TaskTree(props: TreeProps) {
         aria-multiselectable="true"
         aria-activedescendant={nav.active ? nav.rowId(nav.active) : undefined}
         tabIndex={0}
-        onKeyDown={(event) => handleTreeKey(event, props, nav, ids)}
+        onKeyDown={(event) => handleTreeKey(event, props, nav, ids, shortcut)}
         onFocus={(event) => {
           if (event.target === event.currentTarget) nav.revealActive();
         }}

@@ -1,7 +1,7 @@
 """Apply explicit Focus, a saved or ad hoc perspective and a bounded search to shared records."""
 
 from core.commands.validation import CommandError, fields, identifier
-from core.content.search import note_texts
+from core.content.search import note_matches
 from core.queries.outline import tree_order
 from core.queries.records import read_records
 from core.scheduling.dates import calendar_zone
@@ -57,8 +57,11 @@ def query(user, workspace, body):
     candidates = [row for row, _, _, _ in order if allowed is None or row["id"] in allowed]
     if selected is not None and scope == "here":
         candidates = [row for row in candidates if row["id"] in selected]
-    notes = note_texts(workspace, [row["id"] for row in candidates]) if needle or uses_text(definition["expression"]) else {}
-    evaluation = Evaluation(rows, tags, order, notes, metadata["viewZone"])
+    terms = set(text_terms(definition["expression"])) if scope == "here" else set()
+    if needle:
+        terms.add(needle)
+    hits = note_matches(workspace, [row["id"] for row in candidates], terms)
+    evaluation = Evaluation(rows, tags, order, hits, metadata["viewZone"])
     matches = candidates
     if scope == "here":
         predicate = evaluation.predicate(definition["expression"])
@@ -77,7 +80,10 @@ def query(user, workspace, body):
             "offset": start, "nextOffset": start + len(page) if start + len(page) < len(matches) else None, **metadata}
 
 
-def uses_text(node):
+def text_terms(node):
     if "field" in node:
-        return node["field"] == "text"
-    return any(uses_text(child) for child in next(iter(node.values())))
+        if node["field"] == "text":
+            yield node["value"].casefold()
+    else:
+        for child in next(iter(node.values())):
+            yield from text_terms(child)

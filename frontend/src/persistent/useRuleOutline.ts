@@ -11,6 +11,7 @@ export function useRuleOutline(
   availability: Availability,
   viewZone: string,
   refresh: () => Promise<void>,
+  personalVersion = 0,
 ) {
   const id = snapshot?.workspaceId;
   const revision = snapshot?.revision;
@@ -18,7 +19,7 @@ export function useRuleOutline(
   const query =
     outlineQuery(view, availability) +
     (viewZone ? "&viewZone=" + encodeURIComponent(viewZone) : "");
-  const key = JSON.stringify([id, generation, query]);
+  const key = JSON.stringify([id, generation, query, personalVersion]);
   const [state, setState] = useState<{
     key: string;
     result?: OutlineResult;

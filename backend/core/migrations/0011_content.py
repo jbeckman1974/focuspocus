@@ -2,6 +2,7 @@ import uuid
 
 from django.db import migrations, models
 import django.db.models.deletion
+import django.utils.timezone
 
 
 def identity():
@@ -26,7 +27,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name="AttachmentBlob",
             fields=[
-                ("id", identity()), ("size", models.PositiveBigIntegerField()),
+                ("id", identity()), ("created_at", models.DateTimeField(default=django.utils.timezone.now)),
+                ("size", models.PositiveBigIntegerField()),
                 ("sha256", models.CharField(max_length=64)), ("media_type", models.CharField(max_length=100)),
                 ("workspace", workspace()),
             ],

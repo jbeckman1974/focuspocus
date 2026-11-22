@@ -2,6 +2,7 @@ from django.db.models import Max
 
 from core.history.recording import create_many
 from core.models import Item, ItemTag, Receipt
+from core.planning.schedules import initialize_projects
 
 from .completion import apply_status, restore_statuses
 from core.scheduling.clock import workspace_clock
@@ -32,6 +33,7 @@ def create_entry(tree, name, data):
         workspace=tree.workspace, id=identifier(data["id"]), title=title(data["title"]),
         kind=kind, parent_id=parent_id, position=next_position(tree.siblings(parent_id, library=True)),
     )
+    initialize_projects(tree.workspace, [entry])
     result = Changes([str(entry.pk)])
     result.touch(entry)
     return result

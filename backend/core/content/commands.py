@@ -3,6 +3,7 @@ from django.utils import timezone
 from core.commands.state import Changes
 from core.commands.validation import CommandError, fields, identifier
 
+from .files import prune_retained
 from .models import AttachmentLink, ItemNote
 from .notes import validate_document
 
@@ -45,4 +46,5 @@ def content_command(tree, name, payload):
         if link is None:
             raise CommandError("File unavailable.", 404)
         link.delete()
+        prune_retained(tree.workspace)
     return changed(item)

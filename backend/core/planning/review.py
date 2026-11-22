@@ -9,13 +9,13 @@ from core.scheduling.clock import workspace_clock
 from .cadence import advance
 from .calendar import allow_options, calendar_day, local_today, next_midnight
 from .models import ProjectReview, UNITS
+from .schedules import weekly_review
 
 
 def initial_review(project, workspace, clock):
     # Migration 0009 materializes dates for older rows without a known creation time.
     created = (project.created_at or clock.now).astimezone(clock.zone).date()
-    return ProjectReview(project_id=project.pk, workspace=workspace, interval=1, unit="week",
-                         next_review=advance(created, 1, "week"), version=0)
+    return weekly_review(workspace, project, created, version=0)
 
 
 def describe(project, review):

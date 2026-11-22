@@ -4,7 +4,7 @@ from django.contrib.auth import get_user_model
 
 from core.commands.context import issue_context
 from core.content.models import ItemNote
-from core.models import Change, Item, Membership
+from core.models import Change, Membership
 from core.tests.reference_api import ReferenceWorkspaceCase
 from core.tests.reference_outline import fixture_id
 
@@ -83,7 +83,7 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.post("query", {"definition": {"version": 1, "expression": foreign}}, 404)
         self.post("commands", self.put("focus", {"ids": [self.private_id]}, 0), 404)
         self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))
-        Item.objects.filter(pk=self.ids["P06"]).update(shelf="trash")
+        self.send("delete", {"ids": [self.ids["P06"]]})
         self.assertEqual(self.post("query", {"scope": "everything"})["count"], 0)
 
     def test_invalid_input_and_undoable_shared_history_unchanged(self):

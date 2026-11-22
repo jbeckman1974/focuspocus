@@ -22,17 +22,19 @@ def within(value, limits, low, high):
 
 
 class Evaluation:
-    def __init__(self, rows, tags, order, notes, zone):
+    def __init__(self, rows, tags, order, note_hits, zone):
         self.rows = rows
         self.items = {row["id"]: row for row in rows}
         self.tags = tags
         self.tag_by_id = {tag["id"]: tag for tag in tags}
         self.order = {row["id"]: (root, project) for row, root, project, _ in order}
-        self.notes = notes
+        self.note_hits = note_hits
         self.zone = ZoneInfo(zone)
 
     def includes_text(self, row, needle):
-        texts = [row["title"], self.notes.get(row["id"], "")]
+        if row["id"] in self.note_hits.get(needle, ()):
+            return True
+        texts = [row["title"]]
         seen = set()
         for key in row["tags"]:
             while key in self.tag_by_id and key not in seen:

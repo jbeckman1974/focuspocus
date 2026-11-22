@@ -21,6 +21,7 @@ export interface Snapshot {
   viewZone?: string;
   dateDefaults?: DateDefaults;
   nextDateBoundary?: string | null;
+  perspectiveVersion?: number;
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task &
@@ -138,7 +139,8 @@ export function workspaceApi(
       jsonRequest<{
         revision: number;
         changes: unknown[];
-        resolvedCleanup?: "immediate" | "on-cleanup";
+        perspectiveVersion?: number;
+  resolvedCleanup?: "immediate" | "on-cleanup";
       }>(base + "/changes?after=" + encodeURIComponent(cursor), { signal }),
     submit: (name: string, envelope: object) =>
       jsonRequest<Receipt>(base + "/commands/" + name, {

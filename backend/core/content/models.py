@@ -1,6 +1,7 @@
 import uuid
 
 from django.db import models
+from django.utils import timezone
 
 
 class ItemNote(models.Model):
@@ -14,6 +15,7 @@ class ItemNote(models.Model):
 class AttachmentBlob(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     workspace = models.ForeignKey("core.Workspace", on_delete=models.CASCADE)
+    created_at = models.DateTimeField(default=timezone.now)
     size = models.PositiveBigIntegerField()
     sha256 = models.CharField(max_length=64)
     media_type = models.CharField(max_length=100)

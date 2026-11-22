@@ -10,7 +10,7 @@ from core.commands.state import Outline
 from core.commands.validation import CommandError, identifier
 
 from .commands import changed, versioned_item
-from .files import detected_type, file_name, read_upload, store_upload
+from .files import file_limit, detected_type, file_name, read_upload, store_upload
 from .images import png_preview
 from .models import AttachmentBody, AttachmentLink, ItemNote
 from .notes import EMPTY_NOTE
@@ -26,6 +26,7 @@ def item_content(request, workspace_id, item_id):
             links = AttachmentLink.objects.filter(workspace=space, item=item).select_related("blob").order_by("filename", "id")
             return JsonResponse({
                 "revision": space.revision, "itemVersion": item.version, "document": note or EMPTY_NOTE,
+                "maxFileBytes": file_limit(),
                 "files": [{"id": str(link.pk), "name": link.filename, "size": link.blob.size,
                            "sha256": link.blob.sha256, "mediaType": link.blob.media_type,
                            "previewable": link.blob.media_type == "image/png"} for link in links],

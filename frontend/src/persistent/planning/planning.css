@@ -1,0 +1,24 @@
+.planning-page{padding:1.2rem;overflow:auto;min-width:0;flex:1;color:var(--text,inherit)}
+.planning-page h1{margin:.1em 0 .7em;font-size:1.6em}
+.planning-page h2{margin:.2em 0 .5em;font-size:1.15em}
+.planning-page h3{font-size:.92em;margin:.65em 0 .2em}
+.planning-controls,.planning-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.5em;margin:.5em 0}
+.planning-controls label{display:inline-flex;align-items:center;gap:.35em}
+.planning-day,.planning-group{border-top:1px solid var(--line,currentColor);padding:.65em 0}
+.planning-empty{font-size:.9em;opacity:.8}
+.planning-results{list-style:none;padding:0;margin:0}
+.planning-results li{margin:.15rem 0}
+.planning-results button{display:block;width:100%;border:1px solid transparent;text-align:left;padding:.45em .65em;background:transparent;color:inherit}
+.planning-results button[aria-pressed=true]{border-color:currentColor;background:var(--selected,#dce6ef);color:var(--ink,#172d41)}
+.planning-results button:hover{border-color:currentColor}
+.planning-controls input,.planning-controls select{max-width:100%}
+.planning-tools,.planning-focus{display:flex;align-items:center;flex-wrap:wrap;gap:.45em}
+.planning-tools{padding:.4em .85em;border-bottom:1px solid var(--line,currentColor)}
+.planning-tools dialog,.planning-page dialog{max-width:min(42rem,92vw);max-height:85vh;overflow:auto;background:var(--surface,Canvas);color:inherit;border:1px solid var(--line,currentColor);border-radius:.6rem}
+.planning-tools dialog::backdrop,.planning-page dialog::backdrop{background:rgba(0,0,0,.35)}
+.planning-choice{display:block;margin:.35em 0}
+.planning-rule{border:1px solid var(--line,currentColor);border-radius:.4em;margin:.5em 0;padding:.6em}
+.planning-child{display:flex;align-items:flex-start;justify-content:space-between;gap:.4em;margin:.25em 0}
+.planning-child>fieldset{flex:1;min-width:0}
+.planning-context{list-style:none;padding:0;margin:0}
+.fp-rail-links{overflow:auto}

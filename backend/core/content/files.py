@@ -4,7 +4,7 @@ import unicodedata
 from urllib.parse import unquote
 
 from django.conf import settings
-from django.db.models import Sum
+from django.db.models import Exists, OuterRef, Sum
 
 from core.commands.validation import CommandError
 
@@ -20,15 +20,46 @@ def workspace_limit():
     return settings.WORKSPACE_ATTACHMENT_MAX_BYTES
 
 
-def check_capacity(workspace, logical, physical=0):
+def check_capacity(workspace, logical):
     linked = AttachmentLink.objects.filter(workspace=workspace).aggregate(n=Sum("blob__size"))["n"] or 0
     if linked + logical > workspace_limit():
         raise CommandError("The workspace attachment quota would be exceeded.", 413)
-    if physical:
-        # A blob can still be needed by an existing undo or redo record after unlinking.
-        retained = AttachmentBlob.objects.filter(workspace=workspace).aggregate(n=Sum("size"))["n"] or 0
-        if retained + physical > workspace_limit():
-            raise CommandError("The workspace file storage limit would be exceeded.", 413)
+
+
+def prune_retained(workspace):
+    linked = AttachmentLink.objects.filter(workspace=workspace, blob_id=OuterRef("pk"))
+    unused = AttachmentBlob.objects.filter(workspace=workspace).filter(~Exists(linked))
+    total = unused.aggregate(n=Sum("size"))["n"] or 0
+    if total <= settings.ATTACHMENT_HISTORY_MAX_BYTES:
+        return
+    remove = []
+    for pk, size in unused.order_by("created_at", "id").values_list("pk", "size").iterator():
+        remove.append(pk)
+        total -= size
+        if total <= settings.ATTACHMENT_HISTORY_MAX_BYTES:
+            break
+    unused.filter(pk__in=remove).delete()
+
+
+def check_inverse_capacity(workspace, rows):
+    """Recompute charge before restoring links, including when quotas changed."""
+    differences = {}
+    for model, obj, entry in rows:
+        if model is not AttachmentLink:
+            continue
+        if obj is not None:
+            differences[obj.blob_id] = differences.get(obj.blob_id, 0) - 1
+        if entry["before"] is not None:
+            from uuid import UUID
+            pk = UUID(entry["before"]["blob_id"])
+            differences[pk] = differences.get(pk, 0) + 1
+    if not differences:
+        return False
+    sizes = AttachmentBlob.objects.filter(workspace=workspace, pk__in=differences).values_list("pk", "size")
+    added = sum(size * differences[pk] for pk, size in sizes)
+    if added > 0:
+        check_capacity(workspace, added)
+    return True
 
 
 def file_name(value):
@@ -64,7 +95,7 @@ def read_upload(request):
 
 def store_upload(tree, item, file_id, filename, digest, media_type, raw):
     blob = AttachmentBlob.objects.filter(workspace=tree.workspace, sha256=digest).first()
-    check_capacity(tree.workspace, len(raw), 0 if blob else len(raw))
+    check_capacity(tree.workspace, len(raw))
     if blob is None:
         blob = AttachmentBlob.objects.create(workspace=tree.workspace, size=len(raw), sha256=digest, media_type=media_type)
         AttachmentBody.objects.create(blob=blob, data=raw)

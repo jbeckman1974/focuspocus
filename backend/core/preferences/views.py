@@ -17,6 +17,9 @@ def preferences(request, workspace_id, device=None):
     try:
         with transaction.atomic():
             workspace = scoped_workspace(request.user, workspace_id)
+            expected_actor = request.headers.get("X-FocusPocus-Actor")
+            if expected_actor is not None and expected_actor != str(request.user.pk):
+                raise CommandError("The signed-in account changed.", 403)
             scope = {"user": request.user}
             model = AccountPreference
             if device is not None:

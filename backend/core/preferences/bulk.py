@@ -28,6 +28,8 @@ def apply_bulk(tree, user, data):
         for tag in tags:
             fields(tag, ["tagId", "enabled"])
         identifiers([tag["tagId"] for tag in tags])
+        tag_tree = tagging.TagTree(tree)
+        tag_tree.validate_assignments([tag_tree.get(tag["tagId"]) for tag in tags if tag["enabled"]])
         for tag in tags:
             collect(tagging.set_tags(tree, {"ids": ids, **tag}))
     # Completion can generate a successor. It must see the final title, dates, tags and flag.
