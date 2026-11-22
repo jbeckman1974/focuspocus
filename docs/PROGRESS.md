@@ -13,3 +13,7 @@
 | Environment | Local checkout started on `main` at `9cb7011`. The GitHub app created remote branch `milestone/m0-planning`. The session cannot write local Git metadata or fetch external files from the Mac shell. Host inspection found no Docker, Lima, QEMU or UTM. No Codex usage reset has been applied. | Use authorized GitHub operations for reviewable source checkpoints. Keep the local checkout state and remote status distinct when reporting progress. |
 
 The [verification plan](VERIFICATION_PLAN.md) defines the evidence for each milestone. Reference observations, a personal walkthrough and a production deployment must identify who performed them and where.
+
+## M1 · Interactive outline
+
+M0 merged through [PR #1](https://github.com/jbeckman1974/focuspocus/pull/1) at `ec1b7cb`. The remote `milestone/m1-outline` branch starts at that merge. Package 1A selects Node 24.22.3 and npm 11.19.1 with a pinned two-platform development image. The lock-generation workflow resolves the frontend dependency tree inside a native AMD64 Linux container and returns the lock for review. The interactive sample and ARM64 evidence follow in the next steps.
