@@ -4,6 +4,7 @@ import json
 import os
 import re
 import sys
+from pathlib import Path
 from urllib.error import HTTPError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -36,4 +37,5 @@ def verify_private(package, digest=None, read=anonymous_read):
 
 
 if __name__ == "__main__":
-    verify_private(os.environ["GITHUB_REPOSITORY"].lower(), sys.argv[1] if len(sys.argv) > 1 else None)
+    package = os.environ["GITHUB_REPOSITORY_OWNER"].lower() + "/" + Path("release/package").read_text().strip()
+    verify_private(package, sys.argv[1] if len(sys.argv) > 1 else None)
