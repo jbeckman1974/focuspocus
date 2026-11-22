@@ -1,5 +1,6 @@
 import { actorRequest, HttpError, jsonPost, type Receipt } from "../api.ts";
 import { contentUrl, identity } from "./transport.ts";
+import { knownFileLimit } from "./fileLimit.ts";
 import type { NoteDocument } from "./document.ts";
 
 interface Target {
@@ -9,7 +10,7 @@ interface Target {
 
 export type OfflineContent = Target &
   (
-    | { action: "save"; document: NoteDocument }
+    | { action: "save"; document: NoteDocument; originalText?: string }
     | { action: "remove"; fileId: string }
     | {
         action: "upload";
@@ -57,6 +58,10 @@ export async function describeUpload(
     /[/\\\p{C}]/u.test(file.name)
   )
     throw new Error("Choose a printable filename without a path.");
+  if (!knownFileLimit(maximumBytes))
+    throw new Error(
+      "Connect to verify the attachment size limit before choosing a file.",
+    );
   if (file.size > maximumBytes)
     throw new Error("The file exceeds the per-attachment limit.");
   return {

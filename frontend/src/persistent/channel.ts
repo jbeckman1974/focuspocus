@@ -1,5 +1,5 @@
 import { OfflineQueue } from "./offline/queueRuntime.ts";
-import type { QueueNotice } from "./offline/queueTypes.ts";
+import type { QueueNotice, ReviewedContent } from "./offline/queueTypes.ts";
 import type { OfflineLease } from "./offline/store.ts";
 import type { StageContent } from "./content/offlineContent.ts";
 import type { RepeatPreviewRequest } from "./repeat.ts";
@@ -322,9 +322,13 @@ export class WorkspaceChannel {
     await this.durable.stage(write, base, content, bytes);
   };
 
-  resolveQueued = async (id: string, action: "reapply" | "discard") => {
+  resolveQueued = async (
+    id: string,
+    action: "reapply" | "discard",
+    reviewed?: ReviewedContent,
+  ) => {
     try {
-      await this.durable?.resolve(id, action);
+      await this.durable?.resolve(id, action, this.state.snapshot, reviewed);
     } catch (error) {
       this.update({
         message:

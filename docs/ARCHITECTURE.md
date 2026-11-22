@@ -162,6 +162,8 @@ In M2 compound edits guard the complete workspace revision. A concurrent edit ca
 
 ## Reads, change delivery and offline editing
 
+The M6 implementation adds a device-local IndexedDB transaction for each trusted workspace edit, a stable public installation shell, and server-issued membership identity independent of the database recovery generation. The browser uses the membership identity to distinguish a restored copy of an authorized workspace from a new grant issued after revocation. [Workspace protocol](OFFLINE_PROTOCOL.md) · [Trusted-device workflow](OFFLINE_DEVICE.md) · [Installation](INSTALLATION.md)
+
 On opening a workspace, return its authorized snapshot and cursor from the **same** consistent database snapshot. Initial payloads contain outline metadata and direct values. Fetch large bodies separately. Start with foreground polling about every two seconds so two browsers can converge with standard HTTP and one backend process type. Back off while hidden and check immediately on resume, reconnect or login change. Deliver complete revision groups, including deletions and subtree invalidations. Reauthorize each fetch. A cursor is opaque and bound to the subject, workspace and current data generation.
 
 Personal-only writes advance a separate per-account revision under its own lock and have a separate feed cursor. They do not publish records to the workspace feed. Commands affecting both scopes, such as revoking a membership, lock the workspace before the account and commit their authorized changes together. Each client consumes both feeds.

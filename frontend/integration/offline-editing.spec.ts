@@ -53,21 +53,44 @@ test("AT-19 · restart Chromium offline and deliver a task hierarchy and depende
     const existingId = await taskId(page, existing);
     await trustDevice(page);
     await device.connect(false);
-    await submitCapture(page, parent + "\n" + child);
+    await test.step(
+      "Capture the parent and child during the outage",
+      () => submitCapture(page, parent + "\n" + child),
+      { timeout: 15000 },
+    );
     const parentId = await taskId(page, parent);
     const childId = await taskId(page, child);
-    await task(page, child).getByText(child, { exact: true }).click();
-    await page.getByRole("button", { name: "Outline commands" }).click();
-    await page.getByRole("button", { name: "Indent", exact: true }).click();
-    await expect(task(page, child)).toHaveAttribute("aria-level", "2");
-    await submitRename(page, child, renamed);
-    await expect(task(page, renamed)).toHaveAttribute("data-task-id", childId);
-    await trash(page, unwanted);
-    await expect(task(page, unwanted)).toHaveCount(0);
-    await moveTask(page, existing, project);
-    await queued(page);
+    await test.step(
+      "Indent and rename the pending child",
+      async () => {
+        await task(page, child).getByText(child, { exact: true }).click();
+        await page.getByRole("button", { name: "Outline commands" }).click();
+        await page.getByRole("button", { name: "Indent", exact: true }).click();
+        await expect(task(page, child)).toHaveAttribute("aria-level", "2");
+        await submitRename(page, child, renamed);
+        await expect(task(page, renamed)).toHaveAttribute(
+          "data-task-id",
+          childId,
+        );
+      },
+      { timeout: 16000 },
+    );
+    await test.step(
+      "Trash a saved task and move its sibling to the project",
+      async () => {
+        await trash(page, unwanted);
+        await expect(task(page, unwanted)).toHaveCount(0);
+        await moveTask(page, existing, project);
+        await queued(page);
+      },
+      { timeout: 16000 },
+    );
 
-    const reopened = await device.restart(true);
+    const reopened = await test.step(
+      "Close and relaunch the browser while disconnected",
+      () => device.restart(true),
+      { timeout: 15000 },
+    );
     await reopened.goto("/app/");
     await inbox(reopened).click();
     await expect(task(reopened, parent)).toHaveAttribute(
@@ -178,6 +201,22 @@ test("AT-18/19 · a remote deletion holds dependent edits while an independent c
       await expect(changes).toContainText(dependent);
       await expect(task(peer, separate)).toHaveCount(1, { timeout: 20000 });
       await expect(task(peer, original)).toHaveCount(0);
+      await expect(task(peer, dependent)).toHaveCount(0);
+      const held = (title: string) =>
+        changes.getByRole("listitem").filter({
+          has: page
+            .locator("strong")
+            .filter({ hasText: new RegExp("^" + title + "$") }),
+        });
+      await held(revision)
+        .getByRole("button", { name: "Discard change" })
+        .click();
+      await expect(held(revision)).toHaveCount(0);
+      await held(dependent)
+        .getByRole("button", { name: "Discard change" })
+        .click();
+      await expect(changes.getByRole("listitem")).toHaveCount(0);
+      await expect(task(peer, separate)).toHaveCount(1);
       await expect(task(peer, dependent)).toHaveCount(0);
     });
   });

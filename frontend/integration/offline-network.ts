@@ -98,8 +98,13 @@ export async function createOfflineNetwork() {
     },
     openRestoredDatabase() {
       const name = process.env.FOCUSPOCUS_QA_RESTORE_HOST ?? "";
-      if (connected || !/^focuspocus-qa-stack-[a-z0-9]+-restored-web$/.test(name))
-        throw new Error("Recovery needs the disconnected profile and its isolated restore service.");
+      if (
+        connected ||
+        !/^focuspocus-qa-stack-[a-z0-9]+-restored-web$/.test(name)
+      )
+        throw new Error(
+          "Recovery needs the disconnected profile and its isolated restore service.",
+        );
       backend = name;
     },
     interrupt(path: RegExp, disruption: Interruption) {

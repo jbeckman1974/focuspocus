@@ -149,6 +149,7 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
 export function projectQueue(confirmed: Snapshot, queue: QueueEntry[]) {
   let result = confirmed;
   const blocked = new Set<string>();
+  const applied: string[] = [];
   for (const entry of queue) {
     if (
       entry.state === "conflict" ||
@@ -162,8 +163,10 @@ export function projectQueue(confirmed: Snapshot, queue: QueueEntry[]) {
         result = project(result, entry.write);
       } catch {
         blocked.add(entry.id);
+        continue;
       }
     }
+    applied.push(entry.id);
   }
-  return result;
+  return applied.length ? { ...result, localOperationIds: applied } : result;
 }

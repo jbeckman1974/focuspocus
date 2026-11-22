@@ -29,7 +29,7 @@ export async function openAccount(
 ): Promise<AccountState> {
   const barrier = await pendingLogout();
   const epoch = await currentEpoch().catch(() => "");
-  const observedFence=epoch ? reauthFence(epoch) : null;
+  const observedFence = epoch ? reauthFence(epoch) : null;
   let session: Session;
   try {
     session = await readSession(signal);

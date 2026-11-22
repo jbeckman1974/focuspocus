@@ -208,7 +208,7 @@ function ConnectedOutline({
         <section className="account-card">
           <p role="status">{state.message || "Loading workspace…"}</p>
           {state.reviewOnly && (
-            <OfflineChanges state={state} channel={channel} />
+            <OfflineChanges state={state} channel={channel} actorId={actorId} />
           )}
           {state.reviewOnly && (
             <TrustDeviceControl
@@ -419,7 +419,9 @@ function ConnectedOutline({
         message={state.message}
       >
         <WriteNotice state={state} channel={channel} />
-        {trusted && <OfflineChanges state={state} channel={channel} />}
+        {trusted && (
+          <OfflineChanges state={state} channel={channel} actorId={actorId} />
+        )}
         <PlanningArea
           session={{
             snapshot,

@@ -1,7 +1,12 @@
-import { reauthFence } from "./storeLock.ts";
+import { pendingPurge, reauthFence } from "./storeLock.ts";
 import type { Snapshot, Receipt } from "../api.ts";
 import type { Content } from "../content/transport.ts";
 import type { WorkspaceInfo } from "../tools/WorkspaceRouter.tsx";
+
+export type GrantSnapshot = Pick<
+  Snapshot,
+  "workspaceId" | "generation" | "offlineGrant"
+>;
 
 export interface OfflineLease {
   epoch: string;
@@ -87,6 +92,7 @@ export function checkBinding(profile: Profile, actor: number, epoch: string) {
   if (
     profile.epoch !== epoch ||
     reauthFence(epoch) !== null ||
+    pendingPurge(actor) !== null ||
     profile.actorId !== actor ||
     !profile.authenticated ||
     profile.logoutActor !== null
@@ -136,10 +142,40 @@ export function freshData<T>(snapshot: Snapshot): OfflineData<T> {
 
 // The immutable membership incarnation proves continuity across an operator's
 // database restore. The generation-specific grant still fences wire retries.
-export function sameMembership(header:Header,snapshot:Snapshot) {
-  const grant=snapshot.offlineGrant;
-  if(!grant || !grant.id || snapshot.workspaceId !== header.space.id) return false;
-  if(header.membershipId && grant.membershipId && header.membershipId!==grant.membershipId) return false;
-  if(header.generation===snapshot.generation) return header.grantId===grant.id;
-  return Boolean(header.membershipId && header.membershipId===grant.membershipId);
+export function sameMembership(header: Header, snapshot: GrantSnapshot) {
+  const grant = snapshot.offlineGrant;
+  if (!grant || !grant.id || snapshot.workspaceId !== header.space.id)
+    return false;
+  if (
+    header.membershipId &&
+    grant.membershipId &&
+    header.membershipId !== grant.membershipId
+  )
+    return false;
+  if (header.generation === snapshot.generation)
+    return header.grantId === grant.id;
+  return Boolean(
+    header.membershipId && header.membershipId === grant.membershipId,
+  );
+}
+
+export function headerFor(
+  snapshot: GrantSnapshot,
+  space: WorkspaceInfo,
+): Header {
+  const grant = snapshot.offlineGrant;
+  if (!grant || grant.protocol !== 1) throw new OfflineAccessError("protocol");
+  if (space.id !== snapshot.workspaceId || !grant.id || !snapshot.generation)
+    throw new OfflineAccessError("revoked");
+  const header = {
+    space,
+    grantId: grant.id,
+    membershipId: grant.membershipId,
+    generation: snapshot.generation,
+    protocol: grant.protocol,
+    expiresAt: Date.parse(grant.expiresAt),
+    pending: 0,
+  };
+  requireReadable(header);
+  return header;
 }

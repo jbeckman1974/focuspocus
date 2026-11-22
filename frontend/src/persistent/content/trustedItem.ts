@@ -1,16 +1,12 @@
-import { actorRequest, HttpError, readSession, type Snapshot } from "../api.ts";
-import {
-  observeSession,
-  offlineLease,
-  readOffline,
-  revokeOffline,
-  syncOfflineLease,
-  updateOffline,
-} from "../offline/store.ts";
+import { HttpError, type Snapshot } from "../api.ts";
+import { offlineLease, readOffline, updateOffline } from "../offline/store.ts";
 import type { OfflineLease } from "../offline/storeTypes.ts";
 import type { QueueEntry } from "../offline/queueTypes.ts";
 import { cachedItem } from "./cachedItem.ts";
-import { contentUrl, type Content } from "./transport.ts";
+import {
+  authorizedContent,
+  type AuthorizedContent,
+} from "./authorizedContent.ts";
 
 export async function contentLease(actor: number, snapshot: Snapshot) {
   const lease = await offlineLease(actor, snapshot.workspaceId);
@@ -32,20 +28,9 @@ export async function openTrustedContent(
   itemId: string,
   signal: AbortSignal,
 ) {
-  let current: Content & Pick<Snapshot, "generation" | "offlineGrant">;
+  let current: AuthorizedContent;
   try {
-    const session = await readSession(signal);
-    await observeSession(session, lease.epoch);
-    if (
-      session.user?.id !== lease.actorId ||
-      !session.workspaces.some((space) => space.id === lease.workspaceId)
-    )
-      throw new HttpError(401, "Account or workspace access changed.");
-    current = await actorRequest<typeof current>(
-      lease.actorId,
-      contentUrl(lease.workspaceId, itemId),
-      { signal },
-    );
+    current = await authorizedContent(lease, itemId, signal);
   } catch (error) {
     signal.throwIfAborted();
     const interrupted =
@@ -63,23 +48,6 @@ export async function openTrustedContent(
     return readSavedContent(lease, itemId);
   }
   signal.throwIfAborted();
-  if (current.offlineGrant && current.offlineGrant.id !== lease.grantId) {
-    await revokeOffline(lease);
-    throw new Error("Workspace access changed. Reopen the workspace.");
-  }
-  if (
-    !current.offlineGrant ||
-    current.offlineGrant.protocol !== 1 ||
-    current.generation !== lease.generation
-  ) {
-    const saved = await readOffline<QueueEntry>(lease);
-    await syncOfflineLease(lease, {
-      ...saved.confirmed,
-      generation: current.generation,
-      offlineGrant: current.offlineGrant,
-    });
-    throw new Error("Offline content changed. Reopen the workspace.");
-  }
   return updateOffline<QueueEntry, ReturnType<typeof cachedItem>>(
     lease,
     (data) => {

@@ -4,7 +4,7 @@ from unittest.mock import patch
 from uuid import UUID, uuid4
 
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from core.models import Change, Membership, PerspectiveState, Receipt
@@ -36,11 +36,15 @@ class OfflineGrantTests(OutlineApiMixin, TestCase):
         self.assertNotEqual(stamp["id"], editor["offlineGrant"]["id"])
         self.assertEqual((editor["focusScopeIds"], editor["perspectiveVersion"]), ([], 0))
 
+    @override_settings(ATTACHMENT_MAX_BYTES=4096)
     def test_content_snapshot_and_subtree_tombstones_match_the_open_workspace(self):
         parent, child = self.capture(["Route", "Review"])
         self.command("indent", {"ids": [child]})
         before = self.snapshot()
         content = self.client.get(self.base + f"content/items/{child}").json()
+        self.assertEqual((content["workspaceId"], content["itemId"]), (before["workspaceId"], child))
+        self.assertEqual(content["maxFileBytes"], 4096)
+        self.assertEqual(before["maxFileBytes"], content["maxFileBytes"])
         self.assertEqual(content["generation"], before["generation"])
         self.assertEqual(content["offlineGrant"]["id"], before["offlineGrant"]["id"])
         self.command("delete", {"ids": [parent]})

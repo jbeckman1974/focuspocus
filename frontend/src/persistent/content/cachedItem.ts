@@ -1,6 +1,7 @@
 import type { Snapshot } from "../api.ts";
 import type { QueueEntry } from "../offline/queueTypes.ts";
 import type { OfflineData } from "../offline/storeTypes.ts";
+import { attachmentLimit } from "./fileLimit.ts";
 import { emptyNote } from "./document.ts";
 import type { Content } from "./transport.ts";
 
@@ -29,12 +30,18 @@ export function cachedItem(
   // receive a file without replacing a note whose contents we have never read.
   const known = Boolean(stored) || !item(data.confirmed);
   // The server validates its current per-file and workspace-wide limits again.
-  const base: Content = stored ?? {
-    revision: data.confirmed.revision,
-    itemVersion: visible.version,
-    document: emptyNote,
-    files: [],
-    maxFileBytes: Number.MAX_SAFE_INTEGER,
-  };
+  const maxFileBytes = attachmentLimit(
+    data.confirmed.maxFileBytes,
+    stored?.maxFileBytes,
+  );
+  const base: Content = stored
+    ? { ...stored, maxFileBytes }
+    : {
+        revision: data.confirmed.revision,
+        itemVersion: visible.version,
+        document: emptyNote,
+        files: [],
+        maxFileBytes,
+      };
   return { base, known, draft: pendingNotes.at(-1) ?? base.document, pending };
 }

@@ -148,3 +148,68 @@ test("a stale enrollment cannot repopulate storage after another tab signs out",
     other.getByRole("button", { name: "Retry connection" }),
   ).toBeVisible();
 });
+
+test("a full device keeps a capture draft editable without recording a pending task", async ({
+  page,
+  context,
+}) => {
+  await signIn(page, "planner");
+  await page
+    .getByRole("button", { name: "Enable offline editing on this device" })
+    .click();
+  await expect(
+    page.getByText("Offline editing enabled on this device.", { exact: true }),
+  ).toBeVisible();
+  await context.setOffline(true);
+  const captures = page.getByRole("textbox", { name: "Task titles" });
+  await expect(captures).toBeEnabled();
+  await page.evaluate(() => {
+    const original = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      const data = value as { queue?: unknown[] };
+      if (this.name === "workspaces" && data.queue?.length)
+        throw new DOMException(
+          "Device storage quota reached.",
+          "QuotaExceededError",
+        );
+      return key === undefined
+        ? original.call(this, value)
+        : original.call(this, value, key);
+    };
+  });
+  const title = "Retain this survey draft when storage fills";
+  await captures.fill(title);
+  await page.getByRole("button", { name: "Add tasks", exact: true }).click();
+  await expect(
+    page.getByText(/Could not save this edit on the device/i),
+  ).toBeVisible();
+  await expect(captures).toHaveValue(title);
+  await expect(
+    page.getByRole("treeitem", { name: new RegExp(title) }),
+  ).toHaveCount(0);
+  await expect(page.getByText(/1 pending on this device/i)).toHaveCount(0);
+  const queues = await page.evaluate(
+    (name) =>
+      new Promise<number[]>((resolve, reject) => {
+        const opening = indexedDB.open(name);
+        opening.onerror = () => reject(opening.error);
+        opening.onsuccess = () => {
+          const db = opening.result;
+          const rows = db
+            .transaction("workspaces")
+            .objectStore("workspaces")
+            .getAll();
+          rows.onsuccess = () => {
+            db.close();
+            resolve(rows.result.map((row) => row.queue.length));
+          };
+          rows.onerror = () => reject(rows.error);
+        };
+      }),
+    database,
+  );
+  expect(queues).toEqual([0]);
+});

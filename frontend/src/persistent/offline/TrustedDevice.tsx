@@ -5,6 +5,7 @@ import { ensureAppWorker } from "../../pwa/registration.ts";
 import {
   cancelEnrollment,
   enableOffline,
+  forgetOfflineWorkspace,
   reserveEnrollment,
   offlineEvents,
   offlineLease,
@@ -90,8 +91,47 @@ export function TrustDeviceControl({
   const { lease, loading } = useWorkspaceLease(actor.id, space.id);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [forgetting, setForgetting] = useState(false);
+  async function forget() {
+    setBusy(true);
+    try {
+      await forgetOfflineWorkspace(actor.id, space.id, binding.epoch);
+      setForgetting(false);
+      setError("");
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "Unable to remove this offline workspace.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
   if (lease)
-    return <span role="status">Offline editing enabled on this device.</span>;
+    return (
+      <span>
+        <span role="status">Offline editing enabled on this device.</span>{" "}
+        {forgetting ? (
+          <>
+            <span>
+              Remove the offline copy and all pending edits for this workspace?
+            </span>{" "}
+            <button type="button" disabled={busy} onClick={() => void forget()}>
+              Remove offline data
+            </button>{" "}
+            <button type="button" onClick={() => setForgetting(false)}>
+              Keep offline data
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => setForgetting(true)}>
+            Forget offline workspace
+          </button>
+        )}
+        {error && <span role="alert">{error}</span>}
+      </span>
+    );
   async function enable() {
     if (busy || !snapshot || binding.offlineBootstrap) return;
     setBusy(true);

@@ -72,15 +72,25 @@ test("AT-20 · cancel or discard on offline sign-out, block the old cookie and p
       sibling.getByRole("tree", { name: "Task outline" }),
     ).toBeVisible();
     await device.connect(false);
+    const space = await page.getByLabel("Active workspace").inputValue();
     await submitCapture(page, title);
     await queued(page);
+    await expect(
+      task(page, title),
+      "Durable capture is visible before sign-out",
+    ).toBeVisible();
     const signOut = page.getByRole("button", { name: "Sign out", exact: true });
     await signOut.click();
     const decision = page.getByRole("dialog", {
       name: "Pending offline changes",
     });
     await decision.getByRole("button", { name: "Cancel", exact: true }).click();
-    await expect(task(page, title)).toBeVisible();
+    await expect(page.getByLabel("Active workspace")).toHaveValue(space);
+    await queued(page);
+    await expect(
+      task(page, title),
+      "Cancel retains the visible draft in its workspace",
+    ).toBeVisible();
     await signOut.click();
     await decision
       .getByRole("button", { name: "Discard changes and sign out" })
@@ -119,6 +129,7 @@ async function invite(owner: Page, recipient: Page, username: string) {
   await expect(
     recipient.getByRole("dialog", { name: "Workspace tools" }),
   ).not.toBeVisible();
+  await closeTools(owner);
 }
 
 test("AT-20 · pending workspace edits cannot cross removal and a fresh grant to the same member", async ({
@@ -157,7 +168,6 @@ test("AT-20 · pending workspace edits cannot cross removal and a fresh grant to
       await invite(owner, other, username);
       await expect(task(other, sentinel)).toBeVisible();
     });
-    await closeTools(owner);
     const currentGrant = member.waitForResponse(
       (r) =>
         new URL(r.url()).pathname.endsWith(
@@ -192,16 +202,38 @@ test("AT-20 · an expired session hides offline drafts until the same principal 
     await submitCapture(page, title);
     await queued(page);
     await page.context().clearCookies({ name: "sessionid" });
+    await page.route(/\/api\/v1\/session$/, (route) =>
+      route.abort("connectionreset"),
+    );
+    const denied = page.waitForResponse(
+      (response) =>
+        response.status() === 401 &&
+        new URL(response.url()).pathname.startsWith("/api/v1/"),
+    );
+    await device.connect(true);
+    await denied;
+    await expect(page.getByRole("tree", { name: "Task outline" })).toHaveCount(
+      0,
+      { timeout: 20000 },
+    );
+    // The following /session request cannot succeed. A cold offline boot must
+    // already respect the 401 while retaining the same actor's unreadable queue.
+    const locked = await device.restart(true);
+    await locked.goto("/app/");
+    await expect(locked.getByRole("heading")).toBeVisible();
+    await expect(locked.getByText(title)).toHaveCount(0);
+    await expect(
+      locked.getByRole("tree", { name: "Task outline" }),
+    ).toHaveCount(0);
     await device.connect(true);
     await expect(
-      page.getByRole("button", { name: "Sign in", exact: true }),
+      locked.getByRole("button", { name: "Sign in", exact: true }),
     ).toBeVisible({ timeout: 20000 });
-    await expect(page.getByText(title)).toHaveCount(0);
     await withProfile(browser, "owner", async (peer) => {
       await expect(task(peer, title)).toHaveCount(0);
-      await signIn(page, "owner");
+      await signIn(locked, "owner");
       await expect(task(peer, title)).toHaveCount(1, { timeout: 20000 });
-      await expect(task(page, title)).toBeVisible();
+      await expect(task(locked, title)).toBeVisible();
     });
   });
 });

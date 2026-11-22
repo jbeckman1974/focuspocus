@@ -14,6 +14,7 @@ export interface Session {
 }
 
 export interface Snapshot {
+  maxFileBytes?: number;
   workspaceId: string;
   revision: number;
   generation: string;
@@ -31,6 +32,8 @@ export interface Snapshot {
   nextDateBoundary?: string | null;
   perspectiveVersion?: number;
   focusScopeIds?: string[];
+  // Set only on the trusted-device projection to identify edits a draft actually observed.
+  localOperationIds?: string[];
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task &

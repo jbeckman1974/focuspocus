@@ -3,7 +3,9 @@ import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./integration",
   // The recovery harness supplies a second web process backed by a fenced SQL restore.
-  testIgnore: process.env.FOCUSPOCUS_QA_RESTORE_HOST ? [] : ["**/offline-restore.spec.ts"],
+  testIgnore: process.env.FOCUSPOCUS_QA_RESTORE_HOST
+    ? []
+    : ["**/offline-restore.spec.ts"],
   outputDir: process.env.PLAYWRIGHT_OUTPUT_DIR ?? "/tmp/focuspocus-integration",
   forbidOnly: true,
   workers: 1,

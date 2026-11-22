@@ -87,4 +87,5 @@ test "$restore_digest" = "$saved"
 dc run --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python manage.py fence_restored_database
 restore_digest=$(dc run -T --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python - < ops/check-database.py)
 test "$restore_digest" = "$saved"
+python3 -B ops/qa-offline-restore.py "$scratch/probe-checkpoint"
 echo "Verified $image_id on linux/$EXPECTED_ARCH including replacement and clean database restore."

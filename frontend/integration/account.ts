@@ -1,22 +1,29 @@
 import { readFileSync } from "node:fs";
-import { expect, type Browser, type Page } from "@playwright/test";
+import { basename } from "node:path";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { sidebarDestination, task } from "../e2e/controls.ts";
 
 type Person = "owner" | "neighbor" | "planner";
 type Credentials = { username: string; password: string };
 
 export async function signIn(page: Page, person: Person) {
-  const accounts: Record<Person, Credentials> = JSON.parse(
+  const accounts: Record<string, Credentials> = JSON.parse(
     readFileSync("/run/qa-accounts.json", "utf8"),
   );
+  const credentials =
+    accounts[basename(test.info().file) + "/" + person] ?? accounts[person];
   await page.goto("/app/");
-  await page
-    .getByLabel("Username", { exact: true })
-    .fill(accounts[person].username);
+  await page.getByLabel("Username", { exact: true }).fill(credentials.username);
   const password = page.getByLabel("Password", { exact: true });
   await expect(password).toBeVisible();
-  await password.fill(accounts[person].password);
+  await password.fill(credentials.password);
+  const login = page.waitForResponse(
+    (r) =>
+      r.request().method() === "POST" &&
+      new URL(r.url()).pathname === "/api/v1/login",
+  );
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  expect((await login).status(), "Local account login status").toBe(200);
   await expect(page.getByRole("tree", { name: "Task outline" })).toBeVisible();
 }
 

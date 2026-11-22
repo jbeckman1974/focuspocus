@@ -1,5 +1,13 @@
+import { prune } from "./storeDirectory.ts";
 import type { Session } from "../api.ts";
-import { reauthFence, markReauth, clearReauth } from "./storeLock.ts";
+import {
+  reauthFence,
+  markReauth,
+  clearReauth,
+  pendingPurge,
+  markPurge,
+  clearPurge,
+} from "./storeLock.ts";
 import { transaction } from "./storeDatabase.ts";
 import { notifyOffline } from "./storeEvents.ts";
 import {
@@ -52,71 +60,14 @@ export async function finishLogout(actor: number) {
   if (shadowLogout() === actor) localStorage.removeItem(barrierName);
 }
 
-export type MembershipInfo = { id: string; role: string };
-function prune(
-  profile: Profile,
-  spaces: readonly MembershipInfo[],
-  drop: (actor: number, workspace: string) => void,
-) {
-  let changed = false;
-  const roles = new Map(spaces.map((space) => [space.id, space.role]));
-  for (const [id, enrollment] of Object.entries(profile.enrollments ?? {})) {
-    if (roles.get(id) !== enrollment.role || enrollment.until <= Date.now()) {
-      delete profile.enrollments![id];
-      changed = true;
-    }
-  }
-  for (const [id, header] of Object.entries(profile.spaces)) {
-    if (roles.get(id) === header.space.role) continue;
-    drop(profile.actorId!, id);
-    delete profile.spaces[id];
-    if (profile.active === id) profile.active = null;
-    changed = true;
-  }
-  return changed;
-}
-
-export async function pruneOfflineDirectory(
-  actor: number,
-  spaces: readonly MembershipInfo[],
-  epoch: string,
-) {
-  if (!epoch) return;
-  const changed = await transaction(
-    "readwrite",
-    null,
-    ({ profile, saveProfile, dropData }) => {
-      checkBinding(profile, actor, epoch);
-      if (!prune(profile, spaces, dropData)) return false;
-      saveProfile();
-      return true;
-    },
-  );
-  if (changed) notifyOffline("workspace");
-}
-
-export async function markOfflineActive(
-  actor: number,
-  id: string,
-  epoch: string,
-) {
-  if (!epoch) return;
-  await transaction("readwrite", null, ({ profile, saveProfile }) => {
-    checkBinding(profile, actor, epoch);
-    const active = Object.hasOwn(profile.spaces, id) ? id : null;
-    if (profile.active !== active) {
-      profile.active = active;
-      saveProfile();
-    }
-  });
-}
-
 function boot(profile: Profile): OfflineBoot | null {
   if (
     !profile.authenticated ||
     !profile.actorId ||
     !profile.active ||
-    profile.logoutActor !== null || reauthFence(profile.epoch) !== null
+    profile.logoutActor !== null ||
+    pendingPurge(profile.actorId) !== null ||
+    reauthFence(profile.epoch) !== null
   )
     return null;
   const header = profile.spaces[profile.active];
@@ -138,10 +89,29 @@ export async function offlineBoot() {
 // Obtain this fence before an online request so a delayed response from an old
 // account cannot switch the browser back or unlock a completed sign-out.
 export async function currentEpoch() {
-  return transaction("readonly", null, ({ profile }) => profile.epoch);
+  const result = await transaction(
+    "readwrite",
+    null,
+    ({ profile, saveProfile, clearData }) => {
+      const actor = profile.actorId;
+      const intent = actor ? pendingPurge(actor) : null;
+      if (actor && intent) {
+        clearData();
+        Object.assign(profile, freshProfile());
+        saveProfile();
+      }
+      return { epoch: profile.epoch, actor, intent };
+    },
+  );
+  if (result.actor && result.intent) clearPurge(result.actor, result.intent);
+  return result.epoch;
 }
 
-export async function observeSession(session: Session, expected: string, observedFence:string|null) {
+export async function observeSession(
+  session: Session,
+  expected: string,
+  observedFence: string | null,
+) {
   const state = await transaction(
     "readwrite",
     null,
@@ -154,6 +124,11 @@ export async function observeSession(session: Session, expected: string, observe
       )
         throw new Error("The active device session changed.");
       const actor = session.user?.id ?? null;
+      const discardIntent = actor !== null ? pendingPurge(actor) : null;
+      if (discardIntent && actor === profile.actorId)
+        throw new Error(
+          "Retry to finish clearing this browser’s earlier workspace.",
+        );
       let identityChanged = false;
       if (actor !== null && actor !== profile.actorId) {
         clearData();
@@ -162,7 +137,10 @@ export async function observeSession(session: Session, expected: string, observe
           authenticated: true,
         });
         identityChanged = true;
-      } else if (profile.authenticated !== (actor !== null) || observedFence !== null) {
+      } else if (
+        profile.authenticated !== (actor !== null) ||
+        observedFence !== null
+      ) {
         profile.authenticated = actor !== null;
         profile.epoch = crypto.randomUUID();
         identityChanged = true;
@@ -177,10 +155,13 @@ export async function observeSession(session: Session, expected: string, observe
         epoch: profile.epoch,
         initialSpace: actor !== null ? retained : null,
         identityChanged,
+        discardIntent,
         removed,
       };
     },
   );
+  if (state.discardIntent && session.user)
+    clearPurge(session.user.id, state.discardIntent);
   clearReauth(expected, observedFence);
   if (state.identityChanged) notifyOffline("identity");
   else if (state.removed) notifyOffline("workspace");
@@ -193,7 +174,7 @@ export async function beginLogout(
   discard: boolean,
 ): Promise<"pending" | "cleared"> {
   if (!epoch) {
-    if (!storeShadow(actor))
+    if (!markPurge(actor) || !storeShadow(actor))
       throw new Error(
         "Unable to save the sign-out request. Connect before signing out.",
       );
@@ -229,50 +210,35 @@ export function pendingSpaces(actor: number, epoch: string) {
   });
 }
 
-export async function forgetOfflineWorkspace(
-  actor: number,
-  id: string,
-  epoch: string,
-) {
-  if (!epoch) return;
-  const removed = await transaction(
-    "readwrite",
-    null,
-    ({ profile, saveProfile, dropData }) => {
-      checkBinding(profile, actor, epoch);
-      if (!Object.hasOwn(profile.spaces, id) && !profile.enrollments?.[id])
-        return false;
-      if (profile.enrollments) delete profile.enrollments[id];
-      dropData(actor, id);
-      delete profile.spaces[id];
-      if (profile.active === id) profile.active = null;
-      saveProfile();
-      return true;
-    },
-  );
-  if (removed) notifyOffline("workspace");
-}
-
 // A server 401 is already authoritative. Keep any queued work under its owner,
 // but reject all offline reads and stale tab writes before another network hop.
-export async function lockOfflineActor(actor:number,epoch:string) {
-  if(!epoch)return;
-  const fence=markReauth(epoch);
-  let changed=false;
+export async function lockOfflineActor(actor: number, epoch: string) {
+  if (!epoch) return;
+  const fence = markReauth(epoch);
+  let changed = false;
   try {
-    changed=await transaction("readwrite",null,({profile,saveProfile})=>{
-      if(profile.actorId!==actor || profile.epoch!==epoch || !profile.authenticated)return false;
-      profile.authenticated=false;
-      profile.epoch=crypto.randomUUID();
-      delete profile.enrollments;
-      saveProfile();
-      return true;
-    });
-    clearReauth(epoch,fence);
-  } catch(error) {
+    changed = await transaction(
+      "readwrite",
+      null,
+      ({ profile, saveProfile }) => {
+        if (
+          profile.actorId !== actor ||
+          profile.epoch !== epoch ||
+          !profile.authenticated
+        )
+          return false;
+        profile.authenticated = false;
+        profile.epoch = crypto.randomUUID();
+        delete profile.enrollments;
+        saveProfile();
+        return true;
+      },
+    );
+    clearReauth(epoch, fence);
+  } catch (error) {
     notifyOffline("identity");
-    if(!fence) throw error;
+    if (!fence) throw error;
     return; // Online confirmation must now consume the fallback fence.
   }
-  if(changed)notifyOffline("identity");
+  if (changed) notifyOffline("identity");
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { knownFileLimit } from "./fileLimit.ts";
 import type { Content } from "./transport.ts";
 
 interface Props {
@@ -18,6 +19,7 @@ export function AttachmentPanel({
 }: Props) {
   const [previewId, setPreview] = useState<string>();
   const [file, setFile] = useState<File>();
+  const knownLimit = knownFileLimit(content.maxFileBytes);
   const preview = content.files.find((f) => f.id === previewId);
   const url = (id: string) => base + "/files/" + encodeURIComponent(id);
   return (
@@ -65,16 +67,21 @@ export function AttachmentPanel({
         Attach file
         <input
           type="file"
-          disabled={disabled}
+          disabled={disabled || !knownLimit}
           onChange={(e) => setFile(e.currentTarget.files?.[0])}
         />
       </label>
-      {file && file.size > content.maxFileBytes && (
+      {!knownLimit && (
+        <p role="status">Connect to verify the attachment size limit.</p>
+      )}
+      {knownLimit && file && file.size > content.maxFileBytes && (
         <p role="status">File exceeds the {content.maxFileBytes} byte limit.</p>
       )}
       <button
         type="button"
-        disabled={disabled || !file || file.size > content.maxFileBytes}
+        disabled={
+          disabled || !knownLimit || !file || file.size > content.maxFileBytes
+        }
         onClick={() => {
           if (file) upload(file);
         }}

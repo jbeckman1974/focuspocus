@@ -30,6 +30,7 @@ export async function withDevice(
       timezoneId: "America/New_York",
       reducedMotion: "reduce",
     });
+    context.setDefaultTimeout(12000);
     return context.pages()[0] ?? (await context.newPage());
   }
   try {

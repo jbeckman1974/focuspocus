@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { actorRequest, HttpError, type Snapshot } from "../api.ts";
 import { emptyNote, type NoteDocument } from "./document.ts";
 import { AttachmentPanel } from "./AttachmentPanel.tsx";
+import { noteExcerpt } from "./noteExcerpt.ts";
 import { NoteEditor } from "./NoteEditor.tsx";
 import {
   describeUpload,
@@ -72,6 +73,7 @@ function ContentDialog({
   );
   const content = trusted ? saved?.base : online;
   const noteBase = useRef<Content | undefined>(undefined);
+  const originalNote = useRef<string | undefined>(undefined);
   const [note, setNote] = useState<NoteDocument>(emptyNote);
   const [completedUploads, setCompletedUploads] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -279,6 +281,7 @@ function ContentDialog({
       if (!signal.aborted) {
         setContent(current);
         noteBase.current = current;
+        originalNote.current = noteExcerpt(current.document);
         setConflict(false);
         setMessage("Latest version loaded. Review your draft before saving.");
       }
@@ -315,14 +318,12 @@ function ContentDialog({
       ) : content ? (
         <>
           {trusted && saved && !saved.known && (
-            <p>
-              Connect to load the existing note and file list. You can attach a
-              file now.
-            </p>
+            <p>Connect to load the existing note and file list.</p>
           )}
           <NoteEditor
             value={note}
             change={(value) => {
+              if (!noteBase.current) originalNote.current = noteExcerpt(note);
               noteBase.current ??= content;
               setNote(value);
             }}
@@ -338,6 +339,9 @@ function ContentDialog({
                   itemId,
                   itemVersion: (noteBase.current ?? content).itemVersion,
                   document: note,
+                  originalText: noteBase.current
+                    ? originalNote.current
+                    : noteExcerpt(note),
                 }),
               )
             }

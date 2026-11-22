@@ -267,3 +267,32 @@ test("note and unlink replay keep their item version and original command envelo
     },
   ]);
 });
+
+test("configured unopened-task limits stop oversized files before reading any bytes", async () => {
+  const id = crypto.randomUUID();
+  const confirmed = { ...snapshot(id, true), maxFileBytes: 4 };
+  const record = { confirmed, projection: confirmed, content: {}, queue: [] };
+  const file = new File(["longer than four bytes"], "field.txt");
+  let reads = 0;
+  Object.defineProperty(file, "arrayBuffer", {
+    value: () => {
+      reads++;
+      throw new Error("unexpected allocation");
+    },
+  });
+  assert.equal(cachedItem(record, id).base.maxFileBytes, 4);
+  await assert.rejects(
+    describeUpload(id, 2, file, cachedItem(record, id).base.maxFileBytes),
+    /per-attachment limit/,
+  );
+  const unknown = {
+    ...record,
+    confirmed: { ...confirmed, maxFileBytes: undefined },
+  };
+  assert.equal(cachedItem(unknown, id).base.maxFileBytes, 0);
+  await assert.rejects(
+    describeUpload(id, 2, file, cachedItem(unknown, id).base.maxFileBytes),
+    /verify the attachment size limit/,
+  );
+  assert.equal(reads, 0);
+});

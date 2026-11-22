@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  clearReauth,
+  markReauth,
+  reauthFence,
+} from "../src/persistent/offline/storeLock.ts";
+import {
   checkBinding,
   checkLease,
   freshProfile,
   makeLease,
   OfflineAccessError,
   requireReadable,
+  sameMembership,
   type Header,
 } from "../src/persistent/offline/storeTypes.ts";
 
@@ -84,4 +90,95 @@ test("an expired, incompatible or recovery-fenced grant cannot open offline data
     () => requireReadable({ ...header, fence: "generation" }, 0),
     code("generation"),
   );
+});
+
+test("a restored generation preserves a grant only for the same membership incarnation", () => {
+  const cached = { ...header, membershipId: "grant-incarnation" };
+  const from = (
+    generation: string,
+    membershipId: string | undefined,
+    id: string,
+    workspaceId = "space",
+  ) => ({
+    generation,
+    workspaceId,
+    offlineGrant: {
+      id,
+      membershipId,
+      protocol: 1,
+      expiresAt: new Date(1000).toISOString(),
+    },
+  });
+  assert.equal(
+    sameMembership(
+      cached,
+      from("restored", "grant-incarnation", "different-grant"),
+    ),
+    true,
+  );
+  assert.equal(
+    sameMembership(
+      cached,
+      from("restored", "rejoined-membership", "different-grant"),
+    ),
+    false,
+  );
+  assert.equal(
+    sameMembership(cached, from("restored", undefined, "different-grant")),
+    false,
+  );
+  assert.equal(
+    sameMembership(
+      header,
+      from("restored", "grant-incarnation", "different-grant"),
+    ),
+    false,
+  );
+  assert.equal(
+    sameMembership(
+      cached,
+      from(header.generation, "grant-incarnation", "rotated-without-recovery"),
+    ),
+    false,
+  );
+  assert.equal(
+    sameMembership(
+      cached,
+      from(
+        "restored",
+        "grant-incarnation",
+        "different-grant",
+        "other-workspace",
+      ),
+    ),
+    false,
+  );
+});
+
+test("an epoch-bound reauthentication fence denies cached reads even before the database could lock", () => {
+  const original = Object.getOwnPropertyDescriptor(globalThis, "localStorage");
+  const values = new Map<string, string>();
+  Object.defineProperty(globalThis, "localStorage", {
+    configurable: true,
+    value: {
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, v: string) => values.set(key, v),
+      removeItem: (key: string) => values.delete(key),
+    },
+  });
+  try {
+    const { profile, lease } = fixture();
+    const first = markReauth(profile.epoch);
+    assert.ok(first);
+    assert.throws(() => checkLease(profile, lease), code("locked"));
+    const newer = markReauth(profile.epoch);
+    clearReauth(profile.epoch, first);
+    assert.equal(reauthFence(profile.epoch), newer);
+    assert.throws(() => checkLease(profile, lease), code("locked"));
+    clearReauth(profile.epoch, newer);
+    assert.doesNotThrow(() => checkLease(profile, lease));
+  } finally {
+    if (original) Object.defineProperty(globalThis, "localStorage", original);
+    else Reflect.deleteProperty(globalThis, "localStorage");
+  }
 });

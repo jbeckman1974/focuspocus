@@ -1,3 +1,5 @@
+import { matchesReview, synchronizeLease } from "./queueRecovery.ts";
+import { supportedQueue } from "./queueTypes.ts";
 import {
   HttpError,
   type Receipt,
@@ -16,7 +18,7 @@ import {
   type QueueData,
 } from "./queue.ts";
 import { projectQueue } from "./queueProjection.ts";
-import type { QueueEntry, QueueNotice } from "./queueTypes.ts";
+import type { QueueEntry, QueueNotice, ReviewedContent } from "./queueTypes.ts";
 import {
   offlineEvents,
   discardIncompatibleEntry,
@@ -24,9 +26,8 @@ import {
   reviewIncompatible,
   OfflineAccessError,
   readOffline,
-  rebindOffline,
+  fenceOfflineFormat,
   revokeOffline,
-  syncOfflineLease,
   updateOffline,
   type OfflineLease,
 } from "./store.ts";
@@ -90,6 +91,10 @@ export class OfflineQueue {
     const order = ++this.displayEpoch;
     try {
       const data = await readOffline<QueueEntry>(this.lease);
+      if (!supportedQueue(data.queue)) {
+        await fenceOfflineFormat(this.lease);
+        throw new OfflineAccessError("protocol");
+      }
       if (this.active && order === this.displayEpoch) this.show(data);
       return data;
     } catch (error) {
@@ -128,17 +133,32 @@ export class OfflineQueue {
     this.show(doc);
     void this.tick(true);
   }
-  async resolve(id: string, action: "reapply" | "discard") {
+  async resolve(
+    id: string,
+    action: "reapply" | "discard",
+    display: Snapshot | null,
+    reviewed?: ReviewedContent,
+  ) {
+    try {
+      await this.applyResolution(id, action, display, reviewed);
+    } catch (error) {
+      if (!(await this.denyAccess(error))) throw error;
+    }
+  }
+  private async applyResolution(
+    id: string,
+    action: "reapply" | "discard",
+    display: Snapshot | null,
+    reviewed?: ReviewedContent,
+  ) {
     if (!this.active) return;
     if (this.reviewOnly && action === "discard") {
       const current = await this.api.snapshot();
       if (!this.active) return;
-      if (current.offlineGrant?.protocol !== 1) {
-        await discardIncompatibleEntry(this.lease, current, id);
-        await this.showReview(current);
-        return;
-      }
-      if (!(await this.syncLease(current))) return;
+      await discardIncompatibleEntry(this.lease, current, id);
+      await this.showReview(current);
+      if (current.offlineGrant?.protocol === 1) await this.tick(true);
+      return;
     }
     if (action === "reapply") {
       const allowed = await this.api.verifySession();
@@ -149,6 +169,12 @@ export class OfflineQueue {
         throw new Error(
           "Open this draft in a compatible workspace before reapplying.",
         );
+      if (!matchesReview(display, snapshot, reviewed)) {
+        await this.tick(true);
+        throw new Error(
+          "The workspace changed after the comparison. Review the current values again.",
+        );
+      }
       await updateOffline<QueueEntry, void>(this.lease, (doc) => {
         if (snapshot.revision < doc.confirmed.revision)
           throw new Error("The workspace changed. Review again.");
@@ -182,46 +208,12 @@ export class OfflineQueue {
     );
   }
   private async syncLease(current: Snapshot) {
-    try {
-      this.lease = await syncOfflineLease(this.lease, current);
-    } catch (error) {
-      if (
-        error instanceof OfflineAccessError &&
-        error.code === "protocol" &&
-        current.offlineGrant?.protocol !== 1
-      ) {
-        await this.showReview(current);
-        return false;
-      }
-      if (
-        !(error instanceof OfflineAccessError) ||
-        !["generation", "protocol"].includes(error.code) ||
-        current.offlineGrant?.protocol !== 1
-      )
-        throw error;
-      this.lease = await rebindOffline<QueueEntry, void>(
-        this.lease,
-        current,
-        (old, next) => {
-          if (
-            old.queue.some(
-              (entry) => entry.protocol !== 1 || !entry.write?.envelope,
-            )
-          )
-            throw new OfflineAccessError("protocol");
-          next.queue = old.queue;
-          for (const entry of next.queue) {
-            markConflict(
-              entry,
-              error.code === "generation"
-                ? "Database restored. Compare this draft with the new workspace before reapplying."
-                : "Offline format changed. Compare this draft with the current workspace before reapplying.",
-            );
-            if (old.files[entry.id]) next.files[entry.id] = old.files[entry.id];
-          }
-        },
-      );
+    const currentLease = await synchronizeLease(this.lease, current);
+    if (!currentLease) {
+      await this.showReview(current);
+      return false;
     }
+    this.lease = currentLease;
     this.reviewOnly = false;
     return true;
   }
@@ -265,23 +257,8 @@ export class OfflineQueue {
       await this.drain(current);
     } catch (error) {
       if (!this.active) return;
-      if (
-        error instanceof HttpError &&
-        [401, 403, 404].includes(error.status)
-      ) {
-        if (error.status === 401) {
-          // Persist the denial before re-entering the account screen. A subsequent
-          // transport failure cannot turn this expired session into an offline boot.
-          await lockOfflineActor(this.lease.actorId, this.lease.epoch);
-        } else await revokeOffline(this.lease).catch(() => {});
-        this.observer.view(
-          null,
-          [],
-          false,
-          "Workspace access must be verified.",
-        );
-        this.observer.lost(error.status);
-      } else if (error instanceof OfflineAccessError) {
+      if (await this.denyAccess(error)) return;
+      if (error instanceof OfflineAccessError) {
         this.observer.view(null, [], false, error.message);
         if (error.code === "revoked" || error.code === "locked")
           this.observer.lost();
@@ -295,6 +272,22 @@ export class OfflineQueue {
       this.syncing = false;
     }
   }
+  private async denyAccess(error: unknown) {
+    if (
+      !(error instanceof HttpError) ||
+      ![401, 403, 404].includes(error.status)
+    )
+      return false;
+    this.observer.view(null, [], false, "Workspace access must be verified.");
+    try {
+      if (error.status === 401)
+        await lockOfflineActor(this.lease.actorId, this.lease.epoch);
+      else await revokeOffline(this.lease);
+    } finally {
+      this.observer.lost(error.status);
+    }
+    return true;
+  }
   private async drain(first: Snapshot) {
     let current = first;
     // A short batch bounds one tick and allows other tabs and workspaces to progress.
@@ -303,6 +296,8 @@ export class OfflineQueue {
         QueueEntry,
         { doc: QueueData; entry?: QueueEntry }
       >(this.lease, (doc) => {
+        if (!supportedQueue(doc.queue))
+          throw new OfflineAccessError("protocol");
         if (current.revision < doc.confirmed.revision) return { doc };
         return { entry: nextTransmission(doc, current), doc };
       });

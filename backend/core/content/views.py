@@ -26,6 +26,7 @@ def item_content(request, workspace_id, item_id):
             note = ItemNote.objects.filter(workspace=space, item=item).values_list("document", flat=True).first()
             links = AttachmentLink.objects.filter(workspace=space, item=item).select_related("blob").order_by("filename", "id")
             return JsonResponse({
+                "workspaceId": str(space.pk), "itemId": str(item.pk),
                 "generation": str(space.generation), "offlineGrant": descriptor(for_member(space, request.user)),
                 "revision": space.revision, "itemVersion": item.version, "document": note or EMPTY_NOTE,
                 "maxFileBytes": file_limit(),

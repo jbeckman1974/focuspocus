@@ -3,6 +3,7 @@
 from django.core import signing
 
 from core.commands.context import issue_context
+from core.content.files import file_limit
 from core.models import Change
 from core.organization import cleanup_mode
 from core.perspectives.focus import perspective_version, snapshot_focus
@@ -48,6 +49,7 @@ def snapshot(workspace, user, view_zone=None):
     rows, tags, metadata = read_records(workspace, view_zone)
     return {
         "workspaceId": str(workspace.pk),
+        "maxFileBytes": file_limit(),
         "generation": str(workspace.generation),
         "revision": workspace.revision,
         "offlineGrant": grants.descriptor(grant),

@@ -76,21 +76,26 @@ export function enqueue(
     reason: "",
     transmitted: false,
   };
-  if (!content) project(doc.projection, write); // Validate the local edit before claiming it is durable.
+  if (!content) project(base, write);
+  if (dependencies.some((id) => !base.localOperationIds?.includes(id))) {
+    markConflict(
+      entry,
+      "Another tab changed related work after this draft was opened. Compare before reapplying.",
+    );
+  }
   if (bytes) doc.files[id] = bytes;
   doc.queue.push(entry);
   doc.projection = projectQueue(doc.confirmed, doc.queue);
 }
 
 export function queueNotices(doc: QueueData): QueueNotice[] {
+  const pendingIds = new Set(doc.queue.map((entry) => entry.id));
   const unresolved = new Set(
     doc.queue.filter((e) => e.state === "conflict").map((e) => e.id),
   );
   return doc.queue.map((entry) => {
     const blocked = entry.dependencies.some(
-      (id) =>
-        unresolved.has(id) ||
-        (!doc.receipts[id] && !doc.queue.some((e) => e.id === id)),
+      (id) => unresolved.has(id) || (!doc.receipts[id] && !pendingIds.has(id)),
     );
     if (blocked) unresolved.add(entry.id);
     return {

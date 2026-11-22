@@ -400,3 +400,37 @@ test("optimistic completion and reopening update direct and inherited statuses f
   assert.equal(doc.projection.tasks[0].done, false);
   assert.equal(doc.projection.tasks[0].effective?.status, "active");
 });
+
+test("unrecognized stored envelopes stay opaque before optimistic rendering or transmission", async () => {
+  const { supportedQueue } =
+    await import("../src/persistent/offline/queueTypes.ts");
+  const doc = create();
+  add(doc, capture);
+  assert.ok(supportedQueue(doc.queue));
+  assert.equal(supportedQueue([null]), false);
+  assert.equal(supportedQueue([{ ...doc.queue[0], protocol: 2 }]), false);
+  assert.equal(supportedQueue([{ ...doc.queue[0], write: {} }]), false);
+  assert.equal(
+    supportedQueue([
+      {
+        ...doc.queue[0],
+        guards: [{ key: "row:id", value: "1", predecessors: 24 }],
+      },
+    ]),
+    false,
+  );
+});
+
+test("staging an old tab's draft against a newer local edit requires comparison", () => {
+  const original = { ...initial, tasks: [task("row", "Field notes", 1)] };
+  const doc = freshData<QueueEntry>(original);
+  add(doc, { type: "rename", id: "row", title: "First browser tab" });
+  const stale = prepare(
+    { type: "rename", id: "row", title: "Earlier form" },
+    original,
+  );
+  enqueue(doc, original, stale);
+  assert.equal(doc.queue[1].state, "conflict");
+  assert.equal(doc.projection.tasks[0].title, "First browser tab");
+  assert.match(doc.queue[1].reason, /Another tab/);
+});

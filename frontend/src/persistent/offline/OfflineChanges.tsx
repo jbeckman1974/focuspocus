@@ -1,9 +1,12 @@
+import { NoteConflictComparison } from "../content/NoteConflictComparison.tsx";
 import type { ChannelState, WorkspaceChannel } from "../channel.ts";
 
 export function OfflineChanges({
   state,
   channel,
+  actorId,
 }: {
+  actorId: number;
   state: ChannelState;
   channel: WorkspaceChannel;
 }) {
@@ -38,23 +41,54 @@ export function OfflineChanges({
               {(change.status === "conflict" ||
                 change.status === "blocked") && (
                 <>
-                  <dl>
-                    <dt>Before the edit</dt>
-                    <dd>{change.base}</dd>
-                    <dt>Your draft</dt>
-                    <dd>{change.draft}</dd>
-                    <dt>On the server</dt>
-                    <dd>{change.current}</dd>
-                  </dl>
-                  {!state.reviewOnly && change.status === "conflict" && (
-                    <button
-                      disabled={state.offline}
-                      onClick={() =>
-                        void channel.resolveQueued(change.id, "reapply")
+                  {change.content?.action === "save" &&
+                  state.snapshot &&
+                  !state.reviewOnly ? (
+                    <NoteConflictComparison
+                      key={[
+                        actorId,
+                        state.snapshot.workspaceId,
+                        state.snapshot.generation,
+                        state.snapshot.offlineGrant?.id,
+                        state.snapshot.revision,
+                        change.id,
+                        change.content.itemId,
+                        state.offline,
+                      ].join("/")}
+                      actorId={actorId}
+                      snapshot={state.snapshot}
+                      change={change.content}
+                      offline={state.offline}
+                      canReapply={change.status === "conflict"}
+                      reapply={(reviewed) =>
+                        void channel.resolveQueued(
+                          change.id,
+                          "reapply",
+                          reviewed,
+                        )
                       }
-                    >
-                      Reapply change
-                    </button>
+                    />
+                  ) : (
+                    <>
+                      <dl>
+                        <dt>Before the edit</dt>
+                        <dd>{change.base}</dd>
+                        <dt>Your draft</dt>
+                        <dd>{change.draft}</dd>
+                        <dt>On the server</dt>
+                        <dd>{change.current}</dd>
+                      </dl>
+                      {!state.reviewOnly && change.status === "conflict" && (
+                        <button
+                          disabled={state.offline}
+                          onClick={() =>
+                            void channel.resolveQueued(change.id, "reapply")
+                          }
+                        >
+                          Reapply change
+                        </button>
+                      )}
+                    </>
                   )}{" "}
                   <button
                     onClick={() =>
