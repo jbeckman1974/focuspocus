@@ -1,6 +1,6 @@
 export const dateFields = ["defer", "planned", "due"] as const;
 export type DateField = (typeof dateFields)[number];
-export type TimeKind = "floating" | "zoned";
+export type TimeKind = "floating" | "zoned" | "instant";
 export interface DateIntent {
   kind: "date" | "floating" | "zoned" | "instant";
   value: string;
@@ -32,7 +32,8 @@ export function describeDate(value: DateIntent | null | undefined) {
 }
 
 export function previewQuery(field:DateField, input:string, kind:TimeKind, zone:string, fold:0|1, viewZone?:string) {
-  const query = new URLSearchParams({field,text:input.trim(),kind,fold:String(fold)});
+  const query = new URLSearchParams({field,text:input.trim(),kind});
+  if(kind !== "instant") query.set("fold",String(fold));
   if(viewZone) query.set("viewZone",viewZone);
   if(kind === "zoned") query.set("zone",zone);
   return query.toString();

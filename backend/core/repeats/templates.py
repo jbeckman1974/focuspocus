@@ -2,8 +2,9 @@
 
 from core.commands.state import Changes, save_changed
 from core.rules.properties import status_updates
-from core.scheduling.recurrence import as_intent, clock_zone
-from core.scheduling.dates import direct_dates, wall_instant
+from core.scheduling.recurrence import anchor_field, clock_zone, shifted_dates
+from core.scheduling.repeat_rule import RepeatRule
+from core.scheduling.dates import direct_dates
 from core.scheduling.storage import legacy_due_value
 
 from .models import Occurrence, RepeatSeries
@@ -27,15 +28,6 @@ def copy_series(tree, copies):
     return series_ids
 
 
-def shifted_child(schedule, delta, context):
-    shifted = {}
-    for field, value in direct_dates(schedule).items():
-        zone = clock_zone(value, context)
-        wall = value.instant(field, context).astimezone(zone).replace(tzinfo=None) + delta
-        shifted[field] = as_intent(value, wall_instant(wall, zone, value.fold), context).wire()
-    return shifted
-
-
 def schedule_updates(schedule):
     return {"schedule": schedule, "due": legacy_due_value(schedule)}
 
@@ -49,18 +41,20 @@ def generate(tree, result, record, plan, context):
     copied = Changes([])
     clones = copy_subtree(tree, subtree(layout.children, root), root.parent_id, copied,
                           duplicate=True, repeat_successor=True)
-    anchor = next(key for key in ("due", "planned", "defer") if key in root.schedule)
-    old = direct_dates(root.schedule)[anchor]
-    new = direct_dates(plan.schedule)[anchor]
-    zone = clock_zone(old, context)
-    delta = (new.instant(anchor, context).astimezone(zone).replace(tzinfo=None)
-             - old.instant(anchor, context).astimezone(zone).replace(tzinfo=None))
+    dates = direct_dates(root.schedule)
+    rule = RepeatRule.from_wire(record.series.rule)
+    anchor = anchor_field(rule, dates)
+    zone = clock_zone(dates[anchor], context)
+    old = dates[anchor].instant(anchor, context)
+    new = direct_dates(plan.schedule)[anchor].instant(anchor, context)
     target = clones.pop(root.pk)
     save_changed(target, copied, **status_updates("active"), **schedule_updates(plan.schedule))
     for child in clones.values():
         properties = status_updates("active") if child.status in {"completed", "dropped"} else {}
         if child.schedule:
-            properties.update(schedule_updates(shifted_child(child.schedule, delta, context)))
+            shifted = shifted_dates(direct_dates(child.schedule), old, new, zone, context,
+                                    subday=rule.unit in ("minute", "hour"))
+            properties.update(schedule_updates(shifted))
         save_changed(child, copied, **properties)
     nested = copy_series(tree, clones)
     Occurrence.objects.create(workspace=tree.workspace, item=target, series=record.series, predecessor=record)

@@ -1,7 +1,7 @@
 """Serve authenticated calendar previews and scoped list projections."""
 
 from core.scheduling.clock import workspace_clock
-from core.scheduling.dates import calendar_zone
+from core.scheduling.dates import FIELDS, DateIntent, calendar_zone
 from core.commands.validation import CommandError
 from core.scheduling.entry import preview_entry
 
@@ -36,6 +36,13 @@ def date_preview(workspace, params):
         raise CommandError("Choose overlap side 0 or 1.")
     clock = workspace_clock(workspace, view_zone=view_zone(params))
     try:
+        if params.get("kind") == "instant":
+            if params.get("field") not in FIELDS or "zone" in params or "fold" in params:
+                raise ValueError("A fixed instant requires a schedule field and an explicit offset in the timestamp.")
+            intent = DateIntent.from_wire({"kind": "instant", "value": params.get("text")})
+            instant = intent.instant(params["field"], clock)
+            return {"value": intent.wire(), "instant": instant.isoformat(),
+                    "display": instant.astimezone(clock.zone).isoformat(), "zone": clock.zone.key}
         return preview_entry(params.get("text"), params.get("field"), clock,
                              params.get("kind", "floating"), params.get("zone"), int(params.get("fold", "0")))
     except (ValueError, OverflowError) as error:

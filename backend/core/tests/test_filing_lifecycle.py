@@ -119,3 +119,38 @@ class LifecycleTests(OutlineApiMixin, TestCase):
         self.assertEqual(self.command("file-inbox", {})["selection"], [later])
         self.assertEqual(self.item(later)["parentId"], str(misc.pk))
         self.assertEqual(self.command("file-inbox", {})["selection"], [])
+
+    def test_resolved_visibility_is_personal_and_independent_of_filing(self):
+        tag = self.create("tag", "Ready")
+        item = self.create("action", "Already resolved", tagIds=[tag])
+        self.command("complete", {"ids": [item]})
+        original = self.client.get(self.base + "snapshot").json()
+        self.assertEqual((original["resolvedCleanup"], original["filingPolicy"]), ("on-cleanup", "project"))
+        self.command("set-resolved-cleanup", {"mode": "immediate"})
+        current = self.client.get(self.base + "snapshot").json()
+        self.assertEqual(current["revision"], original["revision"])
+        self.assertEqual(current["resolvedCleanup"], "immediate")
+        changes = self.client.get(self.base + "changes", {"after": original["cursor"]}).json()
+        self.assertEqual(changes["resolvedCleanup"], "immediate")
+        self.assertEqual(changes["changes"], [])
+        self.assertEqual(self.command("file-inbox", {})["selection"], [])
+        self.assertTrue(self.item(item)["done"])
+        self.assertEqual(self.item(item)["parentId"], "inbox")
+        self.command("set-filing-policy", {"policy": "tag"})
+        self.command("file-inbox", {})
+        self.assertNotEqual(self.item(item)["parentId"], "inbox")
+        self.assertEqual(self.client.get(self.base + "snapshot").json()["resolvedCleanup"], "immediate")
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(f"/api/v1/workspaces/{self.foreign.pk}/snapshot").json()["resolvedCleanup"],
+                         "on-cleanup")
+
+    def test_archive_cutoff_uses_the_workspace_calendar_day(self):
+        self.space.time_zone = "America/New_York"
+        self.space.save(update_fields=["time_zone"])
+        item = self.create("action", "Late local evening")
+        # 23:30 Thursday in New York is already Friday in UTC.
+        done = datetime(2026, 11, 20, 4, 30, tzinfo=timezone.utc)
+        Item.objects.filter(pk=item).update(done=True, completed_at=done)
+        preview = self.client.get(self.base + "archive-preview?before=2026-11-20").json()
+        self.assertEqual([row["id"] for row in preview["items"]], [item])
+        self.command("archive", {"ids": [item], "before": "2026-11-20"})

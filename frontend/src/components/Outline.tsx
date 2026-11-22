@@ -22,6 +22,7 @@ interface OutlineProps {
   rows?: OutlineRow[];
   tools?: ReactNode;
   count?: number;
+  retainedCount?: number;
   workspace: Workspace;
   view: View;
   selection: string[];
@@ -112,6 +113,7 @@ export function Outline(props: OutlineProps) {
           <h1>{title}</h1>
           <span className="outline-count">
             {count} {count === 1 ? "item" : "items"}
+            {Boolean(props.retainedCount) && ` · ${props.retainedCount} awaiting Clean Up`}
           </span>
         </div>
         <div className="outline-history" aria-label="Edit history">

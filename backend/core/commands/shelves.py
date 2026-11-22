@@ -1,7 +1,8 @@
 """Retain removed subtrees in place and copy archived records back into active work."""
 
 from collections import defaultdict
-from datetime import datetime, time, timezone
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
 from uuid import uuid4
 
 from django.utils import timezone as clock
@@ -15,11 +16,11 @@ from .structure import Layout
 from .validation import CommandError, due_date, fields, identifiers
 
 
-def cutoff(value):
+def cutoff(value, workspace):
     day = due_date(value)
     if day is None:
         raise CommandError("Choose an archive cutoff date.")
-    return datetime.combine(day, time.min, tzinfo=timezone.utc)
+    return datetime.combine(day, time.min, tzinfo=ZoneInfo(workspace.time_zone))
 
 
 def archive_eligible(item, boundary):
@@ -39,7 +40,7 @@ def remove(tree, name, data):
     archived = name == "archive"
     fields(data, ["ids", "before"] if archived else ["ids"])
     layout = Layout(tree, tree.selected(data["ids"]))
-    boundary = cutoff(data["before"]) if archived else None
+    boundary = cutoff(data["before"], tree.workspace) if archived else None
     result = Changes([])
     for root in layout.roots:
         if archived and not archive_eligible(root, boundary):

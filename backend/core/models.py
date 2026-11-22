@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.utils import timezone
 
-from .lifecycle_models import ItemLifecycleFields, TagTreeFields, WorkspaceFilingFields
+from .lifecycle_models import ItemLifecycleFields, OrganizationPreference, TagTreeFields, WorkspaceFilingFields
 
 
 class Workspace(WorkspaceFilingFields):

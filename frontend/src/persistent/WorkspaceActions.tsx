@@ -15,6 +15,7 @@ export function WorkspaceActions({
   travel,
   deviceZone,
   setTravel,
+  cleanUp,
 }: {
   snapshot: Snapshot;
   channel: WorkspaceChannel;
@@ -25,6 +26,7 @@ export function WorkspaceActions({
   travel: boolean;
   deviceZone: string;
   setTravel: (value: boolean) => void;
+  cleanUp:()=>void;
 }) {
   const [entry, setEntry] = useState<{
     kind: "tag" | "project";
@@ -107,6 +109,7 @@ export function WorkspaceActions({
           travel={travel}
           deviceZone={deviceZone}
           setTravel={setTravel}
+          cleanUp={cleanUp}
           snapshot={snapshot}
           view={organize.view}
           selection={organize.selection}

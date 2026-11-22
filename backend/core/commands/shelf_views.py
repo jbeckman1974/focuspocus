@@ -23,7 +23,7 @@ def collection(request, workspace_id, preview=False):
             state = "active" if preview else request.GET[key]
             if not preview and state not in ("trash", "archive"):
                 raise CommandError("Choose the trash or the archive.")
-            boundary = cutoff(request.GET[key]) if preview else None
+            boundary = cutoff(request.GET[key], workspace) if preview else None
             items = Item.objects.filter(workspace=workspace, shelf=state).order_by("position", "id").prefetch_related("tags")
             result = []
             for item in items:

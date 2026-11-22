@@ -66,6 +66,18 @@ class ScheduleApiTests(OutlineApiMixin, TestCase):
         self.assertEqual(row["effective"]["schedule"]["defer"]["instant"], "2026-11-22T15:00:00+00:00")
         self.assertEqual(row["schedule"]["defer"]["defaultTime"], "09:00")
 
+    def test_absolute_preview_preserves_offset_and_displays_the_same_instant_in_the_view_zone(self):
+        params = {"field": "planned", "kind": "instant", "text": "2026-11-22T11:15:00+01:00",
+                  "viewZone": "America/New_York"}
+        result = self.client.get(self.base + "date-preview", params)
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json(), {
+            "value": {"kind": "instant", "value": params["text"]}, "instant": "2026-11-22T10:15:00+00:00",
+            "display": "2026-11-22T05:15:00-05:00", "zone": "America/New_York",
+        })
+        self.assertEqual(self.client.get(self.base + "date-preview", {**params, "fold": "1"}).status_code, 422)
+        self.assertEqual(self.client.get(self.base + "date-preview", {**params, "text": "2026-11-22T11:15"}).status_code, 422)
+
     def test_invalid_schedule_rolls_back_and_prior_settings_receipt_needs_owner(self):
         self.command("set-schedule", {"ids": self.children, "durationMinutes": -2}, 422)
         self.command("set-schedule", {"ids": self.children, "schedule": {"defer": {"kind": "date", "value": "bad"}}}, 422)

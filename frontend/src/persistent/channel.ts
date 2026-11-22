@@ -129,7 +129,7 @@ export class WorkspaceChannel {
         try {
           const page = await this.api.changes(snapshot.cursor);
           refresh =
-            page.changes.length > 0 || page.revision !== snapshot.revision;
+            page.changes.length > 0 || page.revision !== snapshot.revision || (page.resolvedCleanup !== undefined && page.resolvedCleanup !== snapshot.resolvedCleanup);
         } catch (error) {
           if (!(error instanceof HttpError && error.status === 410))
             throw error;

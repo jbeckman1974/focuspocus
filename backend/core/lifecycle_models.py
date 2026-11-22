@@ -1,5 +1,6 @@
 """Persistent tree placement, recoverable subtrees and Inbox filing preferences."""
 
+from django.conf import settings
 from django.db import models
 
 
@@ -27,3 +28,14 @@ class ItemLifecycleFields(models.Model):
 
     class Meta:
         abstract = True
+
+
+class OrganizationPreference(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, primary_key=True, on_delete=models.CASCADE)
+    resolved_cleanup = models.CharField(default="on-cleanup", max_length=12)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(resolved_cleanup__in=["immediate", "on-cleanup"]),
+                                   name="cleanup_mode"),
+        ]

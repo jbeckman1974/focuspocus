@@ -100,3 +100,11 @@ test("Changed renders a flat chronological list even when parent and child both 
   const query={...result(["a","g"]),view:"changed"};
   assert.deepEqual(projectedRows(snapshot,query,new Set(["g"])).map(r=>[r.task.id,r.depth,r.hasChildren]),[["a",0,false],["g",0,false]]);
 });
+
+test("explicit timestamp input retains its offset and does not send a wall-clock ambiguity", () => {
+  const query = new URLSearchParams(previewQuery("due","2026-11-01T01:30-05:00","instant","UTC",1,"Europe/Paris"));
+  assert.equal(query.get("text"),"2026-11-01T01:30-05:00");
+  assert.equal(query.get("viewZone"),"Europe/Paris");
+  assert.equal(query.has("fold"),false);
+  assert.equal(query.has("zone"),false);
+});

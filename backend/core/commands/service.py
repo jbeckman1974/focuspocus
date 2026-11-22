@@ -6,6 +6,7 @@ import json
 from django.db import transaction
 
 from core.access import locked_membership
+from core import organization
 from core.models import Change, Receipt
 from core.history.recording import recording
 from core.history.restore import reverse
@@ -36,6 +37,8 @@ def etag(item):
 
 
 def dispatch(tree, user, name, payload):
+    if name == "set-resolved-cleanup":
+        return organization.set_cleanup(user, payload)
     if name in ("create-container", "create-tag"):
         return edits.create_entry(tree, name, payload)
     if name == "set-schedule":

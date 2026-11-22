@@ -21,6 +21,7 @@ import type { Entry } from "../outline/index.ts";
 import { useClockRefresh } from "./useClockRefresh.ts";
 import { DirectoryLinks } from "./DirectoryLinks.tsx";
 import { ItemTools } from "./ItemTools.tsx";
+import { useResolvedRows } from "./useResolvedRows.ts";
 import { useRuleOutline } from "./useRuleOutline.ts";
 import { WriteNotice } from "./WriteNotice.tsx";
 
@@ -80,6 +81,8 @@ function ConnectedOutline({
   const collapsed = collapsedRows[key] ?? new Set<string>();
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
+  const [cleanupEpoch,setCleanupEpoch]=useState(0);
+  const cleanUp=()=>setCleanupEpoch(value=>value+1);
   const [travel, setTravel] = useState(false);
   const deviceZone = useClockRefresh(snapshot?.nextDateBoundary, channel.refresh);
   const viewZone = travel ? deviceZone : "";
@@ -91,7 +94,16 @@ function ConnectedOutline({
     }
   }, [channel, viewZone]);
   const projection = useRuleOutline(snapshot, view, availability, viewZone, channel.refresh);
-  const rows = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
+  const matches = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
+  const rows = useResolvedRows({
+    snapshot,
+    result: projection.result,
+    rows: matches,
+    scope: JSON.stringify([key, availability, viewZone]),
+    collapsed,
+    cleanupEpoch,
+  });
+
   const selection = visibleSelection(rows, selected[key] ?? []);
   const [showInspector, setShowInspector] = useState(
     () => window.innerWidth > 850,
@@ -197,7 +209,7 @@ function ConnectedOutline({
           setCapture((n) => n + 1);
         }}
         workspaceLabel={username}
-        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut} travel={travel} deviceZone={deviceZone} setTravel={setTravel}/>}
+        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut} travel={travel} deviceZone={deviceZone} setTravel={setTravel} cleanUp={cleanUp}/>}
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}
@@ -208,6 +220,7 @@ function ConnectedOutline({
         <Outline
           rows={rows}
           count={projection.result?.count}
+          retainedCount={Math.max(0, rows.length-matches.length)}
           tools={<div className="private-outline-tools">
             <AvailabilityFilter value={availability} change={value => setFilters(current => ({...current, [key]:value}))}/>
             <DirectoryLinks snapshot={snapshot} view={view} result={projection.result} choose={setView}/>

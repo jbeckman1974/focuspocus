@@ -20,6 +20,7 @@ export interface Snapshot {
   viewZone?: string;
   dateDefaults?: DateDefaults;
   nextDateBoundary?: string | null;
+  resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task & RuleFields & { version: number; filingProjectId?:string|null })[];
   folders?: (Entry & RuleFields & { version: number })[];
@@ -105,7 +106,7 @@ export function workspaceApi(
     },
     snapshot: () => jsonRequest<Snapshot>(base + "/snapshot" + (viewZone ? "?viewZone="+encodeURIComponent(viewZone) : ""), { signal }),
     changes: (cursor: string) =>
-      jsonRequest<{ revision: number; changes: unknown[] }>(
+      jsonRequest<{ revision: number; changes: unknown[]; resolvedCleanup?: "immediate"|"on-cleanup" }>(
         base + "/changes?after=" + encodeURIComponent(cursor),
         { signal },
       ),

@@ -4,6 +4,7 @@ import type { Snapshot } from "./api.ts";
 export type FilingPolicy = "project" | "tag" | "both" | "either";
 export type TagStatus = "active" | "held" | "dropped";
 export type LifecycleChange =
+  | { name: "set-resolved-cleanup"; payload:{mode:"immediate"|"on-cleanup"} }
   | { name: "duplicate" | "delete" | "ungroup"; payload: { ids: string[] } }
   | {
       name: "restore" | "retrieve" | "move";

@@ -73,6 +73,7 @@ def changes_since(workspace, user, token, limit):
         raise StaleCursor
     return {
         "changes": changes,
+        "resolvedCleanup": cleanup_mode(user),
         "cursor": cursor_for(workspace, user, end),
         "revision": end,
         "more": end < workspace.revision,

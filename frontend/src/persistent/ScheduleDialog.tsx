@@ -51,10 +51,10 @@ export function ScheduleDialog({entry,base,apply,close}: {
     <label>Date field<select value={field} onChange={event=>{setField(event.currentTarget.value as DateField);setText("");setResult(undefined);setMessage("");}}>{dateFields.map(value=><option key={value} value={value}>{value[0]!.toUpperCase()+value.slice(1)}</option>)}</select></label>
     <p>Direct {field}: {describeDate(current)}</p>
     {effective && <p>Effective {field}: {describeDate(effective.value)}{source && source.id!==entry.id ? " from "+source.title : ""}</p>}
-    <label>Date input<input value={text} placeholder="Tomorrow at 09:00" onChange={event=>setText(event.currentTarget.value)}/></label>
-    <label>Time interpretation<select value={kind} onChange={event=>setKind(event.currentTarget.value as TimeKind)}><option value="floating">Floating local time</option><option value="zoned">Fixed time in a zone</option></select></label>
+    <label>Date input<input value={text} placeholder={kind==="instant" ? "2026-11-01T09:00-05:00" : "Tomorrow at 09:00"} onChange={event=>setText(event.currentTarget.value)}/></label>
+    <label>Time interpretation<select value={kind} onChange={event=>setKind(event.currentTarget.value as TimeKind)}><option value="floating">Floating local time</option><option value="zoned">Fixed time in a zone</option><option value="instant">Timestamp with UTC offset</option></select></label>
     {kind === "zoned" && <label>Time zone<input value={zone} onChange={event=>setZone(event.currentTarget.value)}/></label>}
-    <label>Repeated clock hour<select value={fold} onChange={event=>setFold(event.currentTarget.value==="1" ? 1 : 0)}><option value="0">First occurrence</option><option value="1">Second occurrence</option></select></label>
+    {kind!=="instant" && <label>Repeated clock hour<select value={fold} onChange={event=>setFold(event.currentTarget.value==="1" ? 1 : 0)}><option value="0">First occurrence</option><option value="1">Second occurrence</option></select></label>}
     <button onClick={preview} disabled={!text.trim() || (kind === "zoned" && !zone.trim())}>Preview date</button>
     {confirmed && <p role="status">{confirmed.display} · {confirmed.zone} · {confirmed.instant}</p>}
     <button disabled={!confirmed} onClick={()=>confirmed && submit({schedule:{[field]:confirmed.value}})}>Apply date</button>

@@ -75,6 +75,23 @@ def calendar_slot(rule, seed, authored, threshold, completed, zone):
     return None
 
 
+def shifted_dates(current, old, new, zone, context, *, subday, anchor=None):
+    """Shift assignments together, retaining elapsed subday or wall-clock calendar offsets."""
+    elapsed = new - old
+    wall_delta = new.astimezone(zone).replace(tzinfo=None) - old.astimezone(zone).replace(tzinfo=None)
+    result = {}
+    for field, value in current.items():
+        previous = value.instant(field, context)
+        if field == anchor or subday:
+            target = previous + elapsed
+        else:
+            field_zone = clock_zone(value, context)
+            wall = previous.astimezone(field_zone).replace(tzinfo=None) + wall_delta
+            target = wall_instant(wall, field_zone, value.fold)
+        result[field] = as_intent(value, target, context).wire()
+    return result
+
+
 def anchor_field(rule, current):
     if not current:
         raise ValueError("Assign a date before configuring a repeat.")
@@ -125,19 +142,8 @@ def next_occurrence(rule, schedule, context, *, completed_at=None, origin=None, 
             new = calendar_slot(rule, seed, initial[anchor], threshold, completed, zone)
         if new is None or (rule.end_date and new.astimezone(zone).date() > rule.end_date):
             return None
-        elapsed = new - old
-        wall_delta = new.astimezone(zone).replace(tzinfo=None) - old.astimezone(zone).replace(tzinfo=None)
-        result = {}
-        for field, value in current.items():
-            previous = value.instant(field, context)
-            if field == anchor or subday:
-                target = previous + elapsed
-            else:
-                field_zone = clock_zone(value, context)
-                wall = previous.astimezone(field_zone).replace(tzinfo=None) + wall_delta
-                target = wall_instant(wall, field_zone, value.fold)
-            result[field] = as_intent(value, target, context).wire()
-        return NextOccurrence(result, remaining)
+        dates = shifted_dates(current, old, new, zone, context, subday=subday, anchor=anchor)
+        return NextOccurrence(dates, remaining)
     except OverflowError:
         # There is no representable calendar occurrence after the year limit.
         return None
