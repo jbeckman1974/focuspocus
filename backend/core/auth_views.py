@@ -91,6 +91,9 @@ def login(request):
 
 @require_POST
 def logout(request):
+    actor = request.headers.get("X-FocusPocus-Actor")
+    if actor is not None and request.user.is_authenticated and actor != str(request.user.pk):
+        return JsonResponse({"error": "The signed-in account changed."}, status=403)
     auth.logout(request)
     rotate_token(request)
     return JsonResponse(session_payload(request))

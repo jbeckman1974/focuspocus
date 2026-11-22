@@ -70,6 +70,20 @@ class AccountTests(TestCase):
         self.assertEqual(post(client, "login", {"username": a.username, "password": []}, "").status_code, 400)
         self.assertEqual(client.get("/api/v1/logout").status_code, 405)
 
+    def test_stale_offline_logout_cannot_end_the_new_accounts_session(self):
+        previous, _ = new_account()
+        current, _ = new_account()
+        client = Client(enforce_csrf_checks=True)
+        client.force_login(current)
+        token = client.get("/api/v1/session").json()["csrfToken"]
+        def sign_out(actor):
+            return client.post("/api/v1/logout", {}, content_type="application/json",
+                               headers={"X-CSRFToken": token, "X-FocusPocus-Actor": str(actor.pk)})
+
+        self.assertEqual(sign_out(previous).status_code, 403)
+        self.assertEqual(client.get("/api/v1/session").json()["user"]["id"], current.pk)
+        self.assertIsNone(sign_out(current).json()["user"])
+
     def test_recovery_is_hashed_single_use_and_revokes_logged_in_sessions(self):
         a, _ = new_account()
         first, second = Client(), Client()

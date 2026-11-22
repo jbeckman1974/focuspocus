@@ -15,7 +15,7 @@ from core.commands.validation import CommandError, fields, identifier, title
 from core.history.recording import recording
 from core.models import Change, Membership, Receipt, Workspace
 
-from .models import CaptureCredential
+from .models import CaptureAcknowledgement, CaptureCredential
 
 
 CAPTURE_SALT = "focuspocus.inbox-capture.v1"
@@ -95,11 +95,15 @@ def capture(header, body):
     operation_id, requested_title = identifier(body["operationId"]), title(body["title"])
     identity = dict(workspace=workspace, actor_id=grant.user_id, context_id=grant.pk, operation_id=operation_id)
     fingerprint = digest(requested_title)
-    prior = Receipt.objects.filter(**identity).first()
-    if prior:
-        if prior.fingerprint != fingerprint:
+    prior = Receipt.objects.filter(**identity).values_list("fingerprint", "result__selection__0").first()
+    if prior is None:
+        prior = (CaptureAcknowledgement.objects.filter(credential=grant, operation_id=operation_id)
+                 .values_list("fingerprint", "item_id").first())
+    if prior is not None:
+        saved_fingerprint, saved_item = prior
+        if saved_fingerprint != fingerprint:
             raise CommandError("The operation ID belongs to a different capture.", 409)
-        return {"operationId": str(operation_id), "itemId": prior.result["selection"][0]}
+        return {"operationId": str(operation_id), "itemId": str(saved_item)}
     item_id = str(uuid4())
     with recording(workspace) as journal:
         result = edits.capture(Outline(workspace), {"parentId": "inbox",

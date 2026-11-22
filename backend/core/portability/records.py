@@ -41,13 +41,17 @@ TABLES = (
 )
 
 
+def journal_summary(stamp, journal):
+    items = [row["id"] for row in journal.get("rows", []) if row.get("model") == "item"]
+    return {"at": stamp, "action": journal["command"], "items": items}
+
+
 def history_rows(workspace):
     for row in RestoredHistory.objects.filter(workspace=workspace).order_by("occurred_at", "pk"):
         yield {"at": row.occurred_at, "action": row.action, "items": row.item_ids}
     shared = Receipt.objects.filter(workspace=workspace, inverse__journal__isnull=False)
     for stamp, journal in shared.order_by("created_at", "pk").values_list("created_at", "inverse__journal").iterator():
-        items = [data["id"] for data in journal.get("rows", []) if data.get("model") == "item"]
-        yield {"at": stamp, "action": journal["command"], "items": items}
+        yield journal_summary(stamp, journal)
 
 
 def review_sources(workspace):
