@@ -43,6 +43,7 @@ export interface QueryRow extends Entry {
 export interface OutlineResult {
   workspaceId: string;
   revision: number;
+  view?: string;
   rows: QueryRow[];
   count: number;
   matchIds: string[];
@@ -66,17 +67,34 @@ export function outlineQuery(view: View, availability: Availability) {
 export function projectedRows(snapshot: Snapshot, result: OutlineResult, collapsed: ReadonlySet<string>): OutlineRow[] {
   const tasks = new Map(snapshot.tasks.map(task => [task.id, task]));
   const present = new Map(result.rows.filter(row => tasks.has(row.id)).map(row => [row.id, row]));
+  if (result.view === "changed" || result.view === "completed") {
+    return Array.from(present.values(), row => ({task:tasks.get(row.id)!,depth:0,hasChildren:false,context:false}));
+  }
   const parents = new Set(Array.from(present.values(), row => row.parentId));
+  // Cache ancestor depths so deeply nested selections scale with the number of rows.
+  const depths = new Map<string, number | null>();
+  function depthOf(row: QueryRow) {
+    const stack: QueryRow[] = [];
+    let current: QueryRow | undefined = row;
+    while (current && !depths.has(current.id)) {
+      stack.push(current);
+      current = present.get(current.parentId);
+    }
+    let depth: number | null = current ? (depths.get(current.id) ?? null) : -1;
+    while (stack.length) {
+      const node = stack.pop()!;
+      depth = depth === null || (present.has(node.parentId) && collapsed.has(node.parentId))
+        ? null : depth + 1;
+      depths.set(node.id, depth);
+    }
+    return depths.get(row.id) ?? null;
+  }
   const outline: OutlineRow[] = [];
   for (const row of present.values()) {
-    const task = tasks.get(row.id)!;
-    let depth = 0;
-    let parent = present.get(row.parentId);
-    while (parent && !collapsed.has(parent.id)) {
-      depth++;
-      parent = present.get(parent.parentId);
+    const depth = depthOf(row);
+    if (depth !== null) {
+      outline.push({ task: tasks.get(row.id)!, depth, hasChildren: parents.has(row.id), context: row.context });
     }
-    if (!parent) outline.push({ task, depth, hasChildren: parents.has(row.id), context: row.context });
   }
   return outline;
 }

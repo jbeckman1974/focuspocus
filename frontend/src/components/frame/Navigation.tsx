@@ -1,5 +1,5 @@
 import type { View, Workspace } from "../../outline/index.ts";
-import { directoryRows } from "../../persistent/lifecycle.ts";
+import { directoryRows } from "../../outline/directory.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./Icon.tsx";
 

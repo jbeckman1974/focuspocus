@@ -66,6 +66,13 @@ class CalendarDatesTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 preview_entry(text, "planned", context)
 
+    def test_preview_of_an_explicit_instant_shows_its_view_zone_interpretation(self):
+        preview = preview_entry("2026-11-21T10:00:00-05:00", "planned", clock("America/Los_Angeles"), "instant")
+        self.assertEqual(preview["display"], "2026-11-21T07:00:00-08:00")
+        self.assertEqual(preview["instant"], "2026-11-21T15:00:00+00:00")
+        with self.assertRaises(ValueError):
+            preview_entry("2026-11-21T10:00", "planned", clock(), "date")
+
     def test_wire_validation_and_duration(self):
         for bad in ({"kind": "instant", "value": "2026-11-21T14:00"},
                     {"kind": "zoned", "zone": "../UTC", "value": "2026-11-21T14:00"},

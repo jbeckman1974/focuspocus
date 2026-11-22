@@ -56,8 +56,11 @@ def subday_slot(rule, source, threshold, completed, zone):
     return baseline + step
 
 
-def calendar_slot(rule, seed, threshold, completed, zone):
+def calendar_slot(rule, seed, authored, threshold, completed, zone):
     original = seed.astimezone(zone)
+    clock = original.time().replace(tzinfo=None)
+    if authored.kind in ("zoned", "floating"):
+        clock = datetime.fromisoformat(authored.value).time()
     origin = original.date()
     floor = threshold.astimezone(zone).date()
     if rule.schedule == "completion":
@@ -65,11 +68,21 @@ def calendar_slot(rule, seed, threshold, completed, zone):
         # Complete the current slot before looking for a later calendar day.
         floor = origin + timedelta(days=1)
     for day in date_slots(rule, origin, floor):
-        local = datetime.combine(day, original.time().replace(tzinfo=None))
+        local = datetime.combine(day, clock)
         instant = wall_instant(local, zone, original.fold)
         if instant > threshold:
             return instant
     return None
+
+
+def anchor_field(rule, current):
+    if not current:
+        raise ValueError("Assign a date before configuring a repeat.")
+    preferred = next(key for key in ("due", "planned", "defer") if key in current)
+    anchor = (rule.anchor or preferred) if rule.restricted or rule.schedule == "completion" else preferred
+    if anchor not in current:
+        raise ValueError("The selected repeat anchor requires an assigned date.")
+    return anchor
 
 
 def next_occurrence(rule, schedule, context, *, completed_at=None, origin=None, remaining=None, skip=False):
@@ -81,12 +94,9 @@ def next_occurrence(rule, schedule, context, *, completed_at=None, origin=None, 
     if not isinstance(rule, RepeatRule):
         rule = RepeatRule.from_wire(rule)
     current = direct_dates(schedule)
-    if not current:
-        raise ValueError("Assign a date before configuring a repeat.")
     initial = direct_dates(origin) if origin is not None else current
-    preferred = next(key for key in ("due", "planned", "defer") if key in current)
-    anchor = (rule.anchor or preferred) if rule.restricted or rule.schedule == "completion" else preferred
-    if anchor not in current or anchor not in initial:
+    anchor = anchor_field(rule, current)
+    if anchor not in initial:
         raise ValueError("The selected repeat anchor requires an assigned date.")
     if remaining is None:
         remaining = rule.count
@@ -112,7 +122,7 @@ def next_occurrence(rule, schedule, context, *, completed_at=None, origin=None, 
         if subday:
             new = subday_slot(rule, seed, threshold, completed, zone)
         else:
-            new = calendar_slot(rule, seed, threshold, completed, zone)
+            new = calendar_slot(rule, seed, initial[anchor], threshold, completed, zone)
         if new is None or (rule.end_date and new.astimezone(zone).date() > rule.end_date):
             return None
         elapsed = new - old

@@ -55,6 +55,31 @@ class RepeatingCommandsTests(OutlineApiMixin, TestCase):
         self.command("complete", {"ids": [item]})
         self.assertEqual(Occurrence.objects.count(), 1)
 
+    def test_introducing_a_preferred_anchor_rebases_without_changing_past_or_remaining_count(self):
+        item, = self.capture(["Plan first"])
+        self.command("set-schedule", {"ids": [item], "schedule": {"planned": {"kind": "date", "value": "2026-11-18"}}})
+        self.command("set-repeat", {"id": item, "rule": DAILY})
+        self.command("set-schedule", {"ids": [item], "schedule": {"due": {"kind": "date", "value": "2026-11-23"}}})
+        current = Occurrence.objects.get(item_id=item)
+        self.assertEqual(current.series.remaining, 4)
+        self.assertEqual(current.series.version, 2)
+        self.command("complete", {"ids": [item]})
+        successor = Occurrence.objects.get(predecessor=current)
+        self.assertEqual(successor.item.schedule["due"]["value"], "2026-11-24")
+        self.assertEqual(successor.item.schedule["planned"]["value"], "2026-11-19")
+
+    def test_hourly_date_only_edit_fails_atomically(self):
+        item, = self.capture(["Hourly"])
+        timed = {"kind": "floating", "value": "2026-11-18T09:00"}
+        self.command("set-schedule", {"ids": [item], "schedule": {"due": timed}})
+        self.command("set-repeat", {"id": item, "rule": {"schedule": "regular", "unit": "hour"}})
+        self.command("set-schedule", {"ids": [item], "schedule": {"due": {"kind": "date", "value": "2026-11-22"}}}, 422)
+        self.assertEqual(Item.objects.get(pk=item).schedule["due"], timed)
+        self.assertEqual(Occurrence.objects.get(item_id=item).series.version, 1)
+        self.command("complete", {"ids": [item]})
+        self.assertEqual(Occurrence.objects.get(predecessor__isnull=False).item.schedule["due"]["value"],
+                         "2026-11-18T10:00")
+
     def test_nested_project_copies_reset_child_and_keep_independent_series(self):
         project = str(uuid4())
         self.command("create-container", {"id": project, "title": "Instrument checks"})

@@ -87,6 +87,11 @@ export class WorkspaceChannel {
     return false;
   }
 
+  setViewZone = async (zone:string) => {
+    this.api.setViewZone(zone);
+    await this.refresh();
+  };
+
   refresh = async () => {
     this.refreshRequested = true;
     await this.tick();

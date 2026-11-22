@@ -2,6 +2,7 @@
 
 from django.utils import timezone
 
+from core.repeats.schedule_changes import rebase_active_schedule
 from core.scheduling.clock import workspace_clock
 from core.scheduling.dates import DateContext, duration_minutes
 from core.scheduling.storage import legacy_due_value, merge_schedule, read_schedule
@@ -10,12 +11,20 @@ from .state import Changes, save_changed
 from .validation import CommandError, fields
 
 
+def schedule_update(item, patch, context):
+    current = read_schedule(item)
+    updated = merge_schedule(current, patch, context)
+    if current != updated:
+        rebase_active_schedule(item, updated, context)
+    return {"schedule": updated, "due": legacy_due_value(updated)}
+
+
 def legacy_edit(item, due, context):
     if due == item.due:
         return {}
     typed = {"kind": "date", "value": due.isoformat()} if due is not None else None
     try:
-        return {"due": due, "schedule": merge_schedule(read_schedule(item), {"due": typed}, context)}
+        return schedule_update(item, {"due": typed}, context)
     except (ValueError, OverflowError) as error:
         raise CommandError(str(error)) from error
 
@@ -33,8 +42,7 @@ def set_schedule(tree, data):
             if "durationMinutes" in data:
                 values["duration_minutes"] = duration_minutes(data["durationMinutes"])
             if "schedule" in data:
-                schedule = merge_schedule(read_schedule(item), data["schedule"], context)
-                values.update(schedule=schedule, due=legacy_due_value(schedule))
+                values.update(schedule_update(item, data["schedule"], context))
             save_changed(item, result, **values)
     except (ValueError, OverflowError) as error:
         raise CommandError(str(error)) from error

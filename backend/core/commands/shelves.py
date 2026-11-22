@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from django.utils import timezone as clock
 
+from core.history.recording import create_many
 from core.models import Item, ItemTag
 
 from .edits import GAP
@@ -115,9 +116,9 @@ def copy_subtree(tree, source, parent_id, result, *, duplicate=False, repeat_suc
                                and item.filing_project_id and tree.items.filter(pk=item.filing_project_id, kind="project").exists() else None),
         )
         copies[item.pk] = copy
-    Item.objects.bulk_create(copies.values())
+    create_many(Item, copies.values())
     tags = ItemTag.objects.filter(workspace=tree.workspace, item_id__in=copies).values_list("item_id", "tag_id")
-    ItemTag.objects.bulk_create([ItemTag(workspace=tree.workspace, item=copies[item_id], tag_id=tag_id)
+    create_many(ItemTag, [ItemTag(workspace=tree.workspace, item=copies[item_id], tag_id=tag_id)
                                  for item_id, tag_id in tags])
     for item in copies.values():
         result.touch(item)

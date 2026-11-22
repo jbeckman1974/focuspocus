@@ -7,6 +7,8 @@ from django.db import transaction
 
 from core.access import locked_membership
 from core.models import Change, Receipt
+from core.history.recording import recording
+from core.history.restore import reverse
 from core.repeats import commands as repeats
 
 from . import edits, lifecycle, properties, schedules
@@ -54,8 +56,8 @@ def dispatch(tree, user, name, payload):
         return edits.set_tags(tree, payload)
     if name in ("complete", "reopen"):
         return edits.complete(tree, name, payload)
-    if name == "undo":
-        return edits.undo(tree, user, payload)
+    if name in ("undo", "redo"):
+        return reverse(tree, user, name, payload, edits.undo)
     if name in ("move", "reorder", "indent", "outdent", "group"):
         return organize(tree, name, payload)
     raise CommandError("Unknown command.", 404)
@@ -77,23 +79,28 @@ def execute(user, workspace_id, name, body, *, item_id=None, if_match=None):
         return prior.result
     tree = Outline(workspace)
     payload = body["payload"]
-    if item_id is not None:
-        item = tree.get(item_id)
-        if not if_match:
-            raise CommandError("A strong If-Match version is required.", 428)
-        if if_match != etag(item):
-            raise CommandError("This item has changed. Reload and compare the draft.", 412)
-        fields(payload, optional=["title", "due"])
-        result = edits.edit(tree, {**payload, "ids": [str(item_id)]})
-    else:
-        if "expectedRevision" not in body:
-            raise CommandError("A workspace revision is required.", 428)
-        version = body["expectedRevision"]
-        if type(version) is not int or version < 0:
-            raise CommandError("Expected a nonnegative integer revision.")
-        if workspace.revision != version:
-            raise CommandError("The workspace changed. Reload and compare the draft.", 409)
-        result = dispatch(tree, user, name, payload)
+    with recording(workspace) as history:
+        if item_id is not None:
+            item = tree.get(item_id)
+            if not if_match:
+                raise CommandError("A strong If-Match version is required.", 428)
+            if if_match != etag(item):
+                raise CommandError("This item has changed. Reload and compare the draft.", 412)
+            fields(payload, optional=["title", "due"])
+            result = edits.edit(tree, {**payload, "ids": [str(item_id)]})
+        else:
+            if "expectedRevision" not in body:
+                raise CommandError("A workspace revision is required.", 428)
+            version = body["expectedRevision"]
+            if type(version) is not int or version < 0:
+                raise CommandError("Expected a nonnegative integer revision.")
+            if workspace.revision != version:
+                raise CommandError("The workspace changed. Reload and compare the draft.", 409)
+            result = dispatch(tree, user, name, payload)
+        if result.versions:
+            inverse = history.finish(name)
+            if inverse:
+                result.inverse = inverse
     if result.versions:
         workspace.revision += 1
         workspace.save(update_fields=["revision"])

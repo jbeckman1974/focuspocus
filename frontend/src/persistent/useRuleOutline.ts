@@ -5,11 +5,11 @@ import type { Snapshot } from "./api.ts";
 import { outlineQuery } from "./rules.ts";
 import type { Availability, OutlineResult } from "./rules.ts";
 
-export function useRuleOutline(snapshot: Snapshot | null, view: View, availability: Availability, refresh: () => Promise<void>) {
+export function useRuleOutline(snapshot: Snapshot | null, view: View, availability: Availability, viewZone: string, refresh: () => Promise<void>) {
   const id = snapshot?.workspaceId;
   const revision = snapshot?.revision;
   const generation = snapshot?.generation;
-  const query = outlineQuery(view, availability);
+  const query = outlineQuery(view, availability) + (viewZone ? "&viewZone="+encodeURIComponent(viewZone) : "");
   const key = JSON.stringify([id, generation, query]);
   const [state, setState] = useState<{key: string; result?: OutlineResult; message?: string}>();
   const [attempt, setAttempt] = useState(0);

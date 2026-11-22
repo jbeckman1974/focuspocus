@@ -125,6 +125,12 @@ Serialize revision allocation through the locked workspace row until commit. A d
 
 HTTP's strong `If-Match` supports conditional editing. The compound preconditions, error bodies and operation receipts are application contracts. [HTTP semantics, section 13.1.1](https://www.rfc-editor.org/rfc/rfc9110.html#section-13.1.1)
 
+### Outline undo and redo
+
+A reversible command stores its changed item, tag, assignment, series and occurrence rows in a private SQL receipt. This records the small set of modified rows for a title edit. A subtree operation records all rows it changes. Workspace, account and permission settings have separate authorization paths and do not enter this history.
+
+Undo names the acknowledged operation and its write context. Under the same workspace lock the server rechecks the actor, database generation, logical history position, field values and relationships. A later edit that has not been undone gives a recoverable conflict. Undo can traverse multiple adjacent commands, and redo names the receipt for each corresponding undo. Both publish a fresh workspace revision. Recreated records retain their identities and receive fresh versions. A restore fences earlier journal entries. Older M2 completion receipts retain their original rules.
+
 ### Two-browser example for M2
 
 Joe opens the same private Inbox in two profiles. Profile A captures “Check field notes” and loses the acknowledgement. Its retry carries the same key and item UUID. It receives the original receipt and both profiles see one item. Both now read item version 1. A renames it, producing version 2. B edits from version 1, receives a precondition failure and keeps its draft beside the current title. B can choose to reapply its edit to version 2. Moving the item to a project updates both parent lists in one commit. A third profile signed into a different account receives no item, count or event for Joe's workspace. This is a proposed AT-01/AT-17/AT-18 demonstration.

@@ -19,7 +19,7 @@ export function ScheduleDialog({entry,base,apply,close}: {
   const [duration,setDuration]=useState(entry.durationMinutes?.toString() ?? "");
   const [result,setResult]=useState<{query:string;preview:DatePreview}>();
   const [message,setMessage]=useState("");
-  const query=previewQuery(field,text,kind,zone,fold);
+  const query=previewQuery(field,text,kind,zone,fold,base.viewZone);
   const confirmed=result?.query===query ? result.preview : undefined;
   useEffect(()=>{
     const element=dialog.current;

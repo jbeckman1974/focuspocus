@@ -4,6 +4,7 @@ from core.commands.state import Changes, save_changed
 from core.rules.properties import status_updates
 from core.scheduling.recurrence import as_intent, clock_zone
 from core.scheduling.dates import direct_dates, wall_instant
+from core.scheduling.storage import legacy_due_value
 
 from .models import Occurrence, RepeatSeries
 
@@ -36,11 +37,7 @@ def shifted_child(schedule, delta, context):
 
 
 def schedule_updates(schedule):
-    from datetime import date
-
-    due = schedule.get("due")
-    # The M2 date projection stores only a calendar day. Rich dates remain in schedule.
-    return {"schedule": schedule, "due": date.fromisoformat(due["value"][:10]) if due else None}
+    return {"schedule": schedule, "due": legacy_due_value(schedule)}
 
 
 def generate(tree, result, record, plan, context):

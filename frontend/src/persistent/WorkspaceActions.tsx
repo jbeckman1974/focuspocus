@@ -12,6 +12,9 @@ export function WorkspaceActions({
   view,
   selection,
   onSignOut,
+  travel,
+  deviceZone,
+  setTravel,
 }: {
   snapshot: Snapshot;
   channel: WorkspaceChannel;
@@ -19,6 +22,9 @@ export function WorkspaceActions({
   view: View;
   selection: string[];
   onSignOut: () => void;
+  travel: boolean;
+  deviceZone: string;
+  setTravel: (value: boolean) => void;
 }) {
   const [entry, setEntry] = useState<{
     kind: "tag" | "project";
@@ -98,6 +104,9 @@ export function WorkspaceActions({
       )}
       {organize && (
         <OrganizeDialog
+          travel={travel}
+          deviceZone={deviceZone}
+          setTravel={setTravel}
           snapshot={snapshot}
           view={organize.view}
           selection={organize.selection}

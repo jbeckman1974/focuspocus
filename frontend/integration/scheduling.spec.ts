@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { inspector, sidebarDestination, task, taskId } from "../e2e/controls.ts";
+import {
+  inspector,
+  sidebarDestination,
+  task,
+  taskId,
+} from "../e2e/controls.ts";
 import { createDestination, signIn, submitCapture } from "./account.ts";
 
 test("AT-07/09 · preview a due date and complete a repeating action", async ({
@@ -45,8 +50,12 @@ test("AT-07/09 · preview a due date and complete a repeating action", async ({
   expect(successorId).toBeTruthy();
   await page.reload();
   await sidebarDestination(page, project).click();
-  const original = sameTitle.and(page.locator(`[data-task-id="${originalId}"]`));
-  const successor = sameTitle.and(page.locator(`[data-task-id="${successorId}"]`));
+  const original = sameTitle.and(
+    page.locator(`[data-task-id="${originalId}"]`),
+  );
+  const successor = sameTitle.and(
+    page.locator(`[data-task-id="${successorId}"]`),
+  );
   await expect(
     original.getByRole("button", { name: `Reopen ${title}`, exact: true }),
   ).toBeVisible();

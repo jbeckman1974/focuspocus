@@ -6,6 +6,7 @@ from django.core import signing
 
 from core.commands.context import issue_context
 from core.models import Change
+from core.organization import cleanup_mode
 from core.queries.records import read_records
 
 
@@ -55,6 +56,7 @@ def snapshot(workspace, user, view_zone=None):
         "tasks": [row for row in rows if row["kind"] in ("group", "action")],
         "tags": tags,
         "filingPolicy": workspace.filing_policy,
+        "resolvedCleanup": cleanup_mode(user),
         **metadata,
     }
 

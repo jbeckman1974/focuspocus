@@ -4,7 +4,8 @@ from uuid import uuid4
 
 from django.test import TestCase
 
-from core.models import Membership
+from core.models import Item, Membership
+from core.repeats.models import Occurrence
 from .outline_case import OutlineApiMixin
 
 
@@ -76,3 +77,28 @@ class ScheduleApiTests(OutlineApiMixin, TestCase):
         self.assertEqual(self.send("set-date-settings", body).status_code, 403)
         self.client.force_login(self.other)
         self.assertEqual(self.client.get(self.base + "date-preview", {"field": "due", "text": "today"}).status_code, 404)
+
+    def test_active_repeat_requires_its_anchor_on_schedule_bulk_and_legacy_patch(self):
+        ordinary, repeating = self.children
+        due = {"kind": "date", "value": "2026-12-10"}
+        self.update(self.children, due=due)
+        self.command("set-repeat", {"id": repeating, "rule": {
+            "schedule": "completion", "unit": "day", "anchor": "due",
+        }})
+        record = Occurrence.objects.select_related("series").get(item_id=repeating)
+        original = (record.series.version, record.series.origin)
+        self.space.refresh_from_db()
+        revision = self.space.revision
+        urls = self.base + "items/" + repeating
+        tag = self.client.get(urls)["ETag"]
+        response = self.client.patch(urls, self.envelope({"due": None}),
+                                     content_type="application/json", headers={"If-Match": tag})
+        self.assertEqual(response.status_code, 422, response.content)
+        self.command("bulk-edit", {"ids": [ordinary, repeating], "due": None}, 422)
+        self.command("set-schedule", {"ids": [ordinary, repeating], "schedule": {"due": None}}, 422)
+        self.space.refresh_from_db()
+        record.series.refresh_from_db()
+        self.assertEqual(self.space.revision, revision)
+        self.assertEqual((record.series.version, record.series.origin), original)
+        self.assertEqual([item.due.isoformat() for item in Item.objects.filter(pk__in=self.children)],
+                         [due["value"], due["value"]])

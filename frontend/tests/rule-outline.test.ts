@@ -39,7 +39,8 @@ test("project modes use the normal retryable command envelope", () => {
   assert.deepEqual(command.envelope, { context:"context",expectedRevision:5,operationId:"operation",payload:{ids:["p"],mode:"single-action",autoComplete:false}});
 });
 
-import { directoryRows, hasEligibleFiling } from "../src/persistent/lifecycle.ts";
+import { directoryRows } from "../src/outline/directory.ts";
+import { hasEligibleFiling } from "../src/persistent/lifecycle.ts";
 test("nested folder, project and tag navigation retains manual sibling order", () => {
   const rows = directoryRows([
     {id:"sub",title:"Sub",parentId:"top",position:2},
@@ -86,4 +87,16 @@ test("schedule commands preserve independent date fields, time intent and origin
   const write = prepare({type:"set-schedule",ids:["task"],changes},snapshot,()=>"op");
   assert.deepEqual(write.envelope.payload,{ids:["task"],...changes});
   assert.equal(write.envelope.expectedRevision,5);
+});
+
+test("a floating date uses the chosen viewing zone without binding a fixed timezone",()=>{
+  const fields = Object.fromEntries(new URLSearchParams(previewQuery("due","tomorrow at 09:00","floating","America/New_York",0,"Europe/Paris")));
+  assert.equal(fields.viewZone,"Europe/Paris");
+  assert.equal(fields.kind,"floating");
+  assert.equal(fields.zone,undefined);
+});
+
+test("Changed renders a flat chronological list even when parent and child both match",()=>{
+  const query={...result(["a","g"]),view:"changed"};
+  assert.deepEqual(projectedRows(snapshot,query,new Set(["g"])).map(r=>[r.task.id,r.depth,r.hasChildren]),[["a",0,false],["g",0,false]]);
 });

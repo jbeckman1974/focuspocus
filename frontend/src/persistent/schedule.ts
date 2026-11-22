@@ -31,8 +31,9 @@ export function describeDate(value: DateIntent | null | undefined) {
   return [value.value, value.zone, value.kind === "date" ? value.defaultTime : undefined].filter(Boolean).join(" · ");
 }
 
-export function previewQuery(field:DateField, input:string, kind:TimeKind, zone:string, fold:0|1) {
+export function previewQuery(field:DateField, input:string, kind:TimeKind, zone:string, fold:0|1, viewZone?:string) {
   const query = new URLSearchParams({field,text:input.trim(),kind,fold:String(fold)});
+  if(viewZone) query.set("viewZone",viewZone);
   if(kind === "zoned") query.set("zone",zone);
   return query.toString();
 }

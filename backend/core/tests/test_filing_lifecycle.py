@@ -4,27 +4,12 @@ from uuid import uuid4
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 
-from core.commands.context import issue_context
-from core.models import Item, Membership, Workspace
+from core.models import Item
+
+from .outline_case import OutlineApiMixin
 
 
-class LifecycleTests(TestCase):
-    def setUp(self):
-        user = get_user_model().objects.create_user(username="filing-owner")
-        self.workspace = Workspace.objects.create(private_owner=user)
-        Membership.objects.create(user=user, workspace=self.workspace, role="owner")
-        self.context = issue_context(self.workspace, user)
-        self.base = f"/api/v1/workspaces/{self.workspace.pk}/"
-        self.client.force_login(user)
-
-    def command(self, name, payload, status=200):
-        self.workspace.refresh_from_db()
-        envelope = {"context": self.context, "operationId": str(uuid4()),
-                    "expectedRevision": self.workspace.revision, "payload": payload}
-        response = self.client.post(self.base + "commands/" + name, envelope, content_type="application/json")
-        self.assertEqual(response.status_code, status, response.content)
-        return response.json()
-
+class LifecycleTests(OutlineApiMixin, TestCase):
     def create(self, kind, title, **properties):
         pk = str(uuid4())
         if kind == "tag":
@@ -126,7 +111,7 @@ class LifecycleTests(TestCase):
         self.assertEqual(self.command("file-inbox", {})["selection"], [designated])
         self.command("set-filing-policy", {"policy": "tag"})
         self.assertEqual(self.command("file-inbox", {})["selection"], [tagged])
-        misc = Item.objects.get(workspace=self.workspace, is_miscellaneous=True)
+        misc = Item.objects.get(workspace=self.space, is_miscellaneous=True)
         self.assertEqual(self.item(tagged)["parentId"], str(misc.pk))
         self.assertEqual(misc.mode, "single-action")
         later = self.create("action", "Tagged later", tagIds=[tag])

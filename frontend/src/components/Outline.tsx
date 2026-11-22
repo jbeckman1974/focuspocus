@@ -1,3 +1,4 @@
+import { canReorder } from "../outline/views.ts";
 import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { INBOX, visibleRows } from "../outline/index.ts";
@@ -225,7 +226,7 @@ export function Outline(props: OutlineProps) {
         <ActionDialog
           key={panel}
           panel={panel}
-          manualOrder={view.kind !== "tag"}
+          manualOrder={canReorder(view)}
           workspace={workspace}
           selection={selection}
           run={props.run}

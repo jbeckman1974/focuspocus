@@ -101,6 +101,11 @@ class RepeatCalendarTests(unittest.TestCase):
         after = self.advance({**rule, "catchUp": False}, current)
         self.assertEqual(after.schedule["due"], {"kind": "floating", "value": "2027-11-07T01:00", "fold": 1})
 
+    def test_daily_repeat_after_nonexistent_original_clock_returns_to_the_authored_time(self):
+        initial = {"due": stamp("2027-03-14T02:30")}
+        result = self.advance({"schedule": "regular", "unit": "day"}, initial)
+        self.assertEqual(result.schedule["due"]["value"], "2027-03-15T02:30")
+
     def test_validation_and_unrepresentable_final_year(self):
         base = {"schedule": "regular", "unit": "day"}
         for changes in ({"unit": "hour", "weekdays": [1]}, {"unit": "week", "weekdays": [1, True]},

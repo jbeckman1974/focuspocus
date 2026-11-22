@@ -30,7 +30,13 @@ export function visibleRows(
 export function effectiveDone(workspace: Workspace, id: string): boolean {
   const tree = indexWorkspace(workspace);
   const task = tree.task(id);
+  if (task.effective) return task.effective.status === "completed";
   if (task.done) return true;
   for (const parent of tree.ancestors(task)) if (parent.done) return true;
   return false;
+}
+
+
+export function canReorder(view: View) {
+  return ["all", "inbox", "project", "folder", "projects"].includes(view.kind);
 }

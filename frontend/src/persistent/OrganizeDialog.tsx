@@ -7,8 +7,8 @@ import { DateDefaultsForm } from "./DateDefaultsForm.tsx";
 import { Shelf } from "./Shelf.tsx";
 import type { ShelfPage } from "./Shelf.tsx";
 
-export function OrganizeDialog({snapshot,view,selection,run,close}: {
-  snapshot: Snapshot; view:View; selection:string[]; run:(intent: Intent,base:Snapshot)=>boolean; close:()=>void;
+export function OrganizeDialog({snapshot,view,selection,run,close,travel,deviceZone,setTravel}: {
+  snapshot: Snapshot; view:View; selection:string[]; run:(intent: Intent,base:Snapshot)=>boolean; close:()=>void;travel:boolean;deviceZone:string;setTravel:(value:boolean)=>void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [page,setPage]=useState<ShelfPage | "selection">("selection");
@@ -58,6 +58,7 @@ export function OrganizeDialog({snapshot,view,selection,run,close}: {
         </select></label>
         <label><input type="checkbox" checked={tag.exclusive ?? false} onChange={event=>submit({name:"edit-tag",payload:{id:tag.id,exclusive:event.currentTarget.checked}})}/>Mutually exclusive child tags</label>
       </fieldset>}
+      <label><input type="checkbox" checked={travel} onChange={event=>setTravel(event.currentTarget.checked)}/>View floating dates in device time zone ({deviceZone})</label>
       <DateDefaultsForm base={base} submit={intent=>{if(run(intent,base)) close();}}/>
       {view.kind==="inbox" && <fieldset><legend>Inbox filing</legend>
         <label>File items with<select value={snapshot.filingPolicy ?? "project"} onChange={event=>submit({name:"set-filing-policy",payload:{policy:event.currentTarget.value as FilingPolicy}})}>

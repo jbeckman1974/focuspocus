@@ -19,6 +19,7 @@ import { projectedRows, visibleSelection } from "./rules.ts";
 import type { Availability, RuleFields } from "./rules.ts";
 import type { Entry } from "../outline/index.ts";
 import { useClockRefresh } from "./useClockRefresh.ts";
+import { DirectoryLinks } from "./DirectoryLinks.tsx";
 import { ItemTools } from "./ItemTools.tsx";
 import { useRuleOutline } from "./useRuleOutline.ts";
 import { WriteNotice } from "./WriteNotice.tsx";
@@ -79,8 +80,17 @@ function ConnectedOutline({
   const collapsed = collapsedRows[key] ?? new Set<string>();
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
-  useClockRefresh(snapshot?.nextDateBoundary, channel.refresh);
-  const projection = useRuleOutline(snapshot, view, availability, channel.refresh);
+  const [travel, setTravel] = useState(false);
+  const deviceZone = useClockRefresh(snapshot?.nextDateBoundary, channel.refresh);
+  const viewZone = travel ? deviceZone : "";
+  const previousZone = useRef("");
+  useEffect(() => {
+    if (previousZone.current !== viewZone) {
+      previousZone.current = viewZone;
+      void channel.setViewZone(viewZone);
+    }
+  }, [channel, viewZone]);
+  const projection = useRuleOutline(snapshot, view, availability, viewZone, channel.refresh);
   const rows = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
   const selection = visibleSelection(rows, selected[key] ?? []);
   const [showInspector, setShowInspector] = useState(
@@ -114,7 +124,7 @@ function ConnectedOutline({
       setView({ kind: "tag", id: ids[0] });
       return;
     }
-    if (change.intent.type === "set-properties") return;
+    if (change.intent.type === "set-properties" || (change.intent.type === "lifecycle" && change.intent.change.name === "file-inbox")) return;
     const first = ids.find((id) =>
       snapshot.tasks.some((task) => task.id === id),
     );
@@ -187,7 +197,7 @@ function ConnectedOutline({
           setCapture((n) => n + 1);
         }}
         workspaceLabel={username}
-        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut}/>}
+        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut} travel={travel} deviceZone={deviceZone} setTravel={setTravel}/>}
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}
@@ -200,6 +210,7 @@ function ConnectedOutline({
           count={projection.result?.count}
           tools={<div className="private-outline-tools">
             <AvailabilityFilter value={availability} change={value => setFilters(current => ({...current, [key]:value}))}/>
+            <DirectoryLinks snapshot={snapshot} view={view} result={projection.result} choose={setView}/>
             {project && controls(project, "project")}
             {folder && controls(folder, "folder")}
             {projection.message && <p role="alert">{projection.message} <button onClick={projection.retry}>Retry outline</button></p>}

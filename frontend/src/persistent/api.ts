@@ -17,6 +17,7 @@ export interface Snapshot {
   context: string;
   cursor: string;
   timeZone?: string;
+  viewZone?: string;
   dateDefaults?: DateDefaults;
   nextDateBoundary?: string | null;
   filingPolicy?: FilingPolicy;
@@ -89,8 +90,10 @@ export function workspaceApi(
   signal: AbortSignal,
 ) {
   let csrf = initialCsrf;
+  let viewZone = "";
   const base = "/api/v1/workspaces/" + encodeURIComponent(id);
   return {
+    setViewZone(value:string) { viewZone=value; },
     async verifySession() {
       const session = await readSession(signal);
       const membership = session.workspaces.find((space) => space.id === id);
@@ -100,7 +103,7 @@ export function workspaceApi(
       csrf = session.csrfToken;
       return membership.role === "owner" || membership.role === "editor";
     },
-    snapshot: () => jsonRequest<Snapshot>(base + "/snapshot", { signal }),
+    snapshot: () => jsonRequest<Snapshot>(base + "/snapshot" + (viewZone ? "?viewZone="+encodeURIComponent(viewZone) : ""), { signal }),
     changes: (cursor: string) =>
       jsonRequest<{ revision: number; changes: unknown[] }>(
         base + "/changes?after=" + encodeURIComponent(cursor),

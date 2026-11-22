@@ -9,6 +9,11 @@ def day(value):
     return {"kind": "date", "value": value}
 
 
+def expected_stored_days(schedule):
+    clocks = {"defer": "00:00", "planned": "00:00", "due": "17:00"}
+    return {field: {**intent, "defaultTime": clocks[field]} for field, intent in schedule.items()}
+
+
 class ReferenceDateTests(ReferenceWorkspaceCase):
     def setUp(self):
         super().setUp()
@@ -47,15 +52,16 @@ class ReferenceDateTests(ReferenceWorkspaceCase):
             return next(row for row in rows if row["id"] == self.ids[key])
 
         inherited = record("A09", "P02")["effective"]["schedule"]
-        for name, intent in group_dates.items():
+        for name, intent in expected_stored_days(group_dates).items():
             self.assertEqual(inherited[name]["source"], self.ids["G03"])
             self.assertEqual(inherited[name]["value"], intent)
         self.send("move", {"ids": [self.ids["A09"], self.ids["A10"]], "parentId": self.ids["P03"]})
         cleared = record("A09", "P03")["effective"]["schedule"]
         self.assertTrue(all(cleared.get(name) is None for name in group_dates))
         direct = record("A10", "P03")
-        self.assertEqual(direct["schedule"], child_dates)
-        for name, intent in child_dates.items():
+        stored = expected_stored_days(child_dates)
+        self.assertEqual(direct["schedule"], stored)
+        for name, intent in stored.items():
             self.assertEqual(direct["effective"]["schedule"][name]["value"], intent)
             self.assertEqual(direct["effective"]["schedule"][name]["source"], self.ids["A10"])
 
@@ -67,6 +73,7 @@ class ReferenceDateTests(ReferenceWorkspaceCase):
             view = self.read("outline", view="projects", projectId=self.ids["P06"], availability="available")
         self.assertIn(self.ids["A18"], view["matchIds"])
         row = next(item for item in view["rows"] if item["id"] == self.ids["A18"])
-        self.assertEqual(row["schedule"]["due"], dates["due"])
-        self.assertEqual(row["schedule"]["planned"], day("2026-11-22"))
+        self.assertEqual(row["schedule"], expected_stored_days({
+            "planned": day("2026-11-22"), "due": dates["due"],
+        }))
         self.assertEqual(row["durationMinutes"], 30)

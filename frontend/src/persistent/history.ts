@@ -5,7 +5,7 @@ export class CommandHistory {
   private future: Receipt[] = [];
 
   get current() {
-    return {undo:this.past.at(-1) ?? null, redo:this.future.at(-1) ?? null};
+    return { undo: this.past.at(-1) ?? null, redo: this.future.at(-1) ?? null };
   }
 
   clear() {
@@ -14,16 +14,16 @@ export class CommandHistory {
     return this.current;
   }
 
-  acknowledge(name:string, receipt:Receipt) {
+  acknowledge(name: string, receipt: Receipt) {
     if (name === "undo") {
       this.past.pop();
       if (receipt.undoable) this.future.push(receipt);
     } else {
-      if(name === "redo") this.future.pop();
+      if (name === "redo") this.future.pop();
       else this.future = [];
-      if(receipt.undoable) {
+      if (receipt.undoable) {
         this.past.push(receipt);
-        if(this.past.length > 100) this.past.shift();
+        if (this.past.length > 100) this.past.shift();
       }
     }
     return this.current;

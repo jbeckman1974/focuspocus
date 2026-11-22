@@ -13,6 +13,12 @@ export interface Task extends Entry {
   tags: string[];
   due: string | null;
   done: boolean;
+  effective?: {
+    status: "active" | "held" | "dropped" | "completed";
+    flagged: boolean;
+    blocked: boolean;
+    reason: string | null;
+  };
 }
 
 export interface Workspace {

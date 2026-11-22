@@ -21,6 +21,7 @@ function fixture(custom: Partial<WorkspaceApi> = {}) {
   let snapshot = first;
   let submissions: object[] = [];
   const api: WorkspaceApi = {
+    setViewZone: () => {},
     verifySession: async () => true,
     snapshot: async () => snapshot,
     changes: async () => ({ revision: snapshot.revision, changes: [] }),

@@ -1,5 +1,6 @@
 from django.db.models import Max
 
+from core.history.recording import create_many
 from core.models import Item, ItemTag, Receipt
 
 from .completion import apply_status, restore_statuses
@@ -64,8 +65,8 @@ def capture(tree, data):
     result = Changes([str(item.pk) for item in pending])
     if len(set(result.selection)) != len(pending):
         raise CommandError("Duplicate item identifiers.")
-    Item.objects.bulk_create(pending)
-    ItemTag.objects.bulk_create(links)
+    create_many(Item, pending)
+    create_many(ItemTag, links)
     for item in pending:
         result.touch(item)
     return result
@@ -111,5 +112,8 @@ def undo(tree, user, data):
     if tree.workspace.revision != receipt.result["revision"]:
         raise CommandError("The workspace changed after this completion.", 409)
     result = Changes(receipt.result["selection"])
+    if receipt.inverse.get("recurrences"):
+        from core.repeats.resolution import undo_resolutions
+        undo_resolutions(tree, result, receipt.inverse)
     restore_statuses(tree, result, receipt.inverse)
     return result

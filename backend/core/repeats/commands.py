@@ -7,7 +7,7 @@ from django.utils import timezone
 from core.commands.completion import apply_status
 from core.commands.state import Changes, save_changed
 from core.commands.validation import CommandError, fields, identifier
-from core.scheduling.recurrence import next_occurrence
+from .schedule_changes import validate_rule_schedule
 from core.scheduling.repeat_rule import RepeatRule
 
 from .models import Occurrence, RepeatSeries
@@ -30,8 +30,7 @@ def set_repeat(tree, item, record, data):
         raise CommandError("The specified series is unavailable.", 409)
     try:
         rule = RepeatRule.from_wire(data["rule"])
-        # Validate anchor, date precision and rule together even for terminal counts.
-        next_occurrence(rule, item.schedule, workspace_clock(tree.workspace), remaining=2)
+        validate_rule_schedule(rule, item.schedule, workspace_clock(tree.workspace), item.schedule)
     except (ValueError, OverflowError) as error:
         raise CommandError(str(error)) from error
     if record is None:
@@ -102,6 +101,8 @@ def dispatch(tree, name, data):
             raise CommandError("Choose the current occurrence of an active series.", 409)
         if name == "skip-occurrence":
             apply_status(tree, result, [item], "dropped", skip=True)
+            if not result.versions:
+                raise CommandError("Reopen the resolved parent before skipping this occurrence.", 409)
         else:
             record.series.active = False
             record.series.version += 1

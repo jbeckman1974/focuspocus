@@ -27,11 +27,18 @@ def parse_day(text, today):
 def preview_entry(text, field, context, kind="floating", zone=None, fold=0):
     if not isinstance(text, str) or len(text) > 80 or field not in FIELDS:
         raise ValueError("Enter a short date expression for a schedule field.")
-    if kind not in ("floating", "zoned") or (kind == "floating" and zone is not None):
-        raise ValueError("Choose floating or a named timezone for local clock input.")
+    if kind not in ("date", "floating", "zoned", "instant") or (kind != "zoned" and zone is not None):
+        raise ValueError("Choose a date intent and an IANA zone only for zoned input.")
+    if kind == "instant":
+        intent = DateIntent.from_wire({"kind": "instant", "value": text.strip()})
+        return interpreted(intent, field, context, context.zone)
     display_zone = calendar_zone(zone) if kind == "zoned" else context.zone
     text = " ".join(text.strip().lower().split())
     local = re.fullmatch(r"(.+?)(?: at |t| )(" + CLOCK + ")", text)
+    if local and kind == "date":
+        raise ValueError("Choose a time-bearing intent for an explicit clock.")
+    if not local:
+        display_zone = context.zone
     day = parse_day(local[1] if local else text, context.now.astimezone(display_zone).date())
     if local:
         stamp = datetime.combine(day, clock_value(local[2]))
@@ -40,8 +47,12 @@ def preview_entry(text, field, context, kind="floating", zone=None, fold=0):
             raw["zone"] = zone
     else:
         raw = {"kind": "date", "value": day.isoformat(), "defaultTime": context.defaults[field].strftime("%H:%M")}
-    value = DateIntent.from_wire(raw)
+    return interpreted(DateIntent.from_wire(raw), field, context, display_zone)
+
+
+def interpreted(value, field, context, display_zone):
     instant = value.instant(field, context)
-    display = instant.astimezone(display_zone if local else context.zone)
-    return {"value": value.wire(), "instant": instant.isoformat(), "display": display.isoformat(),
-            "zone": (display_zone if local else context.zone).key}
+    return {
+        "value": value.wire(), "instant": instant.isoformat(),
+        "display": instant.astimezone(display_zone).isoformat(), "zone": display_zone.key,
+    }
