@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 from unittest.mock import patch
 
 from django.test import TestCase
@@ -81,6 +81,26 @@ class CalendarServiceTests(OutlineApiMixin, TestCase):
             self.assertTrue(jobs.run_one())
             provider.assert_not_called()
         self.assertEqual(Job.objects.get().last_error, "authorization_revoked")
+
+    def test_first_calendar_connection_refreshes_an_already_open_forecast(self):
+        instant = datetime(2026, 11, 21, 16, 0, tzinfo=timezone.utc)
+        url = self.base + "planning/forecast"
+        params = {"start": "2026-11-21", "days": 3, "viewZone": "America/New_York"}
+        with patch("django.utils.timezone.now", return_value=instant):
+            empty = self.client.get(url, params).json()
+            self.assertEqual(empty["nextDateBoundary"], (instant + timedelta(minutes=1)).isoformat())
+            self.assertFalse(any(day["events"] for day in empty["days"]))
+            self.assertEqual(self.calendar("connect").status_code, 200)
+            self.run_refresh(200, fixture())
+            refreshed = self.client.get(url, params).json()
+            self.assertTrue(refreshed["days"][0]["events"])
+            self.calendar("disconnect")
+            self.assertEqual(self.client.get(url, params).json()["nextDateBoundary"], empty["nextDateBoundary"])
+
+            Membership.objects.create(workspace=self.space, user=self.other, role="viewer")
+            self.client.force_login(self.other)
+            next_day = datetime.fromisoformat(self.client.get(url, params).json()["nextDateBoundary"])
+            self.assertEqual(next_day, datetime(2026, 11, 22, 5, 0, tzinfo=timezone.utc))
 
     def test_recurring_local_time_across_dst_exception_and_cancelled_instance(self):
         raw = feed(*event("UID:field", "DTSTART;TZID=America/New_York:20260302T090000",

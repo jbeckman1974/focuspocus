@@ -128,7 +128,8 @@ def add_to_forecast(days, workspace, user, zone):
     connections = CalendarConnection.objects.filter(workspace=workspace, user=user, source__in=allowed).exclude(
         status__in=("disconnected", "source_unavailable", "calendar_access_expired"))
     if not connections.exists():
-        return False
+        # Another tab may connect the first feed before this tab reaches midnight.
+        return True
     first_day, last_day = days[0]["date"], days[-1]["date"]
     def utc_bound(day, clock):
         local = datetime.combine(date.fromisoformat(day), clock, zone)
