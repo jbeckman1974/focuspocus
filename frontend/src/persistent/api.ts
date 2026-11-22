@@ -1,5 +1,8 @@
 import type { Entry, Task } from "../outline/index.ts";
 
+import type { FilingPolicy, TagStatus } from "./lifecycle.ts";
+import type { RuleFields } from "./rules.ts";
+
 export interface Session {
   user: { id: number; username: string } | null;
   workspaces: { id: string; role: string }[];
@@ -12,9 +15,11 @@ export interface Snapshot {
   generation: string;
   context: string;
   cursor: string;
-  tasks: (Task & { version: number })[];
-  tags: (Entry & { version: number })[];
-  projects: (Entry & { version: number })[];
+  filingPolicy?: FilingPolicy;
+  tasks: (Task & RuleFields & { version: number; filingProjectId?:string|null })[];
+  folders?: (Entry & RuleFields & { version: number })[];
+  tags: (Entry & { version: number; parentId?: string|null; status?:TagStatus; exclusive?:boolean })[];
+  projects: (Entry & RuleFields & { version: number })[];
 }
 
 export interface Receipt {

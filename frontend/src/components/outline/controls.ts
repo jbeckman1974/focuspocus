@@ -5,8 +5,14 @@ export function viewTitle(view: View, workspace: Workspace): string {
   switch (view.kind) {
     case "inbox":
       return "Inbox";
+    case "projects": return "Projects";
+    case "tags": return "Tags";
+    case "flagged": return "Flagged";
+    case "completed": return "Completed";
+    case "changed": return "Changed";
     case "all":
       return "Everything";
+    case "folder": return workspace.folders?.find(entry => entry.id===view.id)?.title ?? "Folder";
     case "project":
       return (
         workspace.projects.find((entry) => entry.id === view.id)?.title ??

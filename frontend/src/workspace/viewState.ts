@@ -15,6 +15,8 @@ export function viewKey(view: View): string {
 
 export function viewExists(workspace: Workspace, view: View): boolean {
   switch (view.kind) {
+    case "folder":
+      return Boolean(workspace.folders?.some(folder => folder.id === view.id));
     case "project":
       return workspace.projects.some((project) => project.id === view.id);
     case "tag":

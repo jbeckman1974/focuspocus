@@ -1,6 +1,7 @@
+import type { ReactNode } from "react";
 import { useMemo, useRef, useState } from "react";
 import { INBOX, visibleRows } from "../outline/index.ts";
-import type { Command, Task, View, Workspace } from "../outline/index.ts";
+import type { Command, Task, View, Workspace, OutlineRow } from "../outline/index.ts";
 import { viewKey } from "../workspace/viewState.ts";
 import { Capture } from "./outline/Capture.tsx";
 import { TaskTree } from "./outline/TaskTree.tsx";
@@ -11,6 +12,9 @@ import { viewTitle } from "./outline/controls.ts";
 import "./outline/outline.css";
 
 interface OutlineProps {
+  rows?: OutlineRow[];
+  tools?: ReactNode;
+  count?: number;
   workspace: Workspace;
   view: View;
   selection: string[];
@@ -30,8 +34,8 @@ interface OutlineProps {
 export function Outline(props: OutlineProps) {
   const { workspace, view, selection } = props;
   const rows = useMemo(
-    () => visibleRows(workspace, view, props.collapsed),
-    [workspace, view, props.collapsed],
+    () => props.rows ?? visibleRows(workspace, view, props.collapsed),
+    [workspace, view, props.collapsed, props.rows],
   );
   const tree = useRef<HTMLDivElement>(null);
   const identity = viewKey(view);
@@ -48,6 +52,7 @@ export function Outline(props: OutlineProps) {
       : undefined;
   const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
   const title = viewTitle(view, workspace);
+  const count = props.count ?? rows.length;
 
   function focusTree() {
     tree.current?.focus({ preventScroll: true });
@@ -99,7 +104,7 @@ export function Outline(props: OutlineProps) {
         <div className="outline-heading-title">
           <h1>{title}</h1>
           <span className="outline-count">
-            {rows.length} {rows.length === 1 ? "item" : "items"}
+            {count} {count === 1 ? "item" : "items"}
           </span>
         </div>
         <div className="outline-history" aria-label="Edit history">
@@ -123,6 +128,7 @@ export function Outline(props: OutlineProps) {
           </button>
         </div>
       </header>
+      {props.tools}
       <Capture
         identity={identity}
         destination={view.kind === "project" ? title : "Inbox"}

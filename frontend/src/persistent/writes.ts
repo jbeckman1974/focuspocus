@@ -1,9 +1,15 @@
 import type { Command } from "../outline/index.ts";
 import type { Receipt, Snapshot } from "./api.ts";
 
+import type { LifecycleChange } from "./lifecycle.ts";
+import type { Properties } from "./rules.ts";
+
 export type Intent =
+  | { type: "lifecycle"; change: LifecycleChange }
+  | { type: "folder"; title: string; parentId: string }
+  | { type: "set-properties"; ids: string[]; properties: Properties }
   | Command
-  | { type: "project" | "tag"; title: string }
+  | { type: "project" | "tag"; title: string; parentId?: string }
   | { type: "undo"; receipt: Receipt };
 
 export interface Write {
@@ -33,6 +39,12 @@ export function prepare(
     intent,
   });
   switch (intent.type) {
+    case "lifecycle":
+      return command(intent.change.name, intent.change.payload);
+    case "folder":
+      return command("create-container",{id:uuid(),kind:"folder",title:intent.title,parentId:intent.parentId});
+    case "set-properties":
+      return command(intent.type, {ids: intent.ids, ...intent.properties});
     case "project":
     case "tag":
       return command(
@@ -40,6 +52,7 @@ export function prepare(
         {
           id: uuid(),
           title: intent.title,
+          ...(intent.parentId ? {parentId:intent.parentId}:{}),
         },
       );
     case "capture":
@@ -82,6 +95,8 @@ export function prepare(
 }
 
 export function describeDraft(intent: Intent, snapshot: Snapshot) {
+  if (intent.type === "lifecycle") return intent.change.name.replaceAll("-", " ");
+  if (intent.type === "set-properties") return Object.entries(intent.properties).map(([field, value]) => field + " " + String(value)).join(", ");
   if (intent.type === "capture") return intent.titles.join(", ");
   if ("title" in intent) return intent.title;
   if (intent.type === "setDue") return intent.due ?? "Clear due date";

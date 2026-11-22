@@ -1,8 +1,10 @@
 import type { View, Workspace } from "../../outline/index.ts";
+import { directoryRows } from "../../persistent/lifecycle.ts";
 import { Icon } from "./Icon.tsx";
 import type { IconName } from "./Icon.tsx";
 
 interface NavigationProps {
+  standardViews?: boolean;
   workspace: Workspace;
   view: View;
   onView: (view: View) => void;
@@ -16,7 +18,16 @@ function isCurrent(view: View, target: View): boolean {
   );
 }
 
+const perspectives = [
+  { label: "Projects", icon: "projects", target: { kind: "projects" } },
+  { label: "Tags", icon: "tags", target: { kind: "tags" } },
+  { label: "Flagged", icon: "flag", target: { kind: "flagged" } },
+  { label: "Completed", icon: "complete", target: { kind: "completed" } },
+  { label: "Changed", icon: "changed", target: { kind: "changed" } },
+] as const;
+
 export function Rail({
+  standardViews,
   workspace,
   view,
   onView,
@@ -27,13 +38,14 @@ export function Rail({
   ];
   const project = workspace.projects[0];
   const tag = workspace.tags[0];
-  if (project)
+  if (standardViews) links.push(...perspectives);
+  if (!standardViews && project)
     links.push({
       label: "Projects",
       icon: "projects",
       target: { kind: "project", id: project.id },
     });
-  if (tag)
+  if (!standardViews && tag)
     links.push({
       label: "Tags",
       icon: "tags",
@@ -76,6 +88,7 @@ interface SidebarProps extends NavigationProps {
 }
 
 export function Sidebar({
+  standardViews,
   workspace,
   view,
   onView,
@@ -97,6 +110,10 @@ export function Sidebar({
     </button>
   );
 
+  const directory = directoryRows([
+    ...(workspace.folders ?? []).map(folder => ({...folder,kind:"folder" as const})),
+    ...workspace.projects.map(project => ({...project,kind:"project" as const})),
+  ], "root");
   return (
     <nav
       className="fp-sidebar"
@@ -121,23 +138,21 @@ export function Sidebar({
           <section aria-label="Perspectives">
             <h3>Perspectives</h3>
             {link("Inbox", "inbox", { kind: "inbox" })}
+            {standardViews && perspectives.map(p => link(p.label, p.icon, p.target))}
             {link("All tasks", "all", { kind: "all" })}
           </section>
         )}
         <section aria-label="Projects">
           <h3>Projects</h3>
-          {workspace.projects.map((project) =>
-            link(project.title, "projects", {
-              kind: "project",
-              id: project.id,
-            }),
-          )}
+          {directory.map(({entry,depth}) => <div key={entry.id} style={{paddingInlineStart: Math.min(depth, 8) * 12}}>
+            {link(entry.title, "projects", {kind:entry.kind,id:entry.id})}
+          </div>)}
         </section>
         <section aria-label="Tags">
           <h3>Tags</h3>
-          {workspace.tags.map((tag) =>
-            link(tag.title, "tags", { kind: "tag", id: tag.id }),
-          )}
+          {directoryRows(workspace.tags,null).map(({entry,depth}) => <div key={entry.id} style={{paddingInlineStart: Math.min(depth, 8) * 12}}>
+            {link(entry.title, "tags", {kind:"tag",id:entry.id})}
+          </div>)}
         </section>
       </div>
       {compact && (

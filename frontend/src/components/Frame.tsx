@@ -20,6 +20,8 @@ interface FrameProps {
   onReset?: () => void;
   workspaceLabel?: string;
   accountControls?: ReactNode;
+  inspectorTools?: ReactNode;
+  standardViews?: boolean;
   pendingTag?: Extract<Command, { type: "setTag" }>;
   mutationsDisabled?: boolean;
   children: ReactNode;
@@ -47,6 +49,8 @@ export function Frame({
   onReset,
   workspaceLabel,
   accountControls,
+  inspectorTools,
+  standardViews,
   mutationsDisabled,
   pendingTag,
   children,
@@ -146,6 +150,7 @@ export function Frame({
   const navigation = {
     workspace,
     view,
+    standardViews,
     onView: chooseView,
     onPreferences: () => setPreferencesOpen(true),
   };
@@ -271,6 +276,7 @@ export function Frame({
             onClose={closeInspector}
             mutationsDisabled={mutationsDisabled}
             pendingTag={pendingTag}
+            tools={inspectorTools}
           />
         </div>
       </div>

@@ -4,6 +4,9 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 from core.access import locked_membership
+from core.commands.validation import CommandError
+from core.queries.outline import options, project_outline
+from core.queries.records import read_records
 
 from . import feed
 from .health import schema_ready
@@ -20,6 +23,15 @@ def workspace_read(request, workspace_id, mode):
             return JsonResponse({"error": "not_found"}, status=404)
         if mode == "snapshot":
             payload = feed.snapshot(workspace, request.user)
+        elif mode == "outline":
+            try:
+                view, availability, project_id, tag_id, folder_id = options(request.GET)
+                rows, tags = read_records(workspace)
+                projection = project_outline(rows, tags, view=view, availability=availability,
+                                             project_id=project_id, tag_id=tag_id, folder_id=folder_id)
+            except CommandError as error:
+                return JsonResponse({"error": str(error)}, status=error.status)
+            payload = {"workspaceId": str(workspace.pk), "revision": workspace.revision, **projection}
         else:
             try:
                 limit = int(request.GET.get("limit", feed.PAGE_SIZE))

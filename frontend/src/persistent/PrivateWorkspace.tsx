@@ -4,7 +4,6 @@ import { Outline } from "../components/Outline.tsx";
 import {
   homeView,
   inbox,
-  reconcileSelection,
   viewExists,
   viewKey,
   containsSelection,
@@ -12,9 +11,14 @@ import {
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
 import { workspaceApi } from "./api.ts";
-import type { Snapshot } from "./api.ts";
 import { WorkspaceChannel } from "./channel.ts";
-import { NewEntry } from "./NewEntry.tsx";
+import { WorkspaceActions } from "./WorkspaceActions.tsx";
+import { hasEligibleFiling } from "./lifecycle.ts";
+import { AvailabilityFilter, RuleControls } from "./RuleControls.tsx";
+import { projectedRows, visibleSelection } from "./rules.ts";
+import type { Availability, Properties, RuleFields } from "./rules.ts";
+import type { Entry } from "../outline/index.ts";
+import { useRuleOutline } from "./useRuleOutline.ts";
 import { WriteNotice } from "./WriteNotice.tsx";
 
 interface Props {
@@ -71,20 +75,16 @@ function ConnectedOutline({
     {},
   );
   const collapsed = collapsedRows[key] ?? new Set<string>();
-  const selection = snapshot
-    ? reconcileSelection(snapshot, view, collapsed, selected[key] ?? [])
-        .selection
-    : [];
+  const [filters, setFilters] = useState<Record<string, Availability>>({});
+  const availability = filters[key] ?? "everything";
+  const projection = useRuleOutline(snapshot, view, availability, channel.tick);
+  const rows = snapshot && projection.result ? projectedRows(snapshot, projection.result, collapsed) : [];
+  const selection = visibleSelection(rows, selected[key] ?? []);
   const [showInspector, setShowInspector] = useState(
     () => window.innerWidth > 850,
   );
   const [mode, setMode] = useState<"inline" | "inspector">("inline");
   const [capture, setCapture] = useState(0);
-  const [entry, setEntry] = useState<{
-    kind: "project" | "tag";
-    target?: { id: string; title: string };
-    base: Snapshot;
-  }>();
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
   useEffect(() => {
@@ -103,17 +103,23 @@ function ConnectedOutline({
       setView({ kind: "project", id: ids[0] });
       return;
     }
+    if (change.intent.type === "folder") {
+      setView({kind:"folder",id:ids[0]});
+      return;
+    }
     if (change.intent.type === "tag") {
       setView({ kind: "tag", id: ids[0] });
       return;
     }
+    if (change.intent.type === "set-properties") return;
     const first = ids.find((id) =>
       snapshot.tasks.some((task) => task.id === id),
     );
     if (!first) return;
-    const destination = containsSelection(snapshot, view, ids)
-      ? view
-      : homeView(snapshot, first);
+    const relocating = ["move", "capture", "group", "indent", "outdent"].includes(change.intent.type);
+    const destination = relocating && !containsSelection(snapshot, view, ids)
+      ? homeView(snapshot, first)
+      : view;
     setView(destination);
     setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
   }, [state.lastChange, snapshot, view]);
@@ -146,14 +152,30 @@ function ConnectedOutline({
     ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase)
       ? tagIntent
       : undefined;
+  function controls(entry: Entry & RuleFields, kind: "project" | "group" | "action" | "folder") {
+    const pending = tagIntent?.type === "set-properties" && tagIntent.ids.includes(entry.id) &&
+      ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase) ? tagIntent.properties : undefined;
+    return <RuleControls entry={entry} kind={kind} pending={pending} disabled={state.phase !== "ready"}
+      change={(properties: Properties) => channel.run({type: "set-properties", ids:[entry.id], properties})} />;
+  }
+  const project = view.kind === "project" ? snapshot.projects.find(p => p.id === view.id) : undefined;
+  const folder = view.kind === "folder" ? snapshot.folders?.find(f => f.id === view.id) : undefined;
+  const task = selection.length === 1 ? snapshot.tasks.find(t => t.id === selection[0]) : undefined;
   return (
     <div {...drafts.bindings}>
       <Frame
+        standardViews
+        inspectorTools={task ? controls(task, task.kind) : undefined}
         mutationsDisabled={state.phase !== "ready"}
         pendingTag={pendingTag}
         workspace={snapshot}
         view={view}
-        onView={setView}
+        onView={next=>{
+          if(view.kind==="inbox" && next.kind!=="inbox" && state.phase==="ready" && hasEligibleFiling(snapshot)) {
+            channel.run({type:"lifecycle",change:{name:"file-inbox",payload:{}}},snapshot);
+          }
+          setView(next);
+        }}
         selection={selection}
         onSelect={choose}
         run={run}
@@ -163,47 +185,7 @@ function ConnectedOutline({
           setCapture((n) => n + 1);
         }}
         workspaceLabel={username}
-        accountControls={
-          <div className="private-actions">
-            <button
-              disabled={state.phase !== "ready"}
-              onClick={() => setEntry({ kind: "project", base: snapshot })}
-            >
-              New project
-            </button>
-            <button
-              disabled={state.phase !== "ready"}
-              onClick={() => setEntry({ kind: "tag", base: snapshot })}
-            >
-              New tag
-            </button>
-            {view.kind === "project" && (
-              <button
-                disabled={state.phase !== "ready"}
-                onClick={() =>
-                  setEntry({
-                    kind: "project",
-                    target: snapshot.projects.find((p) => p.id === view.id),
-                    base: snapshot,
-                  })
-                }
-              >
-                Rename project
-              </button>
-            )}
-            <button
-              onClick={() => {
-                if (
-                  !state.pending ||
-                  window.confirm("Leave this workspace with a pending change?")
-                )
-                  onSignOut();
-              }}
-            >
-              Sign out
-            </button>
-          </div>
-        }
+        accountControls={<WorkspaceActions channel={channel} state={state} snapshot={snapshot} view={view} selection={selection} onSignOut={onSignOut}/>}
         inspectorOpen={showInspector}
         setInspectorOpen={setShowInspector}
         editMode={mode}
@@ -212,6 +194,14 @@ function ConnectedOutline({
       >
         <WriteNotice state={state} channel={channel} />
         <Outline
+          rows={rows}
+          count={projection.result?.count}
+          tools={<div className="private-outline-tools">
+            <AvailabilityFilter value={availability} change={value => setFilters(current => ({...current, [key]:value}))}/>
+            {project && controls(project, "project")}
+            {folder && controls(folder, "folder")}
+            {projection.message && <p role="alert">{projection.message} <button onClick={projection.retry}>Retry outline</button></p>}
+          </div>}
           workspace={snapshot}
           view={view}
           selection={selection}
@@ -239,21 +229,6 @@ function ConnectedOutline({
             );
           }}
         />
-        {entry && (
-          <NewEntry
-            kind={entry.kind}
-            initialTitle={entry.target?.title}
-            onCreate={(title) =>
-              channel.run(
-                entry.target
-                  ? { type: "rename", id: entry.target.id, title }
-                  : { type: entry.kind, title },
-                entry.base,
-              )
-            }
-            onClose={() => setEntry(undefined)}
-          />
-        )}
       </Frame>
     </div>
   );

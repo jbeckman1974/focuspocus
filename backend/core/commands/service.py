@@ -8,7 +8,7 @@ from django.db import transaction
 from core.access import locked_membership
 from core.models import Change, Receipt
 
-from . import edits
+from . import edits, lifecycle, properties
 from .context import validate_context
 from .state import Outline
 from .structure import organize
@@ -33,6 +33,10 @@ def etag(item):
 def dispatch(tree, user, name, payload):
     if name in ("create-container", "create-tag"):
         return edits.create_entry(tree, name, payload)
+    if name == "set-properties":
+        return properties.set_properties(tree, payload)
+    if name in lifecycle.COMMANDS:
+        return lifecycle.dispatch(tree, name, payload)
     if name == "capture":
         return edits.capture(tree, payload)
     if name == "bulk-edit":

@@ -2,9 +2,15 @@
 
 from dataclasses import dataclass, field
 
+from django.utils import timezone
+
 from core.models import Item, Tag
 
 from .validation import CommandError, identifier, identifiers
+
+
+LIBRARY_KINDS = {"project", "folder"}
+TASK_KINDS = {"action", "group"}
 
 
 @dataclass
@@ -20,7 +26,7 @@ class Changes:
 class Outline:
     def __init__(self, workspace):
         self.workspace = workspace
-        self.items = Item.objects.filter(workspace=workspace)
+        self.items = Item.objects.filter(workspace=workspace, shelf="active")
         self.tags = Tag.objects.filter(workspace=workspace)
 
     def get(self, pk):
@@ -36,16 +42,20 @@ class Outline:
             raise CommandError("Item unavailable.", 404)
         return [objects[pk] for pk in ids]
 
-    def parent(self, value):
-        if value == "inbox":
+    def parent(self, value, *, library=False):
+        if value == ("root" if library else "inbox"):
             return None
+        if value in ("root", "inbox"):
+            raise CommandError("These items cannot move into that list.")
         obj = self.get(identifier(value))
-        if obj.kind not in ("project", "group"):
-            raise CommandError("Choose an Inbox, a project or an action group.")
+        allowed = {"folder"} if library else {"project", "group"}
+        if obj.kind not in allowed:
+            raise CommandError("Invalid parent for these items.")
         return obj
 
-    def siblings(self, parent_id):
-        return self.items.filter(parent_id=parent_id).exclude(kind="project").order_by("position", "id")
+    def siblings(self, parent_id, *, library=False):
+        kinds = LIBRARY_KINDS if library else TASK_KINDS
+        return self.items.filter(parent_id=parent_id, kind__in=kinds).order_by("position", "id")
 
 
 def save_changed(obj, changes, **values):
@@ -54,6 +64,9 @@ def save_changed(obj, changes, **values):
         return
     for key in changed:
         setattr(obj, key, values[key])
+    if isinstance(obj, Item):
+        obj.changed_at = timezone.now()
+        changed.add("changed_at")
     obj.version += 1
     obj.save(update_fields=[*changed, "version"])
     changes.touch(obj)
@@ -63,10 +76,10 @@ def direct_item(item):
     return {
         "id": str(item.pk),
         "kind": item.kind,
-        "parentId": str(item.parent_id) if item.parent_id else ("root" if item.kind == "project" else "inbox"),
+        "parentId": str(item.parent_id) if item.parent_id else ("root" if item.kind in LIBRARY_KINDS else "inbox"),
         "title": item.title,
         "due": item.due.isoformat() if item.due else None,
         "done": item.done,
-        "tags": [str(pk) for pk in item.tags.order_by("id").values_list("pk", flat=True)],
+        "tags": sorted(str(tag.pk) for tag in item.tags.all()),
         "version": item.version,
     }

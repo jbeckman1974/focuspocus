@@ -22,6 +22,8 @@ export function visibleRows(
       return [...tree.walk(tree.roots)]
         .filter(({ task }) => task.tags.includes(view.id))
         .map(({ task }) => ({ task, depth: 0, hasChildren: false }));
+    default:
+      return [];
   }
 }
 

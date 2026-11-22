@@ -38,7 +38,7 @@ def marker(item_id):
 
 
 def ordered_ids(snapshot, workspace):
-    if snapshot["workspaceId"] != workspace or snapshot["projects"] or snapshot["tags"]:
+    if snapshot["workspaceId"] != workspace or snapshot["projects"] or snapshot.get("folders") or snapshot["tags"]:
         raise ProbeError("The workspace contains other resources or its identity has changed.")
     result = []
     for task in snapshot["tasks"]:

@@ -3,10 +3,10 @@
 from datetime import timedelta
 
 from django.core import signing
-from django.db.models import Prefetch
 
 from core.commands.context import issue_context
-from core.models import Change, Item, Tag
+from core.models import Change
+from core.queries.records import read_records
 
 
 PAGE_SIZE = 100
@@ -43,37 +43,18 @@ def read_cursor(token, workspace, user):
 
 
 def snapshot(workspace, user):
-    tags = Tag.objects.filter(workspace=workspace).order_by("title", "id")
-    items = (
-        Item.objects.filter(workspace=workspace)
-        .order_by("position", "id")
-        .prefetch_related(Prefetch("tags", queryset=tags, to_attr="snapshot_tags"))
-    )
-    projects, tasks = [], []
-    for item in items:
-        entry = {"id": str(item.pk), "title": item.title, "version": item.version}
-        if item.kind == "project":
-            projects.append(entry)
-        else:
-            tasks.append(
-                {
-                    **entry,
-                    "kind": item.kind,
-                    "parentId": str(item.parent_id) if item.parent_id else "inbox",
-                    "tags": [str(tag.pk) for tag in item.snapshot_tags],
-                    "due": item.due.isoformat() if item.due else None,
-                    "done": item.done,
-                }
-            )
+    rows, tags = read_records(workspace)
     return {
         "workspaceId": str(workspace.pk),
         "generation": str(workspace.generation),
         "revision": workspace.revision,
         "cursor": cursor_for(workspace, user, workspace.revision),
         "context": issue_context(workspace, user),
-        "projects": projects,
-        "tasks": tasks,
-        "tags": list(tags.values("id", "title", "version")),
+        "projects": [row for row in rows if row["kind"] == "project"],
+        "folders": [row for row in rows if row["kind"] == "folder"],
+        "tasks": [row for row in rows if row["kind"] in ("group", "action")],
+        "tags": tags,
+        "filingPolicy": workspace.filing_policy,
     }
 
 
