@@ -1,5 +1,9 @@
 # Implementation progress
 
+## November 22, 2026 · Owner decisions
+
+Joe selected GNU GPL version 3 for the project and confirmed private release images. The README carries his warning until testing is complete. The application image includes the project license. Private registry provisioning, the physical x64 deployment and Joe's pilot each still need evidence. Joe manually applied one usage reset and authorized continued automated testing.
+
 ## November 21, 2026
 
 | Step | Result and evidence | Next action |

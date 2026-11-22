@@ -114,6 +114,8 @@ The `release/version` file declares the initial private application image versio
 
 ### Private release package
 
+Joe confirmed private release images on November 22, 2026. The `org.opencontainers.image.revision` label identifies the source commit for each release. Provide image recipients the link to that commit, including the Dockerfile, dependency pins and build scripts. Preserve component notices and verify corresponding source for redistributed dependencies during release review. The application's GPLv3 text is installed at `/usr/share/licenses/focuspocus/LICENSE`.
+
 The initial [v0.1.0 qualification](https://github.com/jbeckman1974/focuspocus/actions/runs/44981222850) passed the native tests. The AMD64 candidate pushed to `ghcr.io/jbeckman1974/focuspocus` was anonymously readable. The ARM64 runner then stopped at its package check before uploading a candidate. Qualification stopped before assigning the application version or stable tag. The AMD64 image was built from the public source with the reviewed Docker context. The stack uses runtime secrets and an external database.
 
 The default private destination is `ghcr.io/jbeckman1974/focuspocus-app`. The repository workflow has read-only package access during its first job. It requires an existing marker that can be pulled using its workflow credentials and rejects a marker or package listing accessible anonymously. It also refuses a public visibility result from GitHub's personal-package endpoint. A missing public metadata entry alone cannot verify a private package. The staging and promotion jobs repeat these checks.

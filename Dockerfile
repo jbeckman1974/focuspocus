@@ -34,6 +34,9 @@ COPY frontend/src ./src
 RUN npm run build
 
 FROM python-base AS application
+LABEL org.opencontainers.image.licenses="GPL-3.0-only"
+LABEL org.opencontainers.image.source="https://github.com/jbeckman1974/focuspocus"
+COPY LICENSE /usr/share/licenses/focuspocus/LICENSE
 COPY --from=build /opt/venv /opt/venv
 COPY --from=frontend /src/dist /srv/frontend
 WORKDIR /srv/app

@@ -3,6 +3,7 @@
 from importlib import metadata
 import json
 import platform
+from pathlib import Path
 import sys
 from zoneinfo import ZoneInfo
 
@@ -12,6 +13,8 @@ import psycopg.pq
 def main() -> None:
     release = platform.freedesktop_os_release()
     assert release["ID"] == "opensuse-tumbleweed", release.get("ID")
+    license_text = Path("/usr/share/licenses/focuspocus/LICENSE").read_text()
+    assert "Version 3, 29 June 2007" in license_text and "END OF TERMS AND CONDITIONS" in license_text
     assert sys.version_info[:3] == (3, 13, 18), sys.version
     assert sys.prefix == "/opt/venv", sys.prefix
     assert platform.machine() in {"x86_64", "aarch64"}, platform.machine()

@@ -4,6 +4,7 @@ Joe has authorized implementation of the maintained plan, its tests, milestone b
 
 ## Development
 
+- Keep the owner's warning immediately below the README title until testing, including the target-host verification and owner pilot, is complete and Joe agrees to remove it. Use `GPL-3.0-only` for project-owned code and keep third-party notices intact.
 - Work from this project directory. Keep reference copies, VM images, SSH material, caches, local configuration and other generated build artifacts under the ignored root `build/`. Keep real data and credentials out of commits, image layers, test fixtures, example commands and logs. Verify ignored paths and inspect the staged file list before every push.
 - Use named modules with one clear responsibility. Keep outline commands and their invariants separate from presentation, storage and transport. Organize UI components around user workflows. Pass dependencies explicitly. Split files when changes to unrelated behaviors become coupled. Choose clear domain names and keep database changes in reviewed migrations.
 - Use conventional TypeScript/React and Python formatting for their respective modules. Run the project's format check, static/type checks, tests and dependency checks as they become available. Test behavior through the same commands and endpoints the user will exercise. Include invalid input, cancellation, conflict/retry, isolation and recovery where relevant.
