@@ -203,18 +203,29 @@ function ConnectedOutline({
     ["sending", "acknowledged", "uncertain", "retryable"].includes(state.phase)
       ? tagIntent
       : undefined;
-  function showSource(id:string) {
+  function showSource(id: string) {
     if (!snapshot) return;
-    if (snapshot.tags.some(item => item.id === id)) return setView({kind:"tag", id});
-    if (snapshot.projects.some(item => item.id === id)) return setView({kind:"project", id});
-    if (snapshot.folders?.some(item => item.id === id)) return setView({kind:"folder", id});
-    if (!snapshot.tasks.some(item => item.id === id)) return;
-    const destination=homeView(snapshot,id);
-    const destinationKey=viewKey(destination);
-    const memory=revealSelection(snapshot,destination,collapsedRows[destinationKey] ?? new Set(),[id]);
-    setFilters(current => ({...current,[destinationKey]:"everything"}));
-    setCollapsed(current => ({...current,[destinationKey]:new Set(memory.collapsed)}));
-    setSelected(current => ({...current,[destinationKey]:[id]}));
+    if (snapshot.tags.some((item) => item.id === id))
+      return setView({ kind: "tag", id });
+    if (snapshot.projects.some((item) => item.id === id))
+      return setView({ kind: "project", id });
+    if (snapshot.folders?.some((item) => item.id === id))
+      return setView({ kind: "folder", id });
+    if (!snapshot.tasks.some((item) => item.id === id)) return;
+    const destination = homeView(snapshot, id);
+    const destinationKey = viewKey(destination);
+    const memory = revealSelection(
+      snapshot,
+      destination,
+      collapsedRows[destinationKey] ?? new Set(),
+      [id],
+    );
+    setFilters((current) => ({ ...current, [destinationKey]: "everything" }));
+    setCollapsed((current) => ({
+      ...current,
+      [destinationKey]: new Set(memory.collapsed),
+    }));
+    setSelected((current) => ({ ...current, [destinationKey]: [id] }));
     setView(destination);
   }
 

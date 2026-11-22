@@ -1,4 +1,4 @@
-import type {ReactNode} from "react";
+import type { ReactNode } from "react";
 import type { Entry } from "../outline/index.ts";
 import type {
   Availability,
@@ -44,7 +44,7 @@ export function RuleControls({
   entry: Entry & RuleFields;
   kind: "project" | "group" | "action" | "folder";
   pending?: Properties;
-  sourceLink:(id:string|null|undefined)=>ReactNode;
+  sourceLink: (id: string | null | undefined) => ReactNode;
   disabled: boolean;
   change: (properties: Properties) => void;
 }) {
@@ -112,10 +112,15 @@ export function RuleControls({
         </label>
       )}
       {entry.effective?.blocked && entry.effective.reason && (
-        <p>{entry.effective.reason} {sourceLink(entry.effective.reasonSource)}</p>
+        <p>
+          {entry.effective.reason} {sourceLink(entry.effective.reasonSource)}
+        </p>
       )}
       {!entry.flagged && entry.effective?.flagged && (
-        <p>Flag inherited from {sourceLink(entry.effective.flagSource) ?? "an ancestor"}</p>
+        <p>
+          Flag inherited from{" "}
+          {sourceLink(entry.effective.flagSource) ?? "an ancestor"}
+        </p>
       )}
     </fieldset>
   );

@@ -18,18 +18,35 @@ test("AT-01 · a filtered Inbox retains resolved work until Clean Up or removes 
   const availability = page.getByRole("combobox", { name: /^Availability/ });
   await availability.selectOption("remaining");
   const first = task(page, held);
-  await first.getByRole("button", { name: `Complete ${held}`, exact: true }).click();
-  await expect(first.getByRole("button", { name: `Reopen ${held}`, exact: true })).toBeVisible();
+  await first
+    .getByRole("button", { name: `Complete ${held}`, exact: true })
+    .click();
+  await expect(
+    first.getByRole("button", { name: `Reopen ${held}`, exact: true }),
+  ).toBeVisible();
   let panel = await organizer(page);
-  await expect(panel.getByRole("combobox", { name: /^Remove resolved rows/ })).toHaveValue("on-cleanup");
-  await panel.getByRole("button", { name: "Clean Up Inbox", exact: true }).click();
+  await expect(
+    panel.getByRole("combobox", { name: /^Remove resolved rows/ }),
+  ).toHaveValue("on-cleanup");
+  await panel
+    .getByRole("button", { name: "Clean Up Inbox", exact: true })
+    .click();
   await expect(first).toHaveCount(0);
   panel = await organizer(page);
-  await panel.getByRole("combobox", { name: /^Remove resolved rows/ }).selectOption("immediate");
+  await panel
+    .getByRole("combobox", { name: /^Remove resolved rows/ })
+    .selectOption("immediate");
   await expect(panel).not.toBeVisible();
-  await task(page, immediate).getByRole("button", { name: `Complete ${immediate}`, exact: true }).click();
+  await task(page, immediate)
+    .getByRole("button", { name: `Complete ${immediate}`, exact: true })
+    .click();
   await expect(task(page, immediate)).toHaveCount(0);
   await availability.selectOption("everything");
   await expect(first).toHaveAttribute("data-task-id", original);
-  await expect(task(page, immediate).getByRole("button", { name: `Reopen ${immediate}`, exact: true })).toBeVisible();
+  await expect(
+    task(page, immediate).getByRole("button", {
+      name: `Reopen ${immediate}`,
+      exact: true,
+    }),
+  ).toBeVisible();
 });

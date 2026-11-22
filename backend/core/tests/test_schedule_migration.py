@@ -1,10 +1,12 @@
 """Replay an upgrade using the actual M2 schema and real PostgreSQL JSON values."""
 
-from datetime import date
+from datetime import date, datetime, timezone
 
 from django.db import connection
 from django.db.migrations.executor import MigrationExecutor
 from django.test import TransactionTestCase
+
+from core.scheduling.dates import DateContext, DateIntent
 
 
 class ScheduleMigrationTests(TransactionTestCase):
@@ -17,6 +19,9 @@ class ScheduleMigrationTests(TransactionTestCase):
         original = executor.loader.project_state(baseline).apps
         workspace = original.get_model("core", "Workspace").objects.create()
         Item = original.get_model("core", "Item")
+        second_workspace = original.get_model("core", "Workspace").objects.create()
+        fallback = Item.objects.create(workspace=second_workspace, title="Index notes", kind="action",
+                                       position=100, due=date(2028, 2, 29))
         dated = Item.objects.create(workspace=workspace, title="Boundary survey", kind="action", position=100,
                                     due=date(2028, 2, 29), done=True, version=5)
         undated = Item.objects.create(workspace=workspace, title="Draft field notes", kind="action", position=200)
@@ -39,3 +44,25 @@ class ScheduleMigrationTests(TransactionTestCase):
         self.assertEqual(items.get(pk=undated.pk).schedule, {})
         settings = apps.get_model("core", "Workspace").objects.get(pk=workspace.pk)
         self.assertEqual((settings.time_zone, settings.date_defaults), ("UTC", {}))
+        settings.date_defaults = {"due": "19:30"}
+        settings.save(update_fields=["date_defaults"])
+        explicit = items.create(
+            workspace=settings, title="Afternoon site visit", kind="action", position=300,
+            due=date(2028, 2, 29), schedule={"due": {"kind": "date", "value": "2028-02-29", "defaultTime": "14:15"}},
+        )
+
+        frozen = [("core", "0008_freeze_legacy_due_clock")]
+        upgrade = MigrationExecutor(connection)
+        upgrade.migrate(frozen)
+        apps = upgrade.loader.project_state(frozen).apps
+        Item = apps.get_model("core", "Item")
+        self.assertEqual(Item.objects.get(pk=fallback.pk).schedule["due"]["defaultTime"], "17:00")
+        self.assertEqual(Item.objects.get(pk=explicit.pk).schedule["due"]["defaultTime"], "14:15")
+        settings = apps.get_model("core", "Workspace").objects.get(pk=workspace.pk)
+        settings.date_defaults = {"due": "08:00"}
+        settings.save(update_fields=["date_defaults"])
+        migrated = Item.objects.get(pk=dated.pk)
+        clock = DateContext(settings.time_zone, datetime(2028, 2, 28, tzinfo=timezone.utc), settings.date_defaults)
+        due = DateIntent.from_wire(migrated.schedule["due"])
+        self.assertEqual(due.instant("due", clock), datetime(2028, 2, 29, 19, 30, tzinfo=timezone.utc))
+        self.assertEqual((migrated.due, migrated.done, migrated.version), (dated.due, True, 5))

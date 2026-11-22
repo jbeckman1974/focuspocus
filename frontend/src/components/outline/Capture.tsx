@@ -73,7 +73,11 @@ export function Capture({
           }
         }}
       />
-      <button type="submit" disabled={disabled || !draft.trim()} aria-label="Add tasks">
+      <button
+        type="submit"
+        disabled={disabled || !draft.trim()}
+        aria-label="Add tasks"
+      >
         Add
       </button>
     </form>

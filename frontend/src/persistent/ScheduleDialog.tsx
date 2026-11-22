@@ -27,7 +27,7 @@ export function ScheduleDialog({
   base: Snapshot;
   apply: (changes: DateChanges) => boolean;
   close: () => void;
-  showSource:(id:string)=>void;
+  showSource: (id: string) => void;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const request = useRef<AbortController | null>(null);
@@ -129,7 +129,15 @@ export function ScheduleDialog({
       {effective && (
         <p>
           Effective {field}: {describeDate(effective.value)}
-          {source && source.id !== entry.id && <> from <button type="button" onClick={()=>showSource(source.id)}>{source.title}</button></>}
+          {source && source.id !== entry.id && (
+            <>
+              {" "}
+              from{" "}
+              <button type="button" onClick={() => showSource(source.id)}>
+                {source.title}
+              </button>
+            </>
+          )}
         </p>
       )}
       <label>
