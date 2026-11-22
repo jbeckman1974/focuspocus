@@ -4,14 +4,36 @@ on:
   push:
     tags: ["v*"]
     branches: [main]
-    paths: ["release/version"]
+    paths: ["release/version", "release/package"]
 permissions:
   contents: read
 concurrency:
   group: version-publication
   cancel-in-progress: false
 jobs:
+  package-access:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Confirm the private package using an empty image
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash tools/release/check-dispatch.sh
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$(cat release/version)"; fi
+          printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          python3 tools/release/package_access.py --bootstrap
   qualify:
+    needs: package-access
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
@@ -65,8 +87,8 @@ jobs:
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          repo="ghcr.io/${GITHUB_REPOSITORY,,}"
-          python3 tools/release/visibility.py
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
+          python3 tools/release/package_access.py
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           image="focuspocus-candidate:$PLATFORM"
           test "$(docker inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/$PLATFORM"
@@ -107,8 +129,9 @@ jobs:
         run: |
           bash tools/release/check-dispatch.sh
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          python3 tools/release/package_access.py
           unset REGISTRY_TOKEN
-          release=$(python3 tools/release/publish.py stage "ghcr.io/${GITHUB_REPOSITORY,,}" "$(cat release/version)" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/qualified" "$GITHUB_RUN_NUMBER")
+          release=$(python3 tools/release/publish.py stage "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$(cat release/version)" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/qualified" "$GITHUB_RUN_NUMBER")
           printf 'release=%s\n' "$release" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$release" >> "$GITHUB_STEP_SUMMARY"
   readback:
@@ -147,7 +170,7 @@ jobs:
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           unset REGISTRY_TOKEN
           set -o pipefail
-          python3 tools/release/readback.py "ghcr.io/${GITHUB_REPOSITORY,,}" "$RELEASE" "$PLATFORM" "$RUNNER_TEMP/qualified/qualified.json" | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 tools/release/readback.py "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE" "$PLATFORM" "$RUNNER_TEMP/qualified/qualified.json" | tee -a "$GITHUB_STEP_SUMMARY"
   promote:
     needs: [publish, readback]
     permissions:
@@ -167,5 +190,6 @@ jobs:
         run: |
           bash tools/release/check-dispatch.sh
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+          python3 tools/release/package_access.py
           unset REGISTRY_TOKEN
-          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY,,}" "$RELEASE"
+          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE"
