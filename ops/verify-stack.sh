@@ -60,7 +60,9 @@ for service in web worker; do
   test "$(docker inspect --format '{{.Image}}' "$(dc ps -q "$service")")" = "$image_id"
 done
 
-bash ops/qa-browser.sh
+browser_status=0
+bash ops/qa-browser.sh || browser_status=$?
+if (( browser_status >= 128 )); then exit "$browser_status"; fi
 dc exec -T web python - < ops/check-worker.py
 python3 -B ops/qa-replacement.py before "$scratch/probe-checkpoint"
 before=$(dc exec -T web python - < ops/check-database.py)
@@ -88,4 +90,8 @@ dc run --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python 
 restore_digest=$(dc run -T --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python - < ops/check-database.py)
 test "$restore_digest" = "$saved"
 python3 -B ops/qa-offline-restore.py "$scratch/probe-checkpoint"
+if (( browser_status != 0 )); then
+  echo "Replacement and restore passed. The primary browser suite exited with status $browser_status." >&2
+  exit "$browser_status"
+fi
 echo "Verified $image_id on linux/$EXPECTED_ARCH including replacement and clean database restore."

@@ -173,3 +173,5 @@ At `afe7181` native AMD64 passed all 221 database tests and 32 of 34 browser jou
 Offline replay also checks the chosen parent for a nested tag and the workspace revision for edits that depend on calendar defaults or inherited/exclusive tag rules. These commands surface conflicting changes for review. All 15 queue unit tests passed locally.
 
 Both native platforms then passed 33 of 34 authenticated journeys, including the multi-tab sign-out and account-switch scenario. The remaining move test now waits for that specific local write to finish and checks the destination before terminating Chromium. A separate unit round trip confirms that reloading the saved projection retains the moved task’s ID and parent. [Native browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45020004659)
+
+The disposable validation harness now completes its independent replacement and clean-restore checks when a primary browser assertion fails. The failed assertion still fails the qualification, and an interrupted run exits immediately. This allows the clone and primary browser results to be diagnosed in the same run.
