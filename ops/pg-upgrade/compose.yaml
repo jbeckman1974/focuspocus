@@ -1,0 +1,19 @@
+# Both database services keep their distinct QA mounts from the base Compose files.
+services:
+  test-db:
+    image: docker.io/library/postgres:17-bookworm@sha256:837bed18782820fe967067cb5328b02b0d9992c1be9a37ee0c9c492cfc03af3b
+    environment:
+      PGDATA: /var/lib/postgresql/17/pgdata
+      FOCUSPOCUS_TEST_CLUSTER: "0"
+    # This major declares a legacy image volume here. All cluster files live
+    # in PGDATA on the verified testdata mount above it.
+    tmpfs: ["/var/lib/postgresql/data"]
+  web:
+    environment:
+      DB_HOST: ${FOCUSPOCUS_QA_DB_HOST:-db}
+  worker:
+    environment:
+      DB_HOST: ${FOCUSPOCUS_QA_DB_HOST:-db}
+  migrate:
+    environment:
+      DB_HOST: ${FOCUSPOCUS_QA_DB_HOST:-db}

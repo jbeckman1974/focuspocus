@@ -3,6 +3,8 @@
 from collections import Counter, deque
 from datetime import datetime
 
+from django.db.models import Count
+from django.db.models.expressions import RawSQL
 from django.utils import timezone
 
 from core.repeats.resolution import advance, reject_historical_change
@@ -44,13 +46,40 @@ def change_directly(item, desired, ancestors, selected):
     return True
 
 
+def selected_lineage(tree, items):
+    """Load selected rows and their active ancestors in one query, also for deeply nested tasks."""
+    lineage = {item.pk: item for item in items}
+    parents = {item.parent_id for item in items if item.parent_id is not None}
+    if parents:
+        ancestor_ids = RawSQL("""
+            WITH RECURSIVE ancestors(id, parent_id) AS (
+                SELECT id, parent_id FROM core_item
+                WHERE workspace_id = %s AND shelf = 'active' AND id = ANY(%s::uuid[])
+                UNION
+                SELECT parent.id, parent.parent_id FROM core_item parent
+                JOIN ancestors child ON child.parent_id = parent.id
+                WHERE parent.workspace_id = %s AND parent.shelf = 'active'
+            )
+            SELECT id FROM ancestors
+        """, (tree.workspace.pk, list(parents), tree.workspace.pk))
+        for ancestor in tree.items.filter(pk__in=ancestor_ids):
+            lineage.setdefault(ancestor.pk, ancestor)
+    return lineage
+
+
+def unresolved_children(tree, lineage):
+    parents = [key for key, item in lineage.items() if item.auto_complete and item.status == "active"]
+    children = tree.items.filter(parent_id__in=parents, done=False).exclude(disposition="dropped")
+    return Counter(dict(children.values_list("parent_id").annotate(total=Count("pk"))))
+
+
 def apply_status(tree, result, items, desired, *, skip=False):
     for item in items:
         validate_status(item, desired)
-    by_id = tree.items.in_bulk()
+    by_id = selected_lineage(tree, items)
     selected = {item.pk for item in items}
     writable = [item for item in items if change_directly(item, desired, by_id, selected)]
-    unresolved = Counter(item.parent_id for item in by_id.values() if item.status not in RESOLVED)
+    unresolved = unresolved_children(tree, by_id) if desired in RESOLVED else Counter()
     parents = deque()
     now = timezone.now()
     for item in writable:

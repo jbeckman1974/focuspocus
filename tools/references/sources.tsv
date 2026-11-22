@@ -100,3 +100,4 @@ sw-register	MDN · Register a scoped service worker	https://developer.mozilla.or
 cache-add-all	MDN · Install public resources with Cache.addAll	https://developer.mozilla.org/en-US/docs/Web/API/Cache/addAll
 playwright-browsers	Playwright · Browser engines and system dependencies	https://playwright.dev/docs/browsers
 wai-treeview	W3C WAI · Tree view keyboard interaction and semantics	https://www.w3.org/WAI/ARIA/apg/patterns/treeview/
+actions-reuse-workflows	GitHub Actions · Reuse workflows	https://docs.github.com/en/actions/how-tos/reuse-automations/reuse-workflows

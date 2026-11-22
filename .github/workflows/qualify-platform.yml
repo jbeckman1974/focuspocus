@@ -1,0 +1,90 @@
+name: Qualify one native release image
+on:
+  workflow_call:
+    inputs:
+      platform:
+        type: string
+        required: true
+permissions:
+  contents: read
+jobs:
+  verify:
+    if: inputs.platform == 'amd64' || inputs.platform == 'arm64'
+    permissions:
+      contents: read
+      packages: write
+    runs-on: ${{ inputs.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    timeout-minutes: 65
+    env:
+      PLATFORM: ${{ inputs.platform }}
+      ARCH: ${{ inputs.platform == 'amd64' && 'X64' || 'ARM64' }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Verify version, source and native builder
+        run: |
+          version=$(cat release/version)
+          if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$version"; fi
+          bash tools/release/check-dispatch.sh
+          [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$RUNNER_OS" = Linux && test "$RUNNER_ARCH" = "$ARCH"
+          case "$PLATFORM:$(uname -m):$(docker info --format '{{.OSType}}/{{.Architecture}}')" in
+            amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
+            *) exit 1 ;;
+          esac
+      - name: Build and test the frontend
+        run: |
+          docker build --target development -t frontend-qualify frontend
+          docker run --rm frontend-qualify npm run check
+          docker run --rm frontend-qualify npm audit --audit-level=high
+          docker build --target browser-tests -t browser-qualify frontend
+          docker run --rm --shm-size=512m -e CI=true browser-qualify
+      - name: Qualify the production image, database and worker
+        run: |
+          export FOCUSPOCUS_TEST_BROWSER_IMAGE=browser-qualify EXPECTED_ARCH="$PLATFORM"
+          export FOCUSPOCUS_IMAGE="focuspocus-candidate:$PLATFORM"
+          docker build --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "io.focuspocus.run-number=$GITHUB_RUN_NUMBER" \
+            --label "io.focuspocus.run-attempt=$GITHUB_RUN_ATTEMPT" -t "$FOCUSPOCUS_IMAGE" .
+          bash ops/verify-stack.sh
+          if [[ "$PLATFORM" == amd64 ]]; then
+            bash ops/verify-readiness.sh performance
+            bash ops/verify-readiness.sh accessibility
+            bash ops/verify-readiness.sh pg-upgrade
+          fi
+      - name: Retain synthetic measurements and database upgrade evidence
+        if: ${{ !cancelled() && inputs.platform == 'amd64' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: release-readiness
+          path: |
+            build/performance/report.json
+            build/performance/SHA256SUMS
+            build/pg-upgrade/report.json
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Stage the tested image and record its registry identity
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
+          bash tools/release/check-session.sh
+          image="focuspocus-candidate:$PLATFORM"
+          test "$(docker inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/$PLATFORM"
+          candidate="$repo:ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$PLATFORM"
+          docker tag "$image" "$candidate"
+          docker push --platform "linux/$PLATFORM" "$candidate"
+          mkdir -p "$RUNNER_TEMP/qualified"
+          python3 tools/release/record.py "$candidate" "$image" > "$RUNNER_TEMP/qualified/qualified.json"
+          python3 tools/release/visibility.py "$(jq -er .digest "$RUNNER_TEMP/qualified/qualified.json")"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: candidate-${{ inputs.platform }}
+          path: ${{ runner.temp }}/qualified/qualified.json
+          retention-days: 1
+          if-no-files-found: error

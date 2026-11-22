@@ -1,0 +1,41 @@
+name: Release readiness
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    name: Native AMD64 ${{ matrix.check }}
+    strategy:
+      fail-fast: false
+      matrix:
+        check: [performance, accessibility, pg-upgrade]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      EXPECTED_ARCH: amd64
+      FOCUSPOCUS_IMAGE: localhost/focuspocus-readiness:${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - name: Build the native production image
+        run: |
+          bash ops/assert-native.sh
+          docker build --target application --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$FOCUSPOCUS_IMAGE" .
+      - name: Run readiness check
+        env:
+          CHECK: ${{ matrix.check }}
+        run: bash ops/verify-readiness.sh "$CHECK"
+      - name: Retain measured results
+        if: ${{ !cancelled() && matrix.check != 'accessibility' }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: readiness-${{ matrix.check }}
+          path: |
+            build/${{ matrix.check }}/report.json
+            build/${{ matrix.check }}/SHA256SUMS
+          retention-days: 30
+          if-no-files-found: warn

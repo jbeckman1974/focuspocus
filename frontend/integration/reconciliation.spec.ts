@@ -25,6 +25,8 @@ test("AT-18 · retry a capture after the database commits but the acknowledgemen
     await expect(
       page.getByRole("button", { name: "Retry original change" }),
     ).toBeVisible();
+    const notice = page.getByRole("region", { name: "Pending change" });
+    await expect(notice.getByRole("alert")).toHaveText(/\S/);
     await expect(task(observer, title)).toHaveCount(1, { timeout: 5000 });
     const committedId = await taskId(observer, title);
     await page.getByRole("button", { name: "Retry original change" }).click();
@@ -92,6 +94,8 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
     }
     const reapply = page.getByRole("button", { name: "Reapply my change" });
     await expect(reapply).toBeVisible();
+    const notice = page.getByRole("region", { name: "Pending change" });
+    await expect(notice.getByRole("alert")).toHaveText(/\S/);
     await expect(
       page.getByText(`Your change: ${draft}`, { exact: true }),
     ).toBeVisible();

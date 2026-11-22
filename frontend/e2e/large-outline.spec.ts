@@ -46,7 +46,22 @@ test("AT-24 · navigate, extend and restore the large outline by stable row ID",
   page,
 }) => {
   const tree = await populate(page);
-  await expect(tree.getByRole("treeitem")).not.toHaveCount(284);
+  expect(await tree.getByRole("treeitem").count()).toBeLessThan(70);
+  const missingActive = await tree.evaluateHandle((element) => {
+    const missing: string[] = [];
+    const observer = new MutationObserver(() => {
+      const id = element.getAttribute("aria-activedescendant");
+      if (id && !element.contains(document.getElementById(id)))
+        missing.push(id);
+    });
+    observer.observe(element, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+      attributeFilter: ["aria-activedescendant"],
+    });
+    return missing;
+  });
   await tree.focus();
   await tree.press("Home");
   await expectActive(tree, task(page, "Loose receipt"));
@@ -84,8 +99,13 @@ test("AT-24 · navigate, extend and restore the large outline by stable row ID",
     element.scrollTop = element.scrollHeight / 2;
   });
   await expect(task(page, wrap)).not.toBeInViewport();
+  await expect
+    .poll(async () => {
+      const row = await anchor(tree);
+      return row.offset !== null && row.offset <= 0 && row.offset >= -42;
+    })
+    .toBe(true);
   const before = await anchor(tree);
-  expect(before.id).toBeTruthy();
   await sidebarDestination(page, "Punch list").click();
   await page
     .getByRole("navigation", { name: "Perspectives" })
@@ -95,6 +115,7 @@ test("AT-24 · navigate, extend and restore the large outline by stable row ID",
   await expect(task(page, wrap)).toHaveAttribute("aria-selected", "true");
   await tree.focus();
   await expectActive(tree, task(page, wrap));
+  expect(await missingActive.jsonValue()).toEqual([]);
 });
 
 test.describe("Touch outline", () => {
@@ -139,7 +160,7 @@ test.describe("Touch outline", () => {
   });
 });
 
-test("AT-24 · drag a selected subtree across virtual viewports without losing the source", async ({
+test("AT-24 · drag selected tasks across virtual viewports without losing the source", async ({
   page,
 }) => {
   const tree = await populate(page);

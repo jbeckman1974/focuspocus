@@ -16,4 +16,5 @@
 !vite.config.ts
 !playwright.integration.config.ts
 !integration/
+!integration/**/
 !integration/**/*.ts

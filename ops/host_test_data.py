@@ -1,5 +1,6 @@
 """Run the test stack on verified sibling bind storage and reclaim its own two databases."""
 
+import argparse
 import fcntl
 import json
 import os
@@ -188,7 +189,7 @@ def reclaim(parent, record):
     cleanup(parent, record, mounted_sources(), active)
 
 
-def main():
+def main(script):
     explicit = os.getenv("FOCUSPOCUS_TEST_DATA_PARENT")
     parent = discover(mounted_sources(), Path(explicit) if explicit else None)
     state = Path("build/host-data")
@@ -202,14 +203,23 @@ def main():
         image = output("docker", "compose", "-f", "compose.yaml", "config", "--images", "db")
         directory, record = allocate(parent, state, image)
         try:
-            subprocess.run(["bash", "ops/verify-stack.sh"], check=True, pass_fds=(lock.fileno(),),
+            subprocess.run(["bash", script], check=True, pass_fds=(lock.fileno(),),
                            env={**os.environ, "FOCUSPOCUS_TEST_DATA_DIR": str(directory)})
         finally:
             reclaim(parent, record)
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    suites = parser.add_mutually_exclusive_group()
+    for option, script, description in (
+        ("--pg-upgrade", "ops/pg-upgrade/verify.sh", "Rehearse a PostgreSQL major upgrade."),
+        ("--performance", "ops/performance/verify.sh", "Benchmark the representative workspace."),
+        ("--accessibility", "ops/accessibility/verify.sh", "Exercise supported browser engines."),
+    ):
+        suites.add_argument(option, dest="script", action="store_const", const=script, help=description)
+    parser.set_defaults(script="ops/verify-stack.sh")
     try:
-        main()
+        main(parser.parse_args().script)
     except (OSError, ValueError, subprocess.CalledProcessError) as error:
         sys.exit(str(error))

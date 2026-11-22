@@ -115,6 +115,13 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.send("delete", {"ids": [self.ids["P06"]]})
         self.assertEqual(self.post("query", {"scope": "everything"})["count"], 0)
 
+    def test_here_accepts_large_outline_but_preserves_focus_and_workspace(self):
+        self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))
+        here = [str(uuid4()) for _ in range(11_097)]
+        here.extend([self.ids["A18"], self.ids["P01"], self.private_id])
+        result = self.post("query", {"scope": "here", "hereIds": here})
+        self.assertEqual((result["count"], result["matchIds"]), (1, [self.ids["A18"]]))
+
     def test_invalid_input_and_undoable_shared_history_unchanged(self):
         for bad in ({"scope": "private"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
                     {"text": "bad\x00text"}, {"text": "\ud800"},
