@@ -29,7 +29,8 @@ def configuration():
 
 def https_target(value):
     try:
-        if not isinstance(value, str) or len(value) > 4096 or any(c.isspace() or ord(c) < 32 for c in value):
+        if (not isinstance(value, str) or not value.isascii() or len(value) > 4096
+                or any(c.isspace() or ord(c) < 32 or ord(c) == 127 for c in value)):
             return False
         url = urlsplit(value)
         return (url.scheme == "https" and bool(url.hostname) and url.username is None

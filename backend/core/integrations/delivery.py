@@ -3,11 +3,11 @@ import http.client
 from django.db import transaction
 from django.utils import timezone
 
-from core.access import locked_membership
 from core.models import Job
 from core.queries.records import read_records
 
 from . import push
+from .authority import job_workspace
 from .configuration import AdapterError
 from .models import PushDevice, Reminder, ReminderDelivery
 from .reminders import PUSH
@@ -27,8 +27,8 @@ def eligible(reminder, workspace):
 
 @transaction.atomic
 def make_due(job):
-    workspace, _ = locked_membership(job.actor, job.workspace_id)
-    if not workspace or not job.actor.is_active or not live_job(job):
+    workspace = job_workspace(job)
+    if not workspace or not live_job(job):
         return "authorization_revoked"
     reminder = Reminder.objects.filter(pk=job.payload.get("reminder"), workspace=workspace,
                                        user_id=job.actor_id).select_related("item").first()
@@ -48,12 +48,17 @@ def make_due(job):
 
 @transaction.atomic
 def begin(job):
-    workspace, _ = locked_membership(job.actor, job.workspace_id)
-    if not workspace or not job.actor.is_active or not live_job(job):
+    workspace = job_workspace(job)
+    if not workspace or not live_job(job):
         return None, "authorization_revoked"
-    attempt = ReminderDelivery.objects.select_related("device", "reminder__item").filter(
+    attempts = ReminderDelivery.objects.filter(
         pk=job.payload.get("delivery"), reminder__workspace=workspace, reminder__user_id=job.actor_id,
-        device__user_id=job.actor_id).first()
+        device__user_id=job.actor_id)
+    # All workspaces of an account share its devices. A concurrent unsubscribe or
+    # re-enrollment takes this same device lock before changing pending deliveries.
+    if not PushDevice.objects.select_for_update().filter(pk__in=attempts.values("device_id")).exists():
+        return None, ""
+    attempt = attempts.select_related("device", "reminder__item").first()
     if not attempt or attempt.status in ("sent", "expired", "failed", "uncertain", "cancelled"):
         return None, ""
     if attempt.status == "sending":

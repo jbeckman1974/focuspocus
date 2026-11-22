@@ -26,6 +26,9 @@ class Migration(migrations.Migration):
                 ("workspace", models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to="core.workspace")),
             ],
             options={"constraints": [
+                models.CheckConstraint(condition=models.Q(status__in=["staged", "aborted", "committed", "rolled_back"]),
+                                       name="import_batch_status"),
+                models.CheckConstraint(condition=models.Q(source_format__in=["csv", "taskpaper"]), name="import_batch_format"),
                 models.UniqueConstraint(fields=("workspace", "id"), name="import_batch_scope"),
                 models.UniqueConstraint(condition=models.Q(status__in=["staged", "committed"]),
                                         fields=("workspace", "source_format", "source_hash"), name="import_live_file"),

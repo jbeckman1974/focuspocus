@@ -26,6 +26,8 @@ The production target is openSUSE Tumbleweed x64. Each release must publish both
 
 Open `/app/` for the session-authenticated workspace. Each provisioned account starts with a private Inbox. The sample at `/sample/` uses synthetic, in-memory tasks. The [Mac development steps](docs/OPERATIONS.md#daily-development-on-the-macbook) cover setup and account creation.
 
+The planning views support Forecast, project Review, saved perspectives, notes and attachments. Use **Workspace tools** for transfers, sharing, reminders, calendars and nearby work. [Import, export and sharing](docs/PORTABILITY.md) · [Optional integrations](docs/INTEGRATIONS.md)
+
 ## License
 
 FocusPocus is licensed under the GNU General Public License, version 3 only (`GPL-3.0-only`). Third-party components retain their respective licenses. [Full license text](LICENSE)

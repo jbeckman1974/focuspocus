@@ -13,6 +13,8 @@ PARAMETER = re.compile(r"(?<!\S)@([\w-]+)(?:\(((?:\\.|[^()\\])*)\))?(?=\s|$)")
 def read(text):
     rows, issues, stack = [], [], []
     for number, content in enumerate(text.split("\n"), 1):
+        if len(issues) > MAX_ISSUES:
+            raise CommandError("Too many import diagnostics.", 413)
         if not content.strip():
             if rows and rows[-1]["notes"]:
                 rows[-1]["notes"].append("")

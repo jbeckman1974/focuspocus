@@ -3,8 +3,6 @@
 from datetime import datetime
 from uuid import uuid4
 
-from django.db.models import Max
-
 from core.commands.edits import GAP
 from core.commands.state import LIBRARY_KINDS
 from core.content.models import ItemNote
@@ -15,6 +13,7 @@ from core.repeats.models import Occurrence, RepeatSeries
 from core.scheduling.storage import legacy_due_value
 
 from .models import ImportMapping
+from .ordering import last_positions, sibling_orders
 from .staging import bindings
 
 
@@ -41,11 +40,7 @@ def make_item(workspace, row, parent, position):
 def commit(workspace, batch):
     known, matches = bindings(workspace, batch)
     new_items, tags, notes, links, maps, series, occurrences = [], {}, [], [], [], [], []
-    parents, last, groups = {}, {}, set()
-    existing_order = Item.objects.filter(workspace=workspace, shelf="active").values("parent_id", "kind").annotate(last=Max("position"))
-    for row in existing_order:
-        key = (row["parent_id"], row["kind"] in LIBRARY_KINDS)
-        last[key] = max(last.get(key, 0), row["last"])
+    parents, last, groups = {}, last_positions(workspace), set()
     for row in batch.rows:
         if row["key"] in known:
             parents[row["line"]] = known[row["key"]]
@@ -84,7 +79,6 @@ def commit(workspace, batch):
     Occurrence.objects.bulk_create(occurrences)
     initialize_projects(workspace, new_items)
     ImportMapping.objects.bulk_create(maps)
-    from .rollback import sibling_orders
     batch.guard = {"items": {str(i.pk): i.version for i in new_items}, "tags": {str(t.pk): t.version for t in tags.values()},
                    "groups": sibling_orders(workspace, groups)}
     batch.status = "committed"

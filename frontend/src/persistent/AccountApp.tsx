@@ -61,9 +61,16 @@ export function AccountApp() {
       reconnect();
     }
   };
-  return <WorkspaceRouter key={session.user.id} actorId={session.user.id} username={session.user.username}
-    csrf={session.csrfToken} onSignOut={signOut} onLostAccess={reconnect} />;
-
+  return (
+    <WorkspaceRouter
+      key={session.user.id}
+      actorId={session.user.id}
+      username={session.user.username}
+      csrf={session.csrfToken}
+      onSignOut={signOut}
+      onLostAccess={reconnect}
+    />
+  );
 }
 
 function SignIn({

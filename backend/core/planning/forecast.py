@@ -1,6 +1,6 @@
 """Group eligible outline rows under their effective dates in the display zone."""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from core.commands.validation import CommandError, identifier
 from core.integrations.calendars import add_to_forecast
@@ -42,8 +42,9 @@ def forecast(workspace, user, params):
         tags=tag_scope(tags, tag) if tag else set(), layout=layout, include_held=held,
         focus=focused_ids(workspace, user, rows),
     )
-    add_to_forecast(day_rows, workspace, user, clock.zone)
     boundary = next_midnight(clock)
+    if add_to_forecast(day_rows, workspace, user, clock.zone):
+        boundary = min(boundary, clock.now + timedelta(minutes=1))
     if metadata["nextDateBoundary"]:
         boundary = min(boundary, datetime.fromisoformat(metadata["nextDateBoundary"]))
     return {"workspaceId": str(workspace.pk), "revision": workspace.revision, "today": today.isoformat(),

@@ -1,15 +1,17 @@
 import http.client
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta, timezone as utc
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
-from core.access import locked_membership
 from core.commands.validation import CommandError, fields
 from core.models import Job
 
 from . import ical, transport
+from .authority import job_workspace
 from .configuration import AdapterError, sources
 from .models import CalendarConnection, CalendarEvent
 
@@ -48,7 +50,7 @@ def calendars(workspace, user, body=None):
             if source not in available:
                 raise CommandError("Calendar source unavailable.", 404)
             if action == "connect":
-                connection = personal.get_or_create(source=source)[0]
+                connection = CalendarConnection.objects.get_or_create(workspace=workspace, user=user, source=source)[0]
             else:
                 connection = personal.filter(source=source).first()
                 if connection is None or connection.status == "disconnected":
@@ -72,8 +74,8 @@ def connection_for(job):
 
 def refresh(job):
     with transaction.atomic():
-        space, _ = locked_membership(job.actor, job.workspace_id)
-        connection = connection_for(job) if space and job.actor.is_active else None
+        space = job_workspace(job)
+        connection = connection_for(job) if space else None
         if connection is None or connection.status == "disconnected":
             return "authorization_revoked"
     events, error = None, ""
@@ -86,14 +88,14 @@ def refresh(job):
             raise AdapterError("calendar_access_expired")
         if status != 200:
             raise AdapterError("calendar_refresh_failed")
-        events = ical.parse(raw, space.time_zone)
+        events = ical.parse(raw, space.time_zone, today=timezone.localdate(timezone=ZoneInfo(space.time_zone)))
     except AdapterError as exc:
         error = str(exc)
     except (OSError, http.client.HTTPException):
         error = "calendar_refresh_failed"
     with transaction.atomic():
-        space, _ = locked_membership(job.actor, job.workspace_id)
-        connection = connection_for(job) if space and job.actor.is_active else None
+        space = job_workspace(job)
+        connection = connection_for(job) if space else None
         if connection is None or connection.status == "disconnected":
             return "authorization_revoked"
         if not Job.objects.select_for_update().filter(pk=job.pk, status="running", lease_token=job.lease_token,
@@ -120,13 +122,24 @@ def add_to_forecast(days, workspace, user, zone):
     try:
         allowed = sources(user)
     except AdapterError:
-        return
+        return False
     if not allowed:
-        return
-    events = CalendarEvent.objects.filter(connection__workspace=workspace, connection__user=user,
-                                          connection__source__in=allowed).exclude(
-        connection__status__in=("disconnected", "source_unavailable", "calendar_access_expired")
-    ).select_related("connection").order_by("start", "key")
+        return False
+    connections = CalendarConnection.objects.filter(workspace=workspace, user=user, source__in=allowed).exclude(
+        status__in=("disconnected", "source_unavailable", "calendar_access_expired"))
+    if not connections.exists():
+        return False
+    first_day, last_day = days[0]["date"], days[-1]["date"]
+    def utc_bound(day, clock):
+        local = datetime.combine(date.fromisoformat(day), clock, zone)
+        try:
+            return local.astimezone(utc.utc).isoformat()
+        except OverflowError:
+            return local.replace(tzinfo=utc.utc).isoformat()
+    overlap = (Q(all_day=True, start__lte=last_day, end__gt=first_day) |
+               Q(all_day=False, start__lte=utc_bound(last_day,time.max), end__gte=utc_bound(first_day,time.min)))
+    events = CalendarEvent.objects.filter(overlap, connection__in=connections).select_related("connection").order_by(
+        "start", "key")
     for event in events:
         if event.all_day:
             first = date.fromisoformat(event.start)
@@ -143,3 +156,4 @@ def add_to_forecast(days, workspace, user, zone):
         for day, target in indexed.items():
             if first.isoformat() <= day <= last.isoformat():
                 target.append(entry)
+    return True

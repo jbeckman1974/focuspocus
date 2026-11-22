@@ -62,7 +62,7 @@ def mutate(workspace, user, body):
         return
     if collection.filter(status="scheduled").count() >= 2000:
         raise CommandError("Cancel an upcoming reminder before creating another.", 409)
-    reminder = collection.create(public_id=public_id, item=item, at=at)
+    reminder = Reminder.objects.create(workspace=workspace, user=user, public_id=public_id, item=item, at=at)
     enqueue(reminder)
 
 

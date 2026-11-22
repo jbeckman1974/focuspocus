@@ -55,7 +55,7 @@ def claim():
     if job is None:
         return None
     if job.attempts >= MAX_ATTEMPTS:
-        if job.kind == "reminder-push":
+        if job.kind == "reminder-push" and isinstance(job.payload, dict) and type(job.payload.get("delivery")) is int:
             from core.integrations.models import ReminderDelivery
             attempts = ReminderDelivery.objects.filter(pk=job.payload.get("delivery"), reminder__workspace=job.workspace,
                                                       reminder__user_id=job.actor_id)
@@ -79,7 +79,8 @@ def execute(job):
     from core.integrations.delivery import deliver, make_due
     from core.integrations.reminders import DUE, PUSH
     if job.kind in (CALENDAR, DUE, PUSH):
-        if not isinstance(job.payload, dict):
+        field = {CALENDAR: "connection", DUE: "reminder", PUSH: "delivery"}[job.kind]
+        if not isinstance(job.payload, dict) or type(job.payload.get(field)) is not int or job.payload[field] <= 0:
             return "invalid_job"
         return {CALENDAR: refresh, DUE: make_due, PUSH: deliver}[job.kind](job)
     membership = Membership.objects.filter(

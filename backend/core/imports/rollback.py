@@ -2,7 +2,6 @@
 
 from uuid import UUID
 
-from core.commands.state import LIBRARY_KINDS
 from core.content.models import AttachmentLink
 from core.models import Item, ItemTag, Tag
 from core.perspectives.models import PerspectiveState, SavedPerspective
@@ -10,16 +9,7 @@ from core.repeats.models import Occurrence, RepeatSeries
 
 from .commit import advance
 from .models import ImportMapping
-
-
-def sibling_orders(workspace, groups):
-    orders = {key: [] for key in groups}
-    for pk, parent, kind in Item.objects.filter(workspace=workspace, shelf="active").order_by("position", "id").values_list("pk", "parent_id", "kind"):
-        key = (parent, kind in LIBRARY_KINDS)
-        if key in orders:
-            orders[key].append(str(pk))
-    return [{"parent": str(parent) if parent else None, "library": library, "ids": ids}
-            for (parent, library), ids in sorted(orders.items(), key=lambda pair: str(pair[0]))]
+from .ordering import sibling_orders
 
 
 def references_any(value, ids):

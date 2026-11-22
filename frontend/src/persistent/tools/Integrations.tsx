@@ -22,7 +22,7 @@ export function CalendarPanel({client}:{client:WorkspaceClient}){
     {state.data && !state.data.sources.length && !state.data.connections.length && <p>No calendar sources are configured for this account.</p>}
     <ul>{state.data?.connections.map(c=><li key={c.source}><strong>{c.label}</strong> · {c.status.replaceAll("_"," ")}
       {c.lastSuccess && <> · Last refreshed {new Date(c.lastSuccess).toLocaleString()}</>}{" "}
-      {c.status==="paused" ? <button disabled={action.busy} onClick={()=>send(c.source,"connect")}>Reconnect {c.label}</button>:<button disabled={action.busy} onClick={()=>send(c.source,"refresh")}>Refresh {c.label}</button>}{" "}
+      {c.status==="disconnected" ? <button disabled={action.busy} onClick={()=>send(c.source,"connect")}>Reconnect {c.label}</button>:<button disabled={action.busy} onClick={()=>send(c.source,"refresh")}>Refresh {c.label}</button>}{" "}
       <button disabled={action.busy} onClick={()=>send(c.source,"disconnect")}>Disconnect {c.label}</button></li>)}</ul>
     {state.data?.sources.filter(s=>!state.data?.connections.some(c=>c.source===s.key)).map(s=><button key={s.key} disabled={action.busy} onClick={()=>send(s.key,"connect")}>Connect {s.label}</button>)}
     <button disabled={action.busy} onClick={state.reload}>Check calendar status</button>

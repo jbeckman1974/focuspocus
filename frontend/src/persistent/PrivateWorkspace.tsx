@@ -72,7 +72,7 @@ export function PrivateWorkspace(props: Props) {
   return channel ? (
     <ConnectedOutline {...props} channel={channel} />
   ) : (
-    <p role="status">Opening private workspace…</p>
+    <p role="status">Opening workspace…</p>
   );
 }
 
@@ -208,7 +208,7 @@ function ConnectedOutline({
     return (
       <main className="account-page">
         <section className="account-card">
-          <p role="status">{state.message || "Loading private workspace…"}</p>
+          <p role="status">{state.message || "Loading workspace…"}</p>
           <button onClick={() => channel.tick()}>Retry connection</button>
           <button onClick={onSignOut}>Sign out</button>
         </section>
@@ -366,7 +366,7 @@ function ConnectedOutline({
         }}
         workspaceLabel={activeSpace.private ? username : activeSpace.name}
         accountControls={<>
-          <WorkspaceTools actorId={actorId} csrf={csrf} workspace={activeSpace} spaces={spaces} snapshot={snapshot} selection={selection} switchTo={switchTo} refresh={channel.refresh} openItem={showSource}/>
+          <WorkspaceTools actorId={actorId} csrf={csrf} workspace={activeSpace} spaces={spaces} snapshot={snapshot} focusVersion={catalog.data?.personalVersion??0} selection={selection} switchTo={switchTo} refresh={channel.refresh} openItem={showSource}/>
           <WorkspaceActions
             readOnly={readOnly}
             actorId={actorId}

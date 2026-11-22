@@ -16,7 +16,14 @@ interface ForecastData {
     date: string;
     sections: { kind: string; ids: string[] }[];
     matchIds: string[];
-    events?: {id:string;title:string;source:string;allDay:boolean;start:string;end:string}[];
+    events?: {
+      id: string;
+      title: string;
+      source: string;
+      allDay: boolean;
+      start: string;
+      end: string;
+    }[];
   }[];
 }
 export function Forecast({
@@ -143,7 +150,26 @@ export function Forecast({
                 <ResultList {...actions} ids={section.ids} entries={entries} />
               </section>
             ))}
-          {!!day.events?.length && <section aria-label="Calendar events"><h3>Calendar events</h3><ul>{day.events.map(event=><li key={event.id}><strong>{event.title}</strong> · {event.allDay?"All day":new Date(event.start).toLocaleTimeString(undefined,{hour:"numeric",minute:"2-digit",timeZone:result.data?.viewZone})} · {event.source}</li>)}</ul></section>}
+          {!!day.events?.length && (
+            <section aria-label="Calendar events">
+              <h3>Calendar events</h3>
+              <ul>
+                {day.events.map((event) => (
+                  <li key={event.id}>
+                    <strong>{event.title}</strong> ·{" "}
+                    {event.allDay
+                      ? "All day"
+                      : new Date(event.start).toLocaleTimeString(undefined, {
+                          hour: "numeric",
+                          minute: "2-digit",
+                          timeZone: result.data?.viewZone,
+                        })}{" "}
+                    · {event.source}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
           {!day.matchIds.length && (
             <p className="planning-empty">No scheduled tasks</p>
           )}

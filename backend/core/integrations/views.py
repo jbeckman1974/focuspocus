@@ -26,5 +26,10 @@ def endpoint(request, workspace_id, handler, device=None):
         return JsonResponse({"error": str(exc)}, status=exc.status)
     except AdapterError:
         return JsonResponse({"error": "The operator needs to check the adapter configuration."}, status=503)
-    except IntegrityError:
+    except IntegrityError as exc:
+        # Two accounts/workspaces can concurrently register the same browser endpoint.
+        # Programming errors and unrelated integrity failures must remain visible.
+        cause = exc.__cause__
+        if handler is not device_settings or getattr(cause, "sqlstate", None) != "23505":
+            raise
         return JsonResponse({"error": "The resource changed. Refresh and retry."}, status=409)

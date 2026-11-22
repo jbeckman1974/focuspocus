@@ -14,7 +14,9 @@ test("provider sign-in submits the session's CSRF token after a failed login", a
     route.fulfill({ contentType: "text/plain", body: "Provider sign-in" }),
   );
   await page.goto("/app/?signin=failed");
-  await expect(page.getByRole("alert")).toContainText("Provider sign-in failed");
+  await expect(page.getByRole("alert")).toContainText(
+    "Provider sign-in failed",
+  );
   await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
   const pending = page.waitForRequest("**/api/v1/oidc/start");
   await page

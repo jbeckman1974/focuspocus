@@ -21,6 +21,9 @@ class ImportBatch(models.Model):
 
     class Meta:
         constraints = [
+            models.CheckConstraint(condition=models.Q(status__in=["staged", "aborted", "committed", "rolled_back"]),
+                                   name="import_batch_status"),
+            models.CheckConstraint(condition=models.Q(source_format__in=["csv", "taskpaper"]), name="import_batch_format"),
             models.UniqueConstraint(fields=["workspace", "id"], name="import_batch_scope"),
             models.UniqueConstraint(fields=["workspace", "source_format", "source_hash"],
                                     condition=models.Q(status__in=["staged", "committed"]), name="import_live_file"),
