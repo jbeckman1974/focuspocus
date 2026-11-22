@@ -32,9 +32,9 @@ Only the small utilities, their tests and the public source catalog belong in Gi
 
 Use Git, an editor, Docker Desktop for Apple Silicon (or an equivalent native ARM64 Linux Docker VM), and a browser on macOS. Pin the development services in the Mac-specific Compose file to `linux/arm64`. Keep the shared Dockerfile and production Compose configuration usable on both target platforms. Confirm the active context points to the local VM with `docker context show` and `docker info --format '{{.OSType}}/{{.Architecture}}'`. Expect Linux and `aarch64` or `arm64` from the daemon. [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/) · [Docker Desktop virtual machine options](https://docs.docker.com/desktop/features/vmm/)
 
-The following commands define the local workflow to implement. Provide `compose.dev.yaml`, its services and project test commands, and a configuration template with safe local defaults at the indicated milestones.
+The M1 branch supplies `compose.dev.yaml` and its `frontend` service. The database, migration, worker and application services described under M2 are planned.
 
-1. **M1, start and edit the outline.** From the checkout root, start `frontend`, the Node/Vite development container. Bind-mount the editable source directories. Have Vite listen on `0.0.0.0:5173` inside the container and publish that port to `127.0.0.1:5173` on the Mac. Open that local address in Safari or Chrome and use the fixture workspace. The planned `check` script runs TypeScript checks and frontend tests once. [Vite server settings](https://vite.dev/config/server-options.html#server-host)
+1. **M1, start and edit the outline.** From the checkout root, start `frontend`, the Node/Vite development container. The Compose configuration mounts the source and tests, leaves installed dependencies inside the Linux image, and binds Vite to `127.0.0.1:5173` on the Mac. Open that address in Safari or Chrome. The `check` script checks formatting and types, runs unit tests and builds browser assets. [Vite server settings](https://vite.dev/config/server-options.html#server-host)
 
    ```sh
    docker compose -f compose.dev.yaml up -d --build frontend
