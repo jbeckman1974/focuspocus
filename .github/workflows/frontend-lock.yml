@@ -44,6 +44,23 @@ jobs:
             cat package-lock.json
           ' < frontend/package.json > frontend/package-lock.json
           sha256sum frontend/package-lock.json
+      - name: Record the public dependency lock for source review
+        shell: python
+        run: |
+          import json
+          from pathlib import Path
+          from urllib.parse import urlsplit
+          path = Path("frontend/package-lock.json")
+          content = path.read_text()
+          packages = json.loads(content)["packages"].values()
+          for package in packages:
+              if "resolved" in package:
+                  url = urlsplit(package["resolved"])
+                  assert (url.scheme, url.netloc) == ("https", "registry.npmjs.org")
+                  assert not url.query and not url.fragment
+          print("BEGIN REVIEWED NPM LOCK")
+          print(content, end="")
+          print("END REVIEWED NPM LOCK")
       - name: Return the source lockfile for review
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
