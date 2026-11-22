@@ -82,6 +82,12 @@ class StorageTests(unittest.TestCase):
 
     def test_active_container_or_foreign_bind_retains_both_clusters(self):
         run, record = data.allocate(self.root, self.state, IMAGE)
+        alias = self.home / "other-mount"
+        alias.symlink_to(run / "pgdata", target_is_directory=True)
+        with self.assertRaisesRegex(ValueError, "container still references"):
+            data.cleanup(self.root, record, [("neighbor", alias)], False)
+        self.assertTrue(record.is_file())
+        self.assertTrue((run / "pgdata").is_dir())
         for refs, active in [(self.mounts, True), ([("backup", run / "pgdata")], False)]:
             with self.subTest(active=active), self.assertRaisesRegex(ValueError, "still references"):
                 data.cleanup(self.root, record, refs, active)

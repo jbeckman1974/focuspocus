@@ -138,7 +138,8 @@ def cleanup(parent, record, mounts, compose_active):
     directory = app / record.stem
     if not real_directory(app) or identity(app) != claim["app"]:
         raise ValueError("Recorded application data parent changed. Preserving run data.")
-    if compose_active or any(source.is_relative_to(directory) or directory.is_relative_to(source) for _, source in mounts):
+    sources = (source.resolve() for _, source in mounts)
+    if compose_active or any(source.is_relative_to(directory) or directory.is_relative_to(source) for source in sources):
         raise ValueError("A container still references the test data. The next run will retry cleanup.")
     if not directory.exists() and not directory.is_symlink():
         record.unlink()
