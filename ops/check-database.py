@@ -14,9 +14,10 @@ def check_grants():
     with connection.cursor() as cursor:
         cursor.execute("""
             SELECT current_user = 'fpapp', NOT rolsuper, NOT rolcreaterole,
-                   NOT rolcreatedb, NOT rolbypassrls,
+                   NOT rolcreatedb, NOT rolbypassrls, NOT rolreplication,
                    NOT has_schema_privilege(current_user, 'public', 'CREATE'),
                    NOT has_database_privilege(current_user, current_database(), 'CREATE'),
+                   NOT has_database_privilege(current_user, current_database(), 'TEMP'),
                    NOT has_table_privilege(current_user, 'django_migrations', 'UPDATE'),
                    has_table_privilege(current_user, 'core_item', 'UPDATE')
               FROM pg_roles WHERE rolname = current_user

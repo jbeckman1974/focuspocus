@@ -17,7 +17,17 @@ fi
 
 mkdir -p build
 qa_dir=$(mktemp -d "$PWD/build/browser-accounts.XXXXXXXX")
-trap 'rm -f -- "$qa_dir/accounts.json"; rmdir -- "$qa_dir"' EXIT
+browser_image="focuspocus-browser:${qa_dir##*/}"
+cleanup() {
+  local code=$?
+  rm -f -- "$qa_dir/accounts.json"
+  rmdir -- "$qa_dir"
+  if docker image inspect "$browser_image" >/dev/null 2>&1; then
+    docker image rm "$browser_image" >/dev/null || code=1
+  fi
+  exit "$code"
+}
+trap cleanup EXIT
 umask 077
 python3 - "$qa_dir/accounts.json" <<'PY'
 import json
@@ -40,7 +50,6 @@ for role in owner neighbor; do
 done
 # The enclosing host directory is private. The browser runs as its own non-root UID.
 chmod 0444 "$qa_dir/accounts.json"
-browser_image="focuspocus-browser:${COMPOSE_PROJECT_NAME}"
 docker build --target browser-tests --tag "$browser_image" frontend
 docker run --rm --init --shm-size=512m --network "container:$web_id" \
   --mount "type=bind,source=$qa_dir/accounts.json,target=/run/qa-accounts.json,readonly" \

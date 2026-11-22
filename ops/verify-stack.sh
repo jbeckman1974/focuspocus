@@ -70,6 +70,7 @@ dc exec -T db pg_dump -U postgres --format=custom focuspocus > "$scratch/fixture
 dc exec -T test-db createdb -U postgres -O fpmigrate restored_fixture
 dc exec -T test-db pg_restore -U fpmigrate --single-transaction --exit-on-error --no-owner --no-acl \
     -d restored_fixture < "$scratch/fixture.dump"
+dc exec -T -e POSTGRES_DB=restored_fixture test-db sh /docker-entrypoint-initdb.d/10-roles.sh
 dc run --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture migrate
 restore_digest=$(dc run -T --rm --no-deps -e DB_HOST=test-db -e DB_NAME=restored_fixture web python - < ops/check-database.py)
 test "$restore_digest" = "$saved"

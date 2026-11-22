@@ -110,7 +110,10 @@ test("AT-01/16/17 · organize a private workspace, reload, and switch accounts",
     await expect(sidebarDestination(neighbor, destination)).toHaveCount(0);
     await expect(sidebarDestination(neighbor, tag)).toHaveCount(0);
   });
-  await sidebarDestination(page, "Inbox").click();
+  await page
+    .getByRole("navigation", { name: "Perspectives" })
+    .getByRole("button", { name: "Inbox", exact: true })
+    .click();
   await expect(task(page, "Neighbor private marker")).toHaveCount(0);
   await page.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByRole("button", { name: "Sign in" })).toBeVisible();

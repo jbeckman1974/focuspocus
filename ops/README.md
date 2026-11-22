@@ -37,6 +37,8 @@ On the actual x64 Tumbleweed host record the pulled index digest, local applicat
 
 The SQL server initializes `fpapp` with DML on the reviewed application tables and `fpmigrate` with schema privileges. Runtime sessions cannot issue DDL, grant privileges, or edit the migration ledger. The migration wrapper serializes schema changes with a PostgreSQL advisory lock and grants access to new tables after successful migration. The cluster admin secret stays with the database container. Keep administrative commands and Docker socket access limited to trusted operators.
 
+For an isolated database restored with `pg_restore --no-acl`, run the database bootstrap with `POSTGRES_DB` set to the restored database name before using its migration service. This reapplies the database and schema access restrictions, including revocation of public temporary-table and connection privileges. Run the migration wrapper against that database to grant runtime access to the reviewed tables. Keep the restored stack isolated until the [recovery procedure](../docs/OPERATIONS.md) completes.
+
 ### Verify on the target host
 
 Export the approved `FOCUSPOCUS_IMAGE` index digest and the exact HTTPS `FOCUSPOCUS_ORIGIN` used by browsers. Run from the deployed checkout with its Compose environment. The baseline check matches the completed migration container and both running services to the selected AMD64 image configuration, verifies schema and worker health, and requests readiness through TLS.

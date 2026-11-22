@@ -15,7 +15,7 @@ SELECT format('CREATE ROLE fpmigrate LOGIN PASSWORD %L', :'migrate_password')
 DO $roles$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname IN ('fpapp','fpmigrate')
-               AND (rolsuper OR rolcreaterole OR rolbypassrls OR NOT rolcanlogin))
+               AND (rolsuper OR rolcreaterole OR rolbypassrls OR rolreplication OR NOT rolcanlogin))
        OR EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'fpapp' AND rolcreatedb)
     THEN RAISE EXCEPTION 'Unexpected pre-existing database role attributes';
     END IF;
