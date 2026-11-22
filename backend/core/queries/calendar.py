@@ -2,28 +2,28 @@
 
 from collections import defaultdict
 
-from core.scheduling.dates import DateIntent, effective_dates, next_date_boundary
-from core.scheduling.storage import read_schedule
+from core.scheduling.dates import effective_dates, next_date_boundary
 
 
-def schedules_for(items, context):
+def schedules_for(rows, context):
     children = defaultdict(list)
-    for item in items:
-        children[item.parent_id].append(item)
-    direct, effective, defer = {}, {}, {}
+    for row in rows:
+        children[row["parentId"]].append(row)
+    effective, defer = {}, {}
     boundary = None
-    stack = [(root, {}) for root in children[None]]
+    stack = [(row, {}, {}) for root in ("root", "inbox") for row in children[root]]
     while stack:
-        item, inherited = stack.pop()
-        key = str(item.pk)
-        direct[key] = read_schedule(item)
-        assigned = direct[key].get("defer")
-        if assigned:
-            defer[key] = DateIntent.from_wire(assigned).instant("defer", context)
-        dates = effective_dates(key, direct[key], inherited, context)
-        effective[key] = {name: entry.wire() for name, entry in dates.items()}
-        next_change = next_date_boundary(dates, context)
-        if next_change is not None and (boundary is None or next_change < boundary):
-            boundary = next_change
-        stack.extend((child, dates) for child in children[item.pk])
-    return direct, effective, defer, boundary
+        row, dates, wire = stack.pop()
+        key = row["id"]
+        if row["schedule"]:
+            dates = effective_dates(key, row["schedule"], dates, context)
+            wire = {name: entry.wire() for name, entry in dates.items()}
+            assigned = dates.get("defer")
+            if assigned and assigned.source == key:
+                defer[key] = assigned.instant
+            next_change = next_date_boundary(dates, context)
+            if next_change is not None and (boundary is None or next_change < boundary):
+                boundary = next_change
+        effective[key] = wire
+        stack.extend((child, dates, wire) for child in children.get(key, ()))
+    return effective, defer, boundary

@@ -13,6 +13,11 @@ from .presentation import grouping, ordered, visible_rows
 from .service import personal_state
 
 
+# A Here search snapshots the visible IDs. This accommodates the 11,100-row
+# qualification outline within the existing one-MiB request envelope.
+MAX_HERE_IDS = 20_000
+
+
 def number(value, maximum, minimum=0):
     if type(value) is not int or not minimum <= value <= maximum:
         raise CommandError("Invalid query page.")
@@ -30,7 +35,7 @@ def query(user, workspace, body):
         raise CommandError("Search text contains an unsupported character.")
     needle = text.strip().casefold()
     scope = choice(body.get("scope", "here"), ("here", "remaining", "everything"), "search scope")
-    selected = set(id_list(body["hereIds"], 5000)) if "hereIds" in body else None
+    selected = set(id_list(body["hereIds"], MAX_HERE_IDS)) if "hereIds" in body else None
     start = number(body.get("offset", 0), 10_000_000)
     limit = number(body.get("limit", 200), 500, minimum=1)
     state = personal_state(user, workspace)
@@ -62,7 +67,8 @@ def query(user, workspace, body):
     terms = set(text_terms(definition["expression"])) if scope == "here" else set()
     if needle:
         terms.add(needle)
-    hits = note_matches(workspace, [row["id"] for row in candidates], terms)
+    scoped = allowed is not None or (selected is not None and scope == "here")
+    hits = note_matches(workspace, terms, item_ids=(row["id"] for row in candidates) if scoped else None)
     evaluation = Evaluation(rows, tags, order, hits, metadata["viewZone"])
     matches = candidates
     if scope == "here":
