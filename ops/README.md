@@ -41,7 +41,7 @@ For an isolated database restored with `pg_restore --no-acl`, run the database b
 
 ### Verify on the target host
 
-Export the approved `FOCUSPOCUS_IMAGE` index digest and the exact HTTPS `FOCUSPOCUS_ORIGIN` used by browsers. Run from the deployed checkout with its Compose environment. The baseline check matches the completed migration container and both running services to the selected AMD64 image configuration, verifies schema and worker health, and requests readiness through TLS.
+Use Bash, Docker Engine with Compose and Buildx, `jq`, `curl` and Python 3 on the Tumbleweed host. Export the approved `FOCUSPOCUS_IMAGE` index digest and the exact HTTPS `FOCUSPOCUS_ORIGIN` used by browsers. Run from the deployed checkout with its Compose environment and local Docker socket. The baseline check matches the completed migration container and both running services to the selected AMD64 image configuration, verifies schema and worker health, and requests readiness through TLS.
 
 ```sh
 bash tools/release/verify-host.sh
