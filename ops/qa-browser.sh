@@ -35,7 +35,7 @@ cleanup() {
 trap cleanup EXIT
 umask 077
 if [[ $# == 2 && $1 == recovery ]]; then
-  [[ ${FOCUSPOCUS_QA_RESTORE_HOST:-} == "$COMPOSE_PROJECT_NAME-restored-web" ]]
+  [[ ${FOCUSPOCUS_QA_RESTORE_HOST:-} == "$COMPOSE_PROJECT_NAME-clone" ]]
   # Use the disposable owner present in both the running database and SQL dump.
   python3 - "$2" "$qa_dir/accounts.json" <<'PY'
 import json

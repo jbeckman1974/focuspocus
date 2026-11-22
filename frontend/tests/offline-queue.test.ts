@@ -434,3 +434,69 @@ test("staging an old tab's draft against a newer local edit requires comparison"
   assert.equal(doc.projection.tasks[0].title, "First browser tab");
   assert.match(doc.queue[1].reason, /Another tab/);
 });
+
+test("recovery keeps draft and file bytes for deliberate review and clears old execution receipts", async () => {
+  const { quarantine, matchesReview } =
+    await import("../src/persistent/offline/queueRecovery.ts");
+  const old = create();
+  const parent = add(old, capture);
+  const target = old.projection.tasks[0];
+  const child = prepare(
+    { type: "content", id: target.id, action: "upload" },
+    old.projection,
+  );
+  enqueue(
+    old,
+    old.projection,
+    child,
+    {
+      action: "upload",
+      itemId: target.id,
+      itemVersion: 0,
+      fileId: "A",
+      name: "field.txt",
+      mediaType: "text/plain",
+      sha256: "hash",
+      size: 1,
+    },
+    new Blob(["Z"]),
+  );
+  nextTransmission(old, initial);
+  old.receipts.retired = receipt(parent, 2, {});
+  const restored = {
+    ...initial,
+    generation: "restored",
+    offlineGrant: { ...initial.offlineGrant!, id: "restored-grant" },
+    context: "fresh-context",
+  };
+  const next = freshData<QueueEntry>(restored);
+  quarantine(old, next, "generation");
+  assert.equal(next.queue[0].transmitted, true);
+  assert.equal(await next.files[child.envelope.operationId].text(), "Z");
+  assert.deepEqual(next.receipts, {});
+  assert.deepEqual(next.projection.tasks, []);
+  assert.deepEqual(
+    queueNotices(next).map((n) => n.status),
+    ["conflict", "blocked"],
+  );
+  assert.equal(nextTransmission(next, restored), undefined);
+  assert.equal(matchesReview(initial, restored), false);
+  assert.equal(matchesReview(restored, { ...restored, revision: 3 }), false);
+  assert.equal(matchesReview(restored, restored), true);
+  const restoredItem = { ...restored, tasks: [task("t", "Current note", 9)] };
+  const reviewed = {
+    itemId: "t",
+    itemVersion: 8,
+    generation: "restored",
+    grantId: "restored-grant",
+  };
+  assert.equal(matchesReview(restoredItem, restoredItem, reviewed), false);
+  assert.equal(
+    matchesReview(restoredItem, restoredItem, { ...reviewed, itemVersion: 9 }),
+    true,
+  );
+  resolveEntry(next, parent.envelope.operationId, "reapply");
+  const chosen = nextTransmission(next, restored)!;
+  assert.notEqual(chosen.id, parent.envelope.operationId);
+  assert.equal(chosen.write.envelope.context, "fresh-context");
+});

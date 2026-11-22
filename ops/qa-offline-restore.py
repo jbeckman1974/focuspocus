@@ -24,7 +24,7 @@ def main(checkpoint):
     command = json.loads(output("docker", "inspect", "--format", "{{json .Config.Cmd}}", web))
     if not isinstance(command, list) or not command:
         raise ValueError("Unable to identify the qualified web entry point.")
-    name = project + "-restored-web"
+    name = project + "-clone"
     # Worker and web use the same application image, secrets and database role.
     # The worker service attaches solely to the internal database network.
     cid = output(*compose, "run", "--detach", "--no-deps", "--name", name,
