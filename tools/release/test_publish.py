@@ -38,17 +38,28 @@ class PromotionTests(unittest.TestCase):
         with patch("publish.stage_image") as stage:
             for version in ("latest", "v01.2.3", "v1.2", "v1.2.3/extra"):
                 with self.assertRaises(ValueError):
-                    publish("example.invalid/project", version, "1" * 40, "1", "1", Path("."))
+                    publish("example.invalid/project", version, "1" * 40, "1", "1", Path("."), "1")
             stage.assert_not_called()
 
-    def test_existing_immutable_version_must_belong_to_same_source(self):
-        index = json.dumps({"manifests": self.manifests})
-        wrong = [{"Os": "linux", "Architecture": "amd64", "Config": {"Labels": {
-            "org.opencontainers.image.revision": "different", "org.opencontainers.image.version": "v1.0.0",
-        }}}]
-        with patch("publish.docker", side_effect=[index, "", json.dumps(wrong)]):
-            with self.assertRaisesRegex(ValueError, "incompatible source"):
-                verify_previous_version("example.invalid/project", "digest", "v1.0.0", "expected")
+    def prior_version(self, sources, version="v1.0.0"):
+        output = [json.dumps({"manifests": self.manifests})]
+        for arch, source in zip(self.children, sources):
+            image = {"Os": "linux", "Architecture": arch, "Config": {"Labels": {
+                "org.opencontainers.image.revision": source, "org.opencontainers.image.version": version,
+            }}}
+            output.extend(["", json.dumps([image])])
+        with patch("publish.docker", side_effect=output):
+            return verify_previous_version("example.invalid/project", "digest", "v1.0.0", "f" * 40)
+
+    def test_prior_version_must_have_same_reviewed_source_on_both_platforms(self):
+        original = "e" * 40
+        with patch("publish.require_original_version") as check:
+            self.assertEqual(self.prior_version([original, original]), original)
+            check.assert_called_once_with(original, "f" * 40, "v1.0.0")
+        with self.assertRaisesRegex(ValueError, "different sources"):
+            self.prior_version([original, "d" * 40])
+        with self.assertRaisesRegex(ValueError, "incompatible version"):
+            self.prior_version([original, original], "v0.0.1")
 
     def test_stable_moves_only_after_version_and_build_readback(self):
         digest = "sha256:" + "a" * 64
@@ -67,7 +78,29 @@ class PromotionTests(unittest.TestCase):
                 patch("publish.docker", side_effect=registry), \
                 patch("publish.inspect_digest", side_effect=lambda ref, optional=False: tags.get(ref)), \
                 patch("builtins.print"):
-            release = publish(repo, "v0.1.0", "f" * 40, "1", "3", Path("."))
+            with self.assertRaisesRegex(ValueError, "existing immutable version"):
+                publish(repo, "v0.1.0", "f" * 40, "1", "3", Path("."), "1", maintenance=True)
+        with patch("publish.stage_image", side_effect=list(self.children.values())), \
+                patch("publish.docker", side_effect=registry), \
+                patch("publish.inspect_digest", side_effect=lambda ref, optional=False: tags.get(ref)):
+            release = publish(repo, "v0.1.0", "f" * 40, "1", "3", Path("."), "1")
+            self.assertEqual(release["source"], release["version_source"])
             self.assertNotIn(repo + ":stable", tags)
             promote_stable(repo, release)
         self.assertEqual(list(tags), [repo + suffix for suffix in (":ci-1-3", ":v0.1.0", ":v0.1.0-b1-3", ":stable")])
+
+    def test_maintenance_keeps_original_index_and_records_both_sources(self):
+        original = "sha256:" + "a" * 64
+        candidate = "sha256:" + "b" * 64
+        repo = "example.invalid/project"
+        version = "v0.1.0"
+        with patch("publish.stage_image", side_effect=self.children.values()), \
+                patch("publish.docker", side_effect=["", json.dumps({"manifests": self.manifests}), ""]) as docker, \
+                patch("publish.inspect_digest", side_effect=[candidate, original, None, candidate]), \
+                patch("publish.verify_previous_version", return_value="c" * 40) as previous:
+            release = publish(repo, version, "e" * 40, "22", "1", Path("."), "7", maintenance=True)
+        previous.assert_called_once_with(repo, original, version, release["source"])
+        self.assertEqual((release["version_index"], release["version_source"]), (original, "c" * 40))
+        self.assertEqual((release["index"], release["source"]), (candidate, "e" * 40))
+        tagged = [entry.args[4] for entry in docker.call_args_list if entry.args[2] == "create"]
+        self.assertEqual(tagged, [repo + ":ci-22-1", repo + ":v0.1.0-b22-1"])

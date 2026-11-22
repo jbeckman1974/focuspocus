@@ -5,10 +5,11 @@ import os
 import sys
 from pathlib import Path
 
+from provenance import RUN_ATTEMPT, RUN_NUMBER, build_order
 from publish import DIGEST, PLATFORMS, docker, inspect_digest, verify_index
 
 
-def verify_tag(repo, tag, index_digest, arch, version, commit, candidate=None):
+def verify_tag(repo, tag, index_digest, arch, version, commit, candidate=None, expected_order=None):
     tag_ref = repo + ":" + tag
     if not DIGEST.fullmatch(index_digest) or inspect_digest(tag_ref) != index_digest:
         raise ValueError(f"Unexpected index digest for {tag}")
@@ -34,9 +35,11 @@ def verify_tag(repo, tag, index_digest, arch, version, commit, candidate=None):
     allowed_refs = {repo + "@" + digest for digest in (index_digest, child)}
     if actual != ("linux", arch, config, version, commit) or allowed_refs.isdisjoint(image["RepoDigests"]):
         raise ValueError(f"Default native pull of {tag} selected an unexpected image")
+    if expected_order and build_order(labels.get(RUN_NUMBER), labels.get(RUN_ATTEMPT)) != expected_order:
+        raise ValueError(f"Unexpected build sequence for {tag}")
     if inspect_digest(tag_ref) != index_digest:
         raise ValueError(f"Tag {tag} changed during native readback")
-    return {"tag": tag, "index": index_digest, "child": child, "config": config}
+    return {"tag": tag, "index": index_digest, "child": child, "config": config, "source": commit}
 
 
 def readback(repo, release, arch, candidate):
@@ -48,13 +51,12 @@ def readback(repo, release, arch, candidate):
         raise ValueError("Published candidate identity differs from qualified platform")
     if os.environ.get("DOCKER_DEFAULT_PLATFORM"):
         raise ValueError("Native pull requires the daemon's default architecture")
-    results = []
-    for tag, digest in [(version, release["version_index"]), (release["build"], release["index"])]:
-        # An immutable original version may predate this maintenance build. Check its own
-        # index, selected native image, source and version, then check the new build's record.
-        tested = candidate if digest == release["index"] else None
-        results.append(verify_tag(repo, tag, digest, arch, version, commit, tested))
-    return results
+    tested_version = candidate if release["version_index"] == release["index"] else None
+    return [
+        verify_tag(repo, version, release["version_index"], arch, version, release["version_source"], tested_version),
+        verify_tag(repo, release["build"], release["index"], arch, version, commit, candidate,
+                   build_order(release["run_number"], release["run_attempt"])),
+    ]
 
 
 if __name__ == "__main__":

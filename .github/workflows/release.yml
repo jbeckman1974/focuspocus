@@ -1,5 +1,6 @@
 name: Qualify and publish version
 on:
+  workflow_dispatch:
   push:
     tags: ["v*"]
     branches: [main]
@@ -11,6 +12,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   qualify:
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     permissions:
       contents: read
       packages: write
@@ -34,6 +36,7 @@ jobs:
         run: |
           version=$(cat release/version)
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$version"; fi
+          bash tools/release/check-dispatch.sh
           [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
@@ -53,7 +56,10 @@ jobs:
         run: |
           export EXPECTED_ARCH="$PLATFORM"
           export FOCUSPOCUS_IMAGE="focuspocus-candidate:$PLATFORM"
-          docker build --label "org.opencontainers.image.version=$VERSION" --label "org.opencontainers.image.revision=$GITHUB_SHA" -t "$FOCUSPOCUS_IMAGE" .
+          docker build --label "org.opencontainers.image.version=$VERSION" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --label "io.focuspocus.run-number=$GITHUB_RUN_NUMBER" \
+            --label "io.focuspocus.run-attempt=$GITHUB_RUN_ATTEMPT" -t "$FOCUSPOCUS_IMAGE" .
           bash ops/verify-stack.sh
       - name: Stage the tested image and record its registry identity
         env:
@@ -88,6 +94,7 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131
         with:
@@ -98,9 +105,10 @@ jobs:
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          bash tools/release/check-dispatch.sh
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           unset REGISTRY_TOKEN
-          release=$(python3 tools/release/publish.py stage "ghcr.io/${GITHUB_REPOSITORY,,}" "$(cat release/version)" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/qualified")
+          release=$(python3 tools/release/publish.py stage "ghcr.io/${GITHUB_REPOSITORY,,}" "$(cat release/version)" "$GITHUB_SHA" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$RUNNER_TEMP/qualified" "$GITHUB_RUN_NUMBER")
           printf 'release=%s\n' "$release" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$release" >> "$GITHUB_STEP_SUMMARY"
   readback:
@@ -150,12 +158,14 @@ jobs:
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
         with:
+          fetch-depth: 0
           persist-credentials: false
       - name: Advance stable after both native readbacks
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE: ${{ needs.publish.outputs.release }}
         run: |
+          bash tools/release/check-dispatch.sh
           printf '%s' "$REGISTRY_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
           unset REGISTRY_TOKEN
           python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY,,}" "$RELEASE"
