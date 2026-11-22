@@ -121,3 +121,13 @@ The warning and GPLv3 license reached public `main` in [PR #9](https://github.co
 Joe designated a LAN-only x64 Tumbleweed Docker host for builds and tests. This session's managed network denied TCP port 22 before SSH authentication and disabled network escalation. The host was untouched. Actions continues to supply native CI evidence. Testing on the LAN host and deployment on an eventual production host each need their own result.
 
 The Mac subsequently retrieved every publisher document in the reference catalog. All 88 copies (16,809,836 bytes) passed SHA-256 verification, including the official OmniFocus release notes, 11 manual chapters and two support articles. The additional 57 upstream files matched their Git identities and SHA-256 checksums. Both supplied briefs match the originals. All 18 archive tests passed. The private collection is browsable at `build/OmniFocus/index.html`.
+
+The private test-host runner is being developed in a separate operations branch. Its first nine cleanup and network tests passed locally, bringing the release-tool suite to 40 tests. Joe wants the server's two test databases in a `focuspocus` subfolder of its existing container data directory. The actual parent still requires host inspection. The Mac verified the official project-local Lima 2.3.0 binary and passed all 15 VM tests, including validation of the real Lima template. Guest boot still requires an x86_64 emulator and a verified image.
+
+### M4 automated acceptance
+
+[PR #8](https://github.com/jbeckman1974/focuspocus/pull/8) merged into `main` at `955b03d`. An independent reviewer checked all 360 source files at `2c1feeb`, including the timezone correction and populated migration. The reviewer found no embedded credential indicators or private build paths. Each native platform passed 146 Django/PostgreSQL tests, 66 frontend unit tests, six sample and 12 authenticated browser journeys, a populated database upgrade, container replacement and a clean restore. [Stack validation](https://github.com/jbeckman1974/focuspocus/actions/runs/45013869045) · [Frontend validation](https://github.com/jbeckman1974/focuspocus/actions/runs/45013869068)
+
+## M5 · Portability, sharing and integrations
+
+The milestone branch starts from the M4 merge. The first slice stages TaskPaper or CSV against synthetic work, discloses field losses, then commits once with a guarded rollback. Parallel work covers a complete portable bundle, owner-managed sharing and scoped capture, and personal calendar, reminder and location workflows. The acceptance checks preserve later edits, deny access after membership revocation and restore exact attachment bytes in a clean workspace. The LAN test host and Joe's representative export retain separate field checks.
