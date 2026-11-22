@@ -1,0 +1,92 @@
+.outline-dialog {
+  width: min(23rem, calc(100% - 2rem));
+  max-height: 82dvh;
+  overflow: auto;
+  box-sizing: border-box;
+  border: 1px solid var(--line, ButtonBorder);
+  border-radius: 0.75rem;
+  padding: 1.1rem;
+  background: var(--surface-raised, Canvas);
+  color: var(--ink, CanvasText);
+  font-family: var(--ui-font, system-ui, sans-serif);
+  box-shadow: 0 12px 48px #0003;
+}
+
+.outline-dialog::backdrop {
+  background: #101b1e66;
+}
+
+.outline-dialog-heading {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.outline-dialog-heading h2 {
+  font-size: 1.2em;
+  margin: 0;
+}
+
+.outline-dialog-heading button {
+  font-size: 1.4em;
+  line-height: 1;
+}
+
+.outline-dialog form,
+.outline-dialog label {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.outline-dialog form {
+  gap: 1rem;
+}
+
+.outline-dialog label {
+  font-size: 0.88em;
+  font-weight: 600;
+}
+
+.outline-dialog input,
+.outline-dialog select {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.outline-primary {
+  justify-self: end;
+}
+
+.outline-command-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.6rem 0;
+}
+
+.outline-command-list button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  padding: 0.45rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: transparent;
+  text-align: start;
+}
+
+.outline-command-list button:hover:enabled {
+  background: var(--surface-hover, ButtonFace);
+}
+
+.outline-command-list kbd {
+  color: var(--muted, GrayText);
+  font-size: 0.8em;
+}
+
+.outline-key-help {
+  margin: 0.75rem 0 0;
+}
+
+.outline-dialog-error {
+  margin: 0.75rem 0 0;
+  font-size: 0.86em;
+}

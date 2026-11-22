@@ -8,6 +8,7 @@ Joe has authorized implementation of the maintained plan, its tests, milestone b
 - Use named modules with one clear responsibility. Keep outline commands and their invariants separate from presentation, storage and transport. Organize UI components around user workflows. Pass dependencies explicitly. Split files when changes to unrelated behaviors become coupled. Choose clear domain names and keep database changes in reviewed migrations.
 - Use conventional TypeScript/React and Python formatting for their respective modules. Run the project's format check, static/type checks, tests and dependency checks as they become available. Test behavior through the same commands and endpoints the user will exercise. Include invalid input, cancellation, conflict/retry, isolation and recovery where relevant.
 - Develop in native Linux ARM64 containers on the MacBook and build dependencies inside their target containers. The disposable local x64 openSUSE Tumbleweed guest uses CPU emulation. Native AMD64 CI, both platform images and a verified Tumbleweed x64 production deployment have distinct evidence. See [operations](docs/OPERATIONS.md).
+- For the M1 UI, run the `frontend` service’s `npm run check` and its `browser-tests` Docker target. Keep the fixture command API independent of React. Validate keyboard and pointer against the same task IDs. Add a source extension to the Docker context allowlist only when the build needs it. Refresh the npm lock in a clean Linux container and review the resolved versions and integrity data.
 
 ## Steps and milestones
 

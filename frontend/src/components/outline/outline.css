@@ -1,0 +1,210 @@
+@import "./tree.css";
+@import "./dialog.css";
+
+.task-outline {
+  --outline-pad: clamp(1rem, 3vw, 2.75rem);
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  color: var(--ink, CanvasText);
+  background: var(--surface, Canvas);
+  font-family: var(--ui-font, system-ui, sans-serif);
+  font-size: var(--ui-font-size, 1rem);
+}
+
+.task-outline button,
+.outline-dialog button {
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.task-outline button:disabled,
+.outline-dialog button:disabled {
+  color: var(--muted, GrayText);
+  cursor: default;
+  opacity: 0.55;
+}
+
+.task-outline :focus-visible,
+.outline-dialog :focus-visible {
+  outline: 2px solid var(--focus, Highlight);
+  outline-offset: 2px;
+}
+
+.outline-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: clamp(1.3rem, 3.5vh, 2.2rem) var(--outline-pad) 0.9rem;
+}
+
+.outline-heading-title,
+.outline-history,
+.outline-toolbar,
+.outline-toolbar-commands,
+.outline-fields,
+.outline-dialog-heading {
+  display: flex;
+  align-items: center;
+}
+
+.outline-heading-title {
+  min-width: 0;
+  gap: 0.7em;
+  flex-wrap: wrap;
+}
+
+.outline-heading h1 {
+  margin: 0;
+  font-size: clamp(1.65em, 2.3vw, 2.25em);
+  line-height: 1.14;
+  letter-spacing: -0.04em;
+  overflow-wrap: anywhere;
+}
+
+.outline-count,
+.outline-selection-count,
+.outline-key-help,
+.outline-empty {
+  color: var(--muted, GrayText);
+  font-size: 0.82em;
+}
+
+.outline-history {
+  border: 1px solid var(--line, ButtonBorder);
+  border-radius: 0.5rem;
+  flex-shrink: 0;
+}
+
+.outline-history button,
+.outline-toolbar button,
+.outline-more,
+.outline-inline-edit button,
+.outline-dialog-heading button {
+  border: 0;
+  border-radius: 0.35rem;
+  background: transparent;
+  padding: 0.35rem 0.55rem;
+}
+
+.outline-history button {
+  min-width: 2rem;
+  font-size: 1.2em;
+  line-height: 1;
+}
+
+.outline-history button:hover:enabled,
+.outline-toolbar button:hover:enabled,
+.outline-inline-edit button:hover:enabled,
+.outline-dialog-heading button:hover {
+  background: var(--surface-hover, ButtonFace);
+}
+
+.outline-capture {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0 var(--outline-pad) 1rem;
+  border: 1px solid var(--line, ButtonBorder);
+  border-radius: 0.65rem;
+  padding: 0.44em 0.55em 0.44em 0.7em;
+  background: var(--surface-subtle, Canvas);
+}
+
+.outline-capture:focus-within {
+  border-color: var(--accent, Highlight);
+}
+
+.outline-capture-mark {
+  color: var(--accent, Highlight);
+  font-size: 1.3em;
+  line-height: 1.45;
+}
+
+.outline-capture textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  resize: none;
+  background: transparent;
+  color: inherit;
+  outline: none;
+  font: inherit;
+  line-height: 1.5;
+  padding: 0.23em 0;
+}
+
+.outline-capture button,
+.outline-primary {
+  flex-shrink: 0;
+  border: 1px solid var(--accent, Highlight);
+  border-radius: 0.4rem;
+  padding: 0.32em 0.85em;
+  background: var(--accent, Highlight);
+  color: var(--on-accent, HighlightText) !important;
+  font-weight: 600;
+}
+
+.outline-capture button:disabled {
+  border-color: var(--line, ButtonBorder);
+  color: var(--muted, GrayText) !important;
+  background: transparent;
+}
+
+.outline-toolbar {
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0.45rem var(--outline-pad);
+  border-top: 1px solid var(--line, ButtonBorder);
+  border-bottom: 1px solid var(--line, ButtonBorder);
+  background: var(--surface-subtle, Canvas);
+  font-size: 0.84em;
+}
+
+.outline-toolbar [aria-pressed="true"] {
+  background: var(--accent-wash, ButtonFace);
+  color: var(--accent, Highlight);
+}
+
+.outline-toolbar-commands {
+  margin-inline-start: auto;
+  gap: 0.15rem;
+}
+
+.outline-selection-count {
+  font-size: 0.94em;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .task-outline {
+    --outline-pad: 0.7rem;
+  }
+
+  .outline-heading {
+    padding-top: 1rem;
+  }
+
+  .outline-toolbar {
+    gap: 0.2rem;
+  }
+
+  .outline-toolbar button {
+    min-height: 2rem;
+  }
+
+  .outline-row {
+    flex-wrap: wrap;
+    gap: 0.12rem;
+    padding-inline-start: calc(0.35rem + min(var(--depth), 4) * 0.6em);
+  }
+
+  .outline-fields {
+    max-width: 33%;
+  }
+}
