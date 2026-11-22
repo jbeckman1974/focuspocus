@@ -30,12 +30,30 @@ def mounted_sources():
         return []
     fmt = '{{.Id}}\t{{with .Config.Labels}}{{json (index . "com.docker.compose.project")}}{{else}}null{{end}}\t{{json .Mounts}}'
     result = []
+    volume_owners = {}
     for line in output("docker", "inspect", "--format", fmt, *containers).splitlines():
         identity, encoded_owner, mounts = line.split("\t", 2)
         owner = json.loads(encoded_owner)
         for mount in json.loads(mounts) or []:
             if mount["Type"] == "bind":
                 result.append((owner or identity, Path(mount["Source"])))
+            elif mount["Type"] == "volume" and mount.get("Name"):
+                volume_owners.setdefault(mount["Name"], set()).add(owner or identity)
+    # Compose also supports named local volumes backed by a host bind. Extract
+    # only their device path; other drivers' options may contain credentials.
+    if volume_owners:
+        template = (
+            '{{if eq .Driver "local"}}{{with .Options}}{{if .device}}{{with .o}}{{range split . ","}}'
+            '{{if or (eq . "bind") (eq . "rbind")}}{{json $.Name}}{{printf "\\t"}}'
+            '{{json $.Options.device}}{{end}}{{end}}{{end}}{{end}}{{end}}{{end}}'
+        )
+        volumes = output("docker", "volume", "inspect", "--format", template, *volume_owners)
+        for line in volumes.splitlines():
+            if line:
+                name, device = (json.loads(field) for field in line.split("\t"))
+                path = Path(device)
+                if path.is_absolute():
+                    result.extend((owner, path) for owner in volume_owners[name])
     return result
 
 
@@ -99,7 +117,12 @@ def allocate(parent, state, image):
     directory.mkdir(mode=0o700)
     (directory / MARKER).write_text(nonce)
     for cluster in CLUSTERS:
-        (directory / cluster).mkdir(mode=0o700)
+        leaf = directory / cluster
+        leaf.mkdir(mode=0o700)
+        # postgres:18 starts as root and runs the database as its own UID in
+        # the versioned subdirectory. Let that UID traverse the mount root.
+        # The enclosing host run directory remains private to its owner.
+        leaf.chmod(0o711)
     claim.update(run=identity(directory), clusters={c: identity(directory / c) for c in CLUSTERS})
     save(record, claim)
     return directory, record

@@ -1,5 +1,6 @@
 """Verify storage discovery, database separation and interrupted-run cleanup."""
 
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -34,6 +35,20 @@ class StorageTests(unittest.TestCase):
             data.discover(self.mounts, self.root / "absent")
         self.assertFalse((self.root / "absent").exists())
 
+    def test_discovers_same_parent_for_direct_and_named_bind_mounts(self):
+        first, second = (path for _, path in self.mounts)
+        containers = "\n".join((
+            'c1\t"one"\t' + json.dumps([{"Type": "bind", "Source": str(first)}]),
+            'c2\t"two"\t' + json.dumps([{"Type": "volume", "Name": "named_data"},
+                                       {"Type": "volume", "Name": "regular_data"}]),
+        ))
+        tagged = json.dumps("named_data") + "\t" + json.dumps(str(second))
+        with patch.object(data, "output", side_effect=["c1\nc2", containers, tagged]) as docker:
+            sources = data.mounted_sources()
+        self.assertCountEqual(sources, [("one", first), ("two", second)])
+        self.assertEqual(data.discover(sources, home=self.home), self.root)
+        self.assertEqual(docker.call_args.args[:4], ("docker", "volume", "inspect", "--format"))
+
     def test_rejects_ambiguity_same_project_and_symlink(self):
         with self.assertRaises(ValueError):
             data.discover([("same", path) for _, path in self.mounts], self.root)
@@ -56,6 +71,9 @@ class StorageTests(unittest.TestCase):
         canary.write_text("owned by operator")
         run, record = data.allocate(self.root, self.state, IMAGE)
         self.assertEqual(run.parent, app)
+        self.assertEqual(run.stat().st_mode & 0o077, 0)
+        for cluster in data.CLUSTERS:
+            self.assertEqual((run / cluster).stat().st_mode & 0o777, 0o711)
         self.assertEqual({p.name for p in run.iterdir()}, {"pgdata", "testdata", data.MARKER})
         data.cleanup(self.root, record, self.mounts, False)
         self.assertFalse(run.exists())
