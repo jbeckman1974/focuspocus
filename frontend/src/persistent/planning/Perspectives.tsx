@@ -11,6 +11,7 @@ import type { ResultActions, ViewActions } from "./results.tsx";
 import type { CatalogActions } from "./useCatalog.ts";
 
 type SearchScope = "here" | "remaining" | "everything";
+const searchTypingDelayMs = 60;
 interface Result {
   rows: (Entry & { context?: boolean })[];
   matchIds: string[];
@@ -77,19 +78,25 @@ export function Perspectives({
   const searchTimer = useRef<number>(undefined);
   useEffect(() => () => window.clearTimeout(searchTimer.current), []);
 
-  function search(value: string) {
+  function search(value: string, event: Event) {
     setText(value);
-    const firstInput = searchTimer.current === undefined;
+    window.clearTimeout(searchTimer.current);
     function submit() {
       setNeedle(value);
       setOffset(0);
     }
-    if (firstInput) submit();
-    window.clearTimeout(searchTimer.current);
-    searchTimer.current = window.setTimeout(() => {
-      searchTimer.current = undefined;
-      if (!firstInput) submit();
-    }, 180);
+    // Group adjacent keystrokes before starting a full workspace query.
+    // Clear, paste and whole-field replacements can be submitted immediately.
+    const keystroke =
+      event instanceof InputEvent &&
+      (event.inputType.startsWith("delete") ||
+        (event.inputType === "insertText" && (event.data?.length ?? 0) <= 1) ||
+        event.inputType === "insertCompositionText");
+    if (value && keystroke) {
+      searchTimer.current = window.setTimeout(submit, searchTypingDelayMs);
+    } else {
+      submit();
+    }
   }
   useEffect(() => {
     setOffset(0);
@@ -112,7 +119,7 @@ export function Perspectives({
     },
     catalog.data?.personalVersion,
   );
-  const data = result.data;
+  const data = text === needle ? result.data : undefined;
   useVisibleMatches(report, data?.matchIds);
   const entries = new Map(data?.rows.map((row) => [row.id, row]));
   const edit = (initial: SaveBody) =>
@@ -214,7 +221,7 @@ export function Perspectives({
           <input
             type="search"
             value={text}
-            onChange={(e) => search(e.target.value)}
+            onChange={(e) => search(e.target.value, e.nativeEvent)}
           />
         </label>
         <label>
