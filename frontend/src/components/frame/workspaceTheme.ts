@@ -25,8 +25,8 @@ const brand: BrandVariants = {
   160: "#dff1e5",
 };
 
-const light = createLightTheme(brand);
-const dark = createDarkTheme(brand);
+const light = { theme: createLightTheme(brand), colorScheme: "light" } as const;
+const dark = { theme: createDarkTheme(brand), colorScheme: "dark" } as const;
 const query = "(prefers-color-scheme: dark)";
 
 function subscribeSystemTheme(change: () => void) {

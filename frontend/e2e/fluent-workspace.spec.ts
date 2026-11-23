@@ -22,12 +22,15 @@ test("Workspace controls follow the system theme and return keyboard focus to Pr
   const dialog = page.getByRole("dialog", { name: "Workspace preferences" });
   const theme = dialog.getByRole("combobox", { name: "Theme", exact: true });
   await expect(theme).toHaveValue("system");
+  await expect(theme).toHaveCSS("color-scheme", "light");
   const surfaceColor = () =>
     dialog.evaluate((surface) => getComputedStyle(surface).backgroundColor);
   const light = await surfaceColor();
   await page.emulateMedia({ colorScheme: "dark" });
+  await expect(theme).toHaveCSS("color-scheme", "dark");
   await expect.poll(surfaceColor).not.toBe(light);
   await theme.selectOption("light");
+  await expect(theme).toHaveCSS("color-scheme", "light");
   await expect.poll(surfaceColor).toBe(light);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

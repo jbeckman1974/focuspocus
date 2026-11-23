@@ -84,7 +84,7 @@ export function Frame({
   const [sampleSidebarSize, setSampleSidebarSize] = useState(212);
   const [sampleInspectorSize, setSampleInspectorSize] = useState(260);
   const appearance = personalPreferences?.account ?? sampleAppearance;
-  const fluentTheme = useWorkspaceTheme(appearance.theme);
+  const { theme, colorScheme } = useWorkspaceTheme(appearance.theme);
   const preferencesTrigger = useRef<HTMLElement | null>(null);
   const sidebarSize =
     personalPreferences?.device.sidebarSize ?? sampleSidebarSize;
@@ -213,7 +213,7 @@ export function Frame({
       value={personalPreferences?.account.shortcut ?? "x"}
     >
       <FluentProvider
-        theme={fluentTheme}
+        theme={theme}
         data-motion={personalPreferences?.account.motion ?? "system"}
         className="fp-shell"
         data-theme={appearance.theme}
@@ -309,7 +309,7 @@ export function Frame({
               ? "Private workspace"
               : "Sample data resets on reload"}
           </span>
-          {personalPreferences?.retry && !preferencesOpen && (
+          {personalPreferences?.retry && (
             <button onClick={(event) => openPreferences(event.currentTarget)}>
               Review preference changes
             </button>
@@ -321,6 +321,7 @@ export function Frame({
         {preferencesOpen && (
           <Preferences
             appearance={appearance}
+            colorScheme={colorScheme}
             motion={personalPreferences?.account.motion ?? "system"}
             onAppearance={
               personalPreferences

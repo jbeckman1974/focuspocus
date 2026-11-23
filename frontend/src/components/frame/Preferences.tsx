@@ -26,6 +26,7 @@ export interface Appearance {
 interface Props {
   controls?: ReactNode;
   appearance: Appearance;
+  colorScheme: "light" | "dark";
   motion: "system" | "reduced";
   onAppearance: (settings: Partial<Appearance>) => void;
   editMode: EditMode;
@@ -36,6 +37,7 @@ interface Props {
 
 export function Preferences({
   appearance,
+  colorScheme,
   motion,
   controls,
   onAppearance,
@@ -47,12 +49,15 @@ export function Preferences({
   return (
     <Dialog
       open
+      surfaceMotion={motion === "reduced" ? null : undefined}
       onOpenChange={(_, state) => {
         if (!state.open) onClose();
       }}
     >
       <DialogSurface
         className="fp-preferences"
+        style={{ colorScheme }}
+        backdropMotion={motion === "reduced" ? null : undefined}
         data-text-size={appearance.textSize}
         data-motion={motion}
       >

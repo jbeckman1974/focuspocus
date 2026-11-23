@@ -63,3 +63,38 @@ test("AT-28 · appearance follows the account while the inspector layout stays o
     .click();
   await expect(inspector(page)).toBeHidden();
 });
+
+test.describe("Preference save recovery", () => {
+  test.use({ serviceWorkers: "block" });
+
+  test("dismissal returns focus to the preference retry button", async ({
+    page,
+  }) => {
+    await signIn(page, "neighbor");
+    const dialog = await settings(page);
+    await page.route("**/preferences/account", (route) =>
+      route.request().method() === "PATCH"
+        ? route.fulfill({
+            status: 503,
+            json: { error: "Preference save unavailable" },
+          })
+        : route.continue(),
+    );
+    const theme = dialog.getByRole("combobox", { name: "Theme", exact: true });
+    await theme.selectOption(
+      (await theme.inputValue()) === "dark" ? "light" : "dark",
+    );
+    await expect(
+      dialog.getByRole("button", { name: "Reapply my changes" }),
+    ).toBeVisible();
+    await page.keyboard.press("Escape");
+    const retry = page.getByRole("button", {
+      name: "Review preference changes",
+    });
+    await retry.focus();
+    await page.keyboard.press("Enter");
+    await expect(dialog).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(retry).toBeFocused();
+  });
+});
