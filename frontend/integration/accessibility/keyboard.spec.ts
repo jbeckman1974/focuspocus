@@ -4,6 +4,7 @@ import {
   chooseWithKeys,
   selectTaskWithKeys,
   sidebarDestination,
+  tabTo,
   task,
   taskId,
 } from "../../e2e/controls.ts";
@@ -127,13 +128,12 @@ test("AT-15/24 · review a project by keyboard without completing its action", a
   await expect(sidebarDestination(page, project)).toBeVisible();
   await activate(page, sidebarDestination(page, project));
   const label = "Pending inspection";
-  await activate(
-    page,
-    page.getByRole("button", { name: "Add task", exact: true }),
+  const capture = page.getByRole("textbox", { name: "Task titles" });
+  await expect(capture).toHaveAttribute(
+    "placeholder",
+    `Add a task to ${project}…`,
   );
-  await expect(
-    page.getByRole("textbox", { name: "Task titles" }),
-  ).toBeFocused();
+  await tabTo(page, capture);
   await page.keyboard.insertText(label);
   await page.keyboard.press("Enter");
   const id = await taskId(page, label);

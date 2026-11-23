@@ -6,7 +6,7 @@ export type Target =
   | { kind: "selection" | "title"; text: string }
   | { kind: "editing"; value: string };
 
-type ProbeWindow = Window & {
+export type ProbeWindow = Window & {
   benchmarkPaint?: Promise<number>;
   benchmarkPaintAt?: number;
 };

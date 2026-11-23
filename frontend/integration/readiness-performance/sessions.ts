@@ -3,7 +3,7 @@ import { signIn, submitRename } from "../account.ts";
 import { task } from "../../e2e/controls.ts";
 import { openPlanning } from "../planning-controls.ts";
 import { type Evidence } from "./evidence.ts";
-import { armPaint, painted } from "./paint.ts";
+import { armPaint, painted, type ProbeWindow } from "./paint.ts";
 
 const original = "Action 00007";
 const renamed = "Action 00007 revised";
@@ -73,8 +73,9 @@ export async function convergence(
     const acknowledged = await rename(writer, original, renamed);
     await painted(reader);
     const at = await reader.evaluate(
-      () => (window as Window & { benchmarkPaintAt: number }).benchmarkPaintAt,
+      () => (window as ProbeWindow).benchmarkPaintAt,
     );
+    if (at === undefined) throw new Error("Missing reader paint timestamp");
     evidence.record(
       "acknowledgementToSecondSession",
       5000,

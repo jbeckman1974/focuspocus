@@ -16,7 +16,7 @@ chmod 0666 "$scratch/browser.json"
 status=0
 docker run --rm --init --shm-size=512m --network "container:$FOCUSPOCUS_QA_WEB_ID" \
   --mount "type=bind,source=$scratch/accounts.json,target=/run/qa-accounts.json,readonly" \
-  --mount "type=bind,source=$scratch/browser.json,target=/tmp/benchmark-report.json" \
+  --mount "type=bind,source=$scratch/browser.json,target=/run/benchmark-report.json" \
   "$FOCUSPOCUS_TEST_BROWSER_IMAGE" ./node_modules/.bin/playwright test \
   -c integration/readiness-performance/config.ts || status=$?
 python3 -B ops/performance/report.py "$scratch" "$status"

@@ -4,30 +4,30 @@ import { openPlanning } from "../planning-controls.ts";
 import { interaction, type Target } from "./paint.ts";
 import { type Evidence, series, switches } from "./evidence.ts";
 
-export const flagged: Target = {
+export const flagged = {
   kind: "outline",
   name: "Flagged",
   count: 1428,
   actions: ["Action 00007", "Action 00014"],
-};
-const completed: Target = {
+} satisfies Target;
+const completed = {
   kind: "outline",
   name: "Completed",
   count: 769,
   actions: ["Action 00013", "Action 00026"],
-};
-const bench: Target = {
+} satisfies Target;
+const bench = {
   kind: "search",
   text: "bench",
   count: 434,
   actions: ["Action 00023", "Action 00046"],
-};
-const ledger: Target = {
+} satisfies Target;
+const ledger = {
   kind: "search",
   text: "ledger",
   count: 217,
   actions: ["Action 00046", "Action 00092"],
-};
+} satisfies Target;
 
 export async function measureViews(page: Page, evidence: Evidence) {
   function switchTo(target: Extract<Target, { kind: "outline" }>) {

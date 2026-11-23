@@ -46,9 +46,13 @@ export async function idleClones(page: Page, evidence: Evidence) {
       idle.getByRole("tree", { name: "Task outline" }),
     ).toBeVisible();
     const reads = () =>
-      idle.evaluate(
-        () => (window as Window & { benchmarkReads: Read[] }).benchmarkReads,
-      );
+      idle.evaluate(() => {
+        const events = (window as Window & { benchmarkReads?: Read[] })
+          .benchmarkReads;
+        if (!events)
+          throw new Error("Idle-tab read instrumentation is missing");
+        return events;
+      });
     await expect
       .poll(async () => (await reads()).some((r) => r.store === "workspaces"))
       .toBe(true);

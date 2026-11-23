@@ -24,7 +24,9 @@ export async function taskId(page: Page, title: string): Promise<string> {
 
 // Reach controls through the user's tab order, including dialog focus traps.
 export async function tabTo(page: Page, target: Locator) {
+  await page.bringToFront();
   await expect(target).toBeVisible();
+  await expect(target).toBeEnabled();
   for (let stops = 0; stops < 100; stops++) {
     if (
       await target.evaluate((element) => element === document.activeElement)

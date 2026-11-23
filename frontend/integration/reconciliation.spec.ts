@@ -21,6 +21,7 @@ test("AT-18 · retry a capture after the database commits but the acknowledgemen
       await route.abort("connectionreset");
     });
     const title = "Acknowledged once";
+    await page.bringToFront();
     await submitCapture(page, title);
     await expect(
       page.getByRole("button", { name: "Retry original change" }),
@@ -88,8 +89,10 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
       await route.continue();
     });
     try {
+      await page.bringToFront();
       await submitRename(page, original, draft);
       await held;
+      await other.bringToFront();
       await submitRename(other, original, winning);
       await expect(task(other, winning)).toHaveAttribute(
         "data-task-id",

@@ -53,7 +53,7 @@ export function recorder(browserVersion: string) {
     currentPhase: "initializing",
   };
   const flush = () =>
-    writeFileSync("/tmp/benchmark-report.json", JSON.stringify(result));
+    writeFileSync("/run/benchmark-report.json", JSON.stringify(result));
   function observe(name: string, value: unknown) {
     result.observations[name] = value;
     flush();
