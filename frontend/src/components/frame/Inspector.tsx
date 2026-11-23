@@ -109,7 +109,9 @@ export function Inspector({
       tabIndex={-1}
     >
       <div className="fp-panel-heading">
-        <h2>Inspector</h2>
+        <h2>
+          <Icon name="inspector" size={21} /> Inspector
+        </h2>
         <button
           type="button"
           aria-label="Close inspector"

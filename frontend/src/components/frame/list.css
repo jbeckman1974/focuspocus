@@ -1,0 +1,38 @@
+.fp-shell .outline-capture,
+.fp-shell .outline-history,
+.fp-shell .outline-tree {
+  background: var(--surface-raised);
+}
+.fp-shell .outline-count,
+.fp-shell .outline-tags,
+.fp-shell .outline-fields time {
+  border: 0;
+  border-radius: 1em;
+  padding: 0.15em 0.6em;
+  font-weight: 600;
+}
+.fp-shell .outline-count,
+.fp-shell .outline-tags {
+  color: var(--sorbet-next-ink);
+  background: var(--sorbet-next);
+}
+.fp-shell .outline-fields time {
+  color: var(--sorbet-progress-ink);
+  background: var(--sorbet-progress);
+}
+.fp-shell .outline-fields [aria-label="Flagged"] {
+  color: var(--danger);
+}
+.fp-shell .outline-toolbar {
+  padding-block: 0.25rem;
+}
+.fp-shell .outline-check span {
+  border-color: var(--control-border);
+  border-radius: 0.28em;
+}
+.fp-shell .outline-row[data-done="true"] .outline-check span {
+  border-color: var(--sorbet-done-ink);
+  border-radius: 50%;
+  color: var(--sorbet-done-ink);
+  background: var(--sorbet-done);
+}

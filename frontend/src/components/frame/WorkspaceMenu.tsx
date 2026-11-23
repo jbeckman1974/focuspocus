@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Icon } from "./Icon.tsx";
 
 export function WorkspaceMenu({
   narrow,
@@ -45,12 +46,15 @@ export function WorkspaceMenu({
     >
       <summary
         ref={summary}
+        aria-label="Workspace"
+        title="Workspace"
         onClick={(event) => {
           event.preventDefault();
           if (narrow) setExpanded((current) => !current);
         }}
       >
-        Workspace
+        <Icon name="projects" size={18} />
+        <span>Workspace</span>
       </summary>
       <div>{children}</div>
     </details>

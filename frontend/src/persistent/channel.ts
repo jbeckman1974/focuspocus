@@ -296,7 +296,9 @@ export class WorkspaceChannel {
           : Array.isArray(payload.ids)
             ? (payload.ids as string[])
             : [];
-      this.update({ lastStaged: { operationId, selection, intent } });
+      this.update({
+        lastStaged: { operationId, selection, intent: write.intent },
+      });
       return true;
     } catch (error) {
       this.update({

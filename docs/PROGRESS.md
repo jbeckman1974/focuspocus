@@ -175,3 +175,25 @@ Offline replay also checks the chosen parent for a nested tag and the workspace 
 Both native platforms then passed 33 of 34 authenticated journeys, including the multi-tab sign-out and account-switch scenario. The remaining move test now waits for that specific local write to finish and checks the destination before terminating Chromium. A separate unit round trip confirms that reloading the saved projection retains the moved task’s ID and parent. [Native browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45020004659)
 
 The disposable validation harness now completes its independent replacement and clean-restore checks when a primary browser assertion fails. The failed assertion still fails the qualification, and an interrupted run exits immediately. This allows the clone and primary browser results to be diagnosed in the same run.
+
+## Fluent 2 interface trial
+
+The owner evaluation starts from the M6 pilot at `4e2cdbad`. The workspace toolbar and Preferences use Fluent UI React 9.75.2 with the FocusPocus green accent. The trial covers system, light and dark themes, the keyboard path into and out of Preferences, large text, compact rows and narrow windows. The account still saves appearance and editing choices, and each device keeps its pane layout.
+
+A clean native Linux container generated the lock and verified the integrity of all 166 package records. Existing package versions stayed pinned. The npm audit reported zero known vulnerabilities. On native AMD64 the formatter, TypeScript, all 109 frontend unit tests, the production build and all eight Chromium journeys passed. The new journey checks keyboard operation of the toolbar, live system theme changes, an explicit theme override and focus return after closing the dialog. Joe's visual review is pending.
+
+The independent pilot review identified three details in Preferences. The dialog now passes its resolved color scheme to native controls, honors the account's reduced-motion setting for both the surface and the backdrop, and restores focus to the original retry button after a failed preference save. Regression journeys exercise system and explicit themes and the keyboard route through a failed save. The reviewer rechecked all three corrections.
+
+On the live test pilot a Mac Chrome profile retained its signed-in workspace across the M6 shell update. Changing Motion in either direction replaced the active select and sent focus to the document body. The dialog now chooses its entrance animation once per opening. The signed-in regression switches both ways, waits for the account write and checks focus before and after Escape.
+
+Mac Chrome verified the corrected keyboard path, saved preferences after reopening the browser and the signed-in dialog at a width of 320 CSS pixels. Both native architectures passed the pilot PR checks at `0b6e013`. The browser build now includes the [upstream Fluent icon license](https://github.com/microsoft/fluentui-system-icons/blob/4e8620a7c6ba5fba3f3f3f6908dd06b3a9332be6/LICENSE), which the locked npm archive omits.
+
+### November 23 · Sorbet workspace trial
+
+Joe selected Sample 4F’s rounded cards and multicolor icons. The pilot now offers List, Board and Calendar on the same task selection. The Board uses lilac for Next, apricot for In progress and mint for Done. Selecting a card exposes Start task or Return to Next. Completion uses the existing task command and reopening restores its previous stage. Held and dropped items have separate sections when present. Calendar shows due dates in the workspace or travel timezone, with an agenda for the chosen day and a list of tasks without a due date.
+
+Open the signed-in trial at `/app/#board`. The disposable offsite example at `/sample/?demo=offsite#board` shows all three lanes and dates around today. Preferences offers light, dark and system appearance. Switching presentations changes the URL fragment, so a bookmark can reopen that presentation. All three presentations retain keyboard access in both themes on narrow screens.
+
+Migration 0022 adds an in-progress marker for actions and groups. Existing unfinished active tasks appear in Next. Completed, held and dropped items keep their lanes. The migration test upgrades a populated database. The marker uses the existing authorization, version checks, undo and trusted-device replay. Native AMD64 passed the first Sorbet frontend build and all ten public Chromium journeys, including the selected task's identity across presentations and a narrow dark-mode board.
+
+An independent review verified fixes for inherited completion in Calendar, pending cleanup across view changes, and keeping a selected task visible in a long agenda or the undated section. Trusted-device date edits, clears and moves now refresh inherited due dates immediately. All 122 frontend unit tests passed locally. A separate comparison of 4,320 due dates across 12 time zones matched the server’s scheduling rules.

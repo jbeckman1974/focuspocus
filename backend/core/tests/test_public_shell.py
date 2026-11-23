@@ -15,7 +15,8 @@ class PublicShellTests(SimpleTestCase):
 
     def test_serves_only_known_public_shell_artifacts(self):
         for filename, media in (("sw.js", "text/javascript"), ("icon-192.png", "image/png"),
-                                ("manifest.webmanifest", "application/manifest+json")):
+                                ("manifest.webmanifest", "application/manifest+json"),
+                                ("third-party-licenses.json", "application/json")):
             (self.root / "app" / filename).write_bytes(b"public fixture")
             response = self.client.get("/app/" + filename)
             self.assertEqual(response.status_code, 200)

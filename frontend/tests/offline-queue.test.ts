@@ -73,6 +73,42 @@ function task(
   };
 }
 
+test("board progress persists as a guarded property, including an offline restart and retry", () => {
+  const base = { ...initial, tasks: [task("a", "Notebook", 2)] };
+  const doc = freshData<QueueEntry>(base);
+  const write = add(doc, { type: "setProgress", ids: ["a"], inProgress: true });
+  assert.equal(write.name, "set-properties");
+  assert.deepEqual(write.intent, {
+    type: "set-properties",
+    ids: ["a"],
+    properties: { inProgress: true },
+  });
+  assert.deepEqual(write.envelope.payload, { ids: ["a"], inProgress: true });
+  assert.equal(doc.projection.tasks[0].inProgress, true);
+  assert.equal(doc.projection.tasks[0].done, false);
+  assert.deepEqual(doc.queue[0].affects, ["row:a"]);
+  const conflict = structuredClone(doc);
+  assert.equal(
+    nextTransmission(conflict, {
+      ...base,
+      revision: 2,
+      tasks: [{ ...base.tasks[0], version: 3 }],
+    }),
+    undefined,
+  );
+  const notice = queueNotices(conflict)[0];
+  assert.equal(notice.status, "conflict");
+  assert.match(notice.current, /to do/);
+  const afterOtherEdit = { ...base, revision: 2 };
+  const sent = nextTransmission(doc, afterOtherEdit)!;
+  assert.equal(sent.write.envelope.expectedRevision, 2);
+  assert.deepEqual(
+    nextTransmission(structuredClone(doc), { ...afterOtherEdit, revision: 3 })
+      ?.write,
+    sent.write,
+  );
+});
+
 test("restart resolves a dependent rename only from the capture receipt, then freezes each transmission", () => {
   let doc = create();
   const first = add(doc, capture);

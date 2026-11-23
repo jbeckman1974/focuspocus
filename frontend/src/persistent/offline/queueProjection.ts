@@ -1,10 +1,13 @@
 import { titleText, calendarDate } from "../../outline/values.ts";
 import { editItems, changeStatus } from "./queueItems.ts";
+import { patchDueDay, patchSchedule, projectDue } from "./queueDue.ts";
 import { rows } from "./queueTypes.ts";
 import { applyCommand } from "../../outline/commands.ts";
 import type { Snapshot } from "../api.ts";
 import type { Write } from "../writes.ts";
 import type { QueueEntry } from "./queueTypes.ts";
+
+const projectionVersion = 1;
 
 // The confirmed server revision stays fixed until an actual receipt arrives.
 // New IDs always come from the prepared envelope, including after a restart.
@@ -19,14 +22,13 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
         intent.type === "rename" ? [intent.id] : intent.ids,
         () => ({ title: titleText(intent.title) }),
       );
-    case "setDue":
-      return editItems(snapshot, intent.ids, (row) => ({
-        due: calendarDate(intent.due),
-        schedule: {
-          ...row.schedule,
-          due: intent.due ? { kind: "date", value: intent.due } : null,
-        },
-      }));
+    case "setDue": {
+      const day = calendarDate(intent.due);
+      const next = editItems(snapshot, intent.ids, (row) =>
+        patchDueDay(row, day, snapshot),
+      );
+      return projectDue(next, intent.ids);
+    }
     case "setTag":
       if (!snapshot.tags.some((tag) => tag.id === intent.tagId))
         throw new Error("Choose a workspace tag.");
@@ -51,11 +53,14 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
         intent.type === "capture"
           ? (payload.items as { id: string }[]).map((row) => row.id)
           : [String(payload.id)];
-      const result = applyCommand(snapshot, intent, () => ids.shift() ?? "");
+      let index = 0;
+      const result = applyCommand(snapshot, intent, () => ids[index++] ?? "");
       const tasks = result.workspace.tasks.map((row) =>
         "version" in row ? row : { ...row, version: 0 },
       ) as Snapshot["tasks"];
-      return { ...snapshot, tasks };
+      const changed =
+        intent.type === "capture" || intent.type === "group" ? ids : intent.ids;
+      return projectDue({ ...snapshot, tasks }, changed);
     }
     case "tag":
     case "folder":
@@ -76,20 +81,34 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
         parentId: intent.parentId ?? "root",
         version: 0,
       };
-      return { ...snapshot, [key]: [...(snapshot[key] ?? []), entry] };
+      const next = { ...snapshot, [key]: [...(snapshot[key] ?? []), entry] };
+      return intent.type === "tag" ? next : projectDue(next, [entry.id]);
     }
     case "set-properties": {
       const { status, ...properties } = intent.properties;
-      const next = editItems(snapshot, intent.ids, () => properties);
+      const next = editItems(snapshot, intent.ids, (row) => {
+        if ("inProgress" in properties) {
+          if (typeof properties.inProgress !== "boolean")
+            throw new Error("In progress must be true or false.");
+          if (row.kind !== "action" && row.kind !== "group")
+            throw new Error(
+              "Only actions and groups have an in-progress state.",
+            );
+        }
+        return properties;
+      });
       return status ? changeStatus(next, intent.ids, status) : next;
     }
-    case "set-schedule":
-      return editItems(snapshot, intent.ids, (row) => ({
-        schedule: { ...row.schedule, ...intent.changes.schedule },
+    case "set-schedule": {
+      const patch = intent.changes.schedule;
+      const next = editItems(snapshot, intent.ids, (row) => ({
+        ...(patch ? patchSchedule(row, patch, snapshot) : {}),
         ...(intent.changes.durationMinutes === undefined
           ? {}
           : { durationMinutes: intent.changes.durationMinutes }),
       }));
+      return patch && "due" in patch ? projectDue(next, intent.ids) : next;
+    }
     case "bulk-inspect": {
       const { status, tags, schedule, ...fields } = intent.changes;
       const next = editItems(snapshot, intent.ids, (row) => {
@@ -100,11 +119,13 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
         }
         return {
           ...fields,
-          ...(schedule ? { schedule: { ...row.schedule, ...schedule } } : {}),
+          ...(schedule ? patchSchedule(row, schedule, snapshot) : {}),
           ...(tags ? { tags: [...direct] } : {}),
         };
       });
-      return status ? changeStatus(next, intent.ids, status) : next;
+      const dated =
+        schedule && "due" in schedule ? projectDue(next, intent.ids) : next;
+      return status ? changeStatus(dated, intent.ids, status) : dated;
     }
     case "lifecycle":
       if (intent.change.name === "delete") {
@@ -140,7 +161,7 @@ export function project(snapshot: Snapshot, write: Write): Snapshot {
       }
       return snapshot;
     default:
-      // The server owns recurrence, effective dates and other derived rules.
+      // The server owns recurrence and other unevaluated rules.
       // The queue records the verb and input until the committed snapshot arrives.
       return snapshot;
   }
@@ -168,5 +189,21 @@ export function projectQueue(confirmed: Snapshot, queue: QueueEntry[]) {
     }
     applied.push(entry.id);
   }
-  return applied.length ? { ...result, localOperationIds: applied } : result;
+  return applied.length
+    ? {
+        ...result,
+        localOperationIds: applied,
+        localProjectionVersion: projectionVersion,
+      }
+    : result;
+}
+
+export function restoreProjection(
+  confirmed: Snapshot,
+  saved: Snapshot,
+  queue: QueueEntry[],
+) {
+  return queue.length && saved.localProjectionVersion !== projectionVersion
+    ? projectQueue(confirmed, queue)
+    : saved;
 }

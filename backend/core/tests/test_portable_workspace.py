@@ -35,13 +35,15 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
             return json.loads(archive.read("records.json"))
 
     @staticmethod
-    def replace_records(body, records):
+    def replace_records(body, records, version=None):
         from core.portability.archive import counts, digest, encoded
 
         raw_records = encoded(records)
         output = io.BytesIO()
         with ZipFile(io.BytesIO(body)) as source, ZipFile(output, "w") as rewritten:
             manifest = json.loads(source.read("manifest.json"))
+            if version is not None:
+                manifest["version"] = version
             manifest.update(counts=counts(records), recordBytes=len(raw_records), recordSha256=digest(raw_records))
             rewritten.writestr("manifest.json", encoded(manifest))
             rewritten.writestr("records.json", raw_records)
@@ -64,6 +66,7 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
         self.assertEqual(self.upload(task, raw, self.upload_headers(task, raw)).status_code, 200)
         self.command("set-schedule", {"ids": [task], "schedule": {"due": {"kind": "date", "value": "2026-11-22"}}})
         self.command("set-repeat", {"id": task, "rule": {"schedule": "regular", "unit": "day", "count": 4}})
+        self.command("set-properties", {"ids": [task, archived], "inProgress": True})
         self.command("mark-reviewed", {"projectId": project})
         self.command("delete", {"ids": [trashed]})
         self.command("complete", {"ids": [archived]})
@@ -87,6 +90,7 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
         trash_copy = copies["Bring tripod"]
         archive_copy = copies["Archived drawing"]
         self.assertNotEqual(str(task_copy.pk), task)
+        self.assertTrue(task_copy.in_progress)
         self.assertEqual(trash_copy.shelf_before, copies["Control point"].pk)
         self.assertEqual(ProjectReview.objects.get(project=project_copy).last_reviewed_at,
                          ProjectReview.objects.get(project_id=project).last_reviewed_at)
@@ -102,11 +106,25 @@ class PortableWorkspaceTests(FileApiMixin, TestCase):
         self.command("restore", {"ids": [str(trash_copy.pk)]})
         self.assertEqual(list(Item.objects.filter(parent=project_copy, shelf="active").order_by("position")
                               .values_list("title", flat=True)), ["=Café, β", "Bring tripod", "Control point"])
-        self.command("retrieve", {"ids": [str(archive_copy.pk)]})
+        retrieved = self.command("retrieve", {"ids": [str(archive_copy.pk)]})
+        self.assertTrue(Item.objects.get(pk=retrieved["selection"][0]).in_progress)
         self.assertTrue(Item.objects.filter(pk=archive_copy.pk, shelf="archive").exists())
         self.command("complete", {"ids": [str(task_copy.pk)]})
         original = Occurrence.objects.get(item=task_copy)
-        self.assertEqual(Occurrence.objects.get(predecessor=original).item.schedule["due"]["value"], "2026-11-23")
+        successor = Occurrence.objects.get(predecessor=original).item
+        self.assertEqual(successor.schedule["due"]["value"], "2026-11-23")
+        self.assertFalse(successor.in_progress)
+
+    def test_legacy_bundle_defaults_missing_progress_and_new_schema_validates_it(self):
+        task, = self.capture(["Notebook"])
+        self.command("set-properties", {"ids": [task], "inProgress": True})
+        bundle = self.bundle()
+        records = self.records(bundle)
+        self.assertIs(records["items"][0].pop("in_progress"), True)
+        self.assertEqual(self.restore(self.replace_records(bundle, records)).status_code, 422)
+        restored = self.restore(self.replace_records(bundle, records, version=1))
+        self.assertEqual(restored.status_code, 200, restored.content)
+        self.assertFalse(Item.objects.get(workspace_id=restored.json()["workspaceId"], title="Notebook").in_progress)
 
     def test_private_views_account_settings_and_device_ownership(self):
         name = "Owner-only private filters"

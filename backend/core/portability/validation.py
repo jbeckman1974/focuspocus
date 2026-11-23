@@ -53,6 +53,8 @@ def check_row(table, row):
         duration_minutes(row["duration_minutes"])
         if row["kind"] not in ("action", "group", "project", "folder") or row["shelf"] not in ("active", "archive", "trash"):
             raise ValueError("Unknown item type or shelf.")
+        if row["in_progress"] and row["kind"] not in ("action", "group"):
+            raise ValueError("Only actions and groups have an in-progress state.")
     elif table.name == "tags":
         title(row["title"])
         if row["status"] not in ("active", "held", "dropped"):

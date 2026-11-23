@@ -42,6 +42,15 @@ class PortableWireTests(TestCase):
         with self.assertRaises(ValueError):
             archive.open_bundle(modified)
 
+    def test_reads_verified_version_one_records_as_unstarted_items(self):
+        with patch.object(archive, "VERSION", 1):
+            legacy = self.fixture()
+        with legacy:
+            directory, records = archive.open_bundle(legacy)
+            with directory:
+                self.assertIs(records["items"][0]["in_progress"], False)
+                self.assertNotIn(b"in_progress", directory.read("records.json"))
+
     def test_rejects_compressed_content_before_decompressing(self):
         packed = BytesIO()
         with ZipFile(packed, "w", compression=ZIP_DEFLATED) as zipper:

@@ -39,6 +39,12 @@ export function prepare(
   snapshot: Snapshot,
   uuid: () => string = () => crypto.randomUUID(),
 ): Write {
+  if (intent.type === "setProgress")
+    intent = {
+      type: "set-properties",
+      ids: intent.ids,
+      properties: { inProgress: intent.inProgress },
+    };
   const envelope = {
     context: snapshot.context,
     expectedRevision: snapshot.revision,
@@ -133,6 +139,14 @@ export function describeDraft(intent: Intent, snapshot: Snapshot) {
     return "Date defaults in " + intent.timeZone;
   if (intent.type === "repeat" || intent.type === "lifecycle")
     return intent.change.name.replaceAll("-", " ");
+  if (
+    intent.type === "set-properties" &&
+    typeof intent.properties.inProgress === "boolean" &&
+    Object.keys(intent.properties).length === 1
+  )
+    return intent.properties.inProgress
+      ? "Mark in progress"
+      : "Clear in-progress marker";
   if (intent.type === "set-properties")
     return Object.entries(intent.properties)
       .map(([field, value]) => field + " " + String(value))

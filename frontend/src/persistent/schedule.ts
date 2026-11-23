@@ -15,6 +15,12 @@ export interface EffectiveDate {
   source: string;
   instant: string;
 }
+export function effectiveDue(row: {
+  effective?: { schedule?: { due?: EffectiveDate | null } };
+  projectedDue?: EffectiveDate;
+}) {
+  return row.effective?.schedule?.due ?? row.projectedDue;
+}
 export interface DatePreview {
   value: DateIntent;
   instant: string;

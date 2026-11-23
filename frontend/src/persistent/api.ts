@@ -29,11 +29,14 @@ export interface Snapshot {
   timeZone?: string;
   viewZone?: string;
   dateDefaults?: DateDefaults;
+  assignmentDueTime?: string;
   nextDateBoundary?: string | null;
   perspectiveVersion?: number;
   focusScopeIds?: string[];
   // Set only on the trusted-device projection to identify edits a draft actually observed.
   localOperationIds?: string[];
+  // The saved projection can be rebuilt from its confirmed snapshot and unchanged queue.
+  localProjectionVersion?: number;
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
   tasks: (Task &

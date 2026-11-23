@@ -3,7 +3,7 @@
 from core.rules.properties import mode_for
 
 from .completion import apply_status, validate_status
-from .state import Changes, save_changed
+from .state import Changes, TASK_KINDS, save_changed
 from .validation import CommandError, fields
 
 
@@ -18,9 +18,11 @@ def choice(value, choices, label):
 
 
 def validate(item, payload):
-    for key in ("flagged", "autoComplete"):
+    for key in ("flagged", "autoComplete", "inProgress"):
         if key in payload and type(payload[key]) is not bool:
             raise CommandError(f"{key} must be true or false.")
+    if "inProgress" in payload and item.kind not in TASK_KINDS:
+        raise CommandError("Only actions and groups have an in-progress state.")
     if "mode" in payload:
         mode = choice(payload["mode"], MODES, "container mode")
         if item.kind not in ("project", "group") or (mode == "single-action" and item.kind != "project"):
@@ -36,7 +38,7 @@ def validate(item, payload):
 
 
 def set_properties(tree, data):
-    fields(data, ["ids"], ["mode", "status", "flagged", "autoComplete"])
+    fields(data, ["ids"], ["mode", "status", "flagged", "autoComplete", "inProgress"])
     if len(data) == 1:
         raise CommandError("Choose a property to change.")
     items = tree.selected(data["ids"])
@@ -49,6 +51,8 @@ def set_properties(tree, data):
             properties["mode"] = data["mode"]
         if "flagged" in data:
             properties["flagged"] = data["flagged"]
+        if "inProgress" in data:
+            properties["in_progress"] = data["inProgress"]
         if data.get("mode") == "single-action":
             properties["auto_complete"] = False
         elif "autoComplete" in data:

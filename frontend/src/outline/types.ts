@@ -13,6 +13,7 @@ export interface Task extends Entry {
   tags: string[];
   due: string | null;
   done: boolean;
+  inProgress?: boolean;
   effective?: {
     status: "active" | "held" | "dropped" | "completed";
     flagged: boolean;
@@ -42,6 +43,7 @@ export type Command =
   | { type: "setTitle"; ids: string[]; title: string }
   | { type: "setTag"; ids: string[]; tagId: string; enabled: boolean }
   | { type: "setDue"; ids: string[]; due: string | null }
+  | { type: "setProgress"; ids: string[]; inProgress: boolean }
   | { type: "group"; ids: string[]; title: string }
   | { type: "indent" | "outdent"; ids: string[] }
   | { type: "complete" | "reopen"; ids: string[] }

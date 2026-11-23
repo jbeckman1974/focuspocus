@@ -1,3 +1,4 @@
+import { Button } from "@fluentui/react-components";
 import { useState } from "react";
 import type { View } from "../outline/index.ts";
 import type { Snapshot } from "./api.ts";
@@ -44,20 +45,26 @@ export function WorkspaceActions({
   const disabled = readOnly || state.phase !== "ready";
   return (
     <div className="private-actions">
-      <button
+      <Button
+        appearance="subtle"
+        size="small"
         disabled={disabled}
         onClick={() => setEntry({ kind: "project", base: snapshot })}
       >
         New project
-      </button>
-      <button
+      </Button>
+      <Button
+        appearance="subtle"
+        size="small"
         disabled={disabled}
         onClick={() => setEntry({ kind: "tag", base: snapshot })}
       >
         New tag
-      </button>
+      </Button>
       {view.kind === "project" && (
-        <button
+        <Button
+          appearance="subtle"
+          size="small"
           disabled={disabled}
           onClick={() =>
             setEntry({
@@ -68,15 +75,19 @@ export function WorkspaceActions({
           }
         >
           Rename project
-        </button>
+        </Button>
       )}
-      <button
+      <Button
+        appearance="subtle"
+        size="small"
         disabled={disabled}
         onClick={() => setOrganize({ view, selection })}
       >
         Organize…
-      </button>
-      <button
+      </Button>
+      <Button
+        appearance="subtle"
+        size="small"
         onClick={() => {
           if (
             !state.pending ||
@@ -86,7 +97,7 @@ export function WorkspaceActions({
         }}
       >
         Sign out
-      </button>
+      </Button>
       {entry && (
         <NewEntry
           kind={entry.kind}

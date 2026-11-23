@@ -20,6 +20,7 @@ def index(request):
 
 
 SHELL_FILES = {
+    "third-party-licenses.json": "application/json",
     "sw.js": "text/javascript",
     "legacy-push.js": "text/javascript",
     "manifest.webmanifest": "application/manifest+json",

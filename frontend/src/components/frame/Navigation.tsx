@@ -19,7 +19,7 @@ interface NavigationProps {
   workspace: Workspace;
   view: View;
   onView: (view: View) => void;
-  onPreferences: () => void;
+  onPreferences: (trigger: HTMLElement) => void;
 }
 
 function isCurrent(view: View, target: View): boolean {
@@ -80,7 +80,7 @@ export function Rail({
             }
             onClick={() => onView(view.kind === target.kind ? view : target)}
           >
-            <Icon name={icon} size={21} />
+            <Icon name={icon} size={22} />
             {label}
           </button>
         ))}
@@ -93,7 +93,7 @@ export function Rail({
             aria-current={planning.active === item.id ? "page" : undefined}
             onClick={() => planning.open(item.id)}
           >
-            <Icon name={item.icon} size={21} />
+            <Icon name={item.icon} size={22} />
             {item.label}
           </button>
         ))}
@@ -103,9 +103,10 @@ export function Rail({
         type="button"
         aria-label="Preferences"
         title="Preferences"
-        onClick={onPreferences}
+        onClick={(event) => onPreferences(event.currentTarget)}
       >
-        <Icon name="preferences" size={21} />
+        <Icon name="preferences" size={22} />
+        Preferences
       </button>
     </nav>
   );
@@ -137,7 +138,7 @@ export function Sidebar({
       }
       onClick={() => onView(target)}
     >
-      <Icon name={icon} size={16} />
+      <Icon name={icon} size={20} />
       <span>{label}</span>
     </button>
   );
@@ -155,15 +156,16 @@ export function Sidebar({
     ],
     "root",
   );
+  const tags = directoryRows(workspace.tags, null);
   return (
     <nav
       className="fp-sidebar"
       aria-label="Workspace navigation"
-      id="workspace-navigation"
+      hidden={!compact && directory.length === 0 && tags.length === 0}
     >
-      <div className="fp-panel-heading">
-        <h2>Browse</h2>
-        {compact && (
+      {compact && (
+        <div className="fp-panel-heading">
+          <h2>Browse</h2>
           <button
             type="button"
             className="fp-icon-button"
@@ -172,8 +174,8 @@ export function Sidebar({
           >
             <Icon name="close" />
           </button>
-        )}
-      </div>
+        </div>
+      )}
       <div className="fp-nav-sections">
         {compact && (
           <section aria-label="Perspectives">
@@ -191,45 +193,53 @@ export function Sidebar({
                 aria-current={planning.active === item.id ? "page" : undefined}
                 onClick={() => planning.open(item.id)}
               >
-                <Icon name={item.icon} size={16} />
+                <Icon name={item.icon} size={20} />
                 {item.label}
               </button>
             ))}
           </section>
         )}
-        <section aria-label="Projects">
-          <h3>Projects</h3>
-          {directory.map(({ entry, depth }) => (
-            <div
-              key={entry.id}
-              style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
-            >
-              {link(entry.title, "projects", {
-                kind: entry.kind,
-                id: entry.id,
-              })}
-            </div>
-          ))}
-        </section>
-        <section aria-label="Tags">
-          <h3>Tags</h3>
-          {directoryRows(workspace.tags, null).map(({ entry, depth }) => (
-            <div
-              key={entry.id}
-              style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
-            >
-              {link(entry.title, "tags", { kind: "tag", id: entry.id })}
-            </div>
-          ))}
-        </section>
+        {directory.length > 0 && (
+          <section aria-label="Projects">
+            <h3>Projects</h3>
+            {directory.map(({ entry, depth }) => (
+              <div
+                key={entry.id}
+                style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
+              >
+                {link(
+                  entry.title,
+                  entry.kind === "folder" ? "folder" : "projects",
+                  {
+                    kind: entry.kind,
+                    id: entry.id,
+                  },
+                )}
+              </div>
+            ))}
+          </section>
+        )}
+        {tags.length > 0 && (
+          <section aria-label="Tags">
+            <h3>Tags</h3>
+            {tags.map(({ entry, depth }) => (
+              <div
+                key={entry.id}
+                style={{ paddingInlineStart: Math.min(depth, 8) * 12 }}
+              >
+                {link(entry.title, "tags", { kind: "tag", id: entry.id })}
+              </div>
+            ))}
+          </section>
+        )}
       </div>
       {compact && (
         <button
           type="button"
           className="fp-secondary fp-mobile-settings"
-          onClick={onPreferences}
+          onClick={(event) => onPreferences(event.currentTarget)}
         >
-          <Icon name="preferences" size={16} /> Preferences
+          <Icon name="preferences" size={20} /> Preferences
         </button>
       )}
     </nav>

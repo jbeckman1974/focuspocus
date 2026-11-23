@@ -2,7 +2,7 @@ import type { Entry } from "../../outline/types.ts";
 import type { Snapshot } from "../api.ts";
 import type { ItemStatus, RuleFields } from "../rules.ts";
 
-type Item = Entry &
+export type Item = Entry &
   RuleFields & {
     version: number;
     done?: boolean;
@@ -10,7 +10,7 @@ type Item = Entry &
     tags?: string[];
     due?: string | null;
   };
-const allItems = (s: Snapshot): Item[] => [
+export const allItems = (s: Snapshot): Item[] => [
   ...s.tasks,
   ...s.projects,
   ...(s.folders ?? []),

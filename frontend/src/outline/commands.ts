@@ -77,6 +77,14 @@ export function applyCommand(
         task.due === due ? task : { ...task, due },
       );
     }
+    case "setProgress":
+      if (typeof command.inProgress !== "boolean")
+        throw new Error("In progress must be true or false.");
+      return edit(workspace, selected, (task) =>
+        (task.inProgress ?? false) === command.inProgress
+          ? task
+          : { ...task, inProgress: command.inProgress },
+      );
     case "complete":
     case "reopen": {
       const ids = new Set(selected.map((task) => task.id));
