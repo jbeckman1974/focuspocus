@@ -1,14 +1,19 @@
 """Use real authenticated encryption to exercise publication, corruption and failure paths."""
 
 from pathlib import Path
+from concurrent.futures import Future
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ops/recovery"))
+import concurrent_migrations
 from drill import generate_recipient
 from envelope import checksum, seal, unseal
+import report
 
 
 class RecoveryEnvelopeTests(unittest.TestCase):
@@ -69,3 +74,66 @@ class RecoveryEnvelopeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "private output directory"):
             unseal(self.cert, self.key, self.archive, self.digest, self.clear)
         self.assertFalse(self.clear.exists())
+
+
+class RecoveryReportTests(unittest.TestCase):
+    revision = "a" * 40
+    image = "sha256:" + "b" * 64
+
+    def setUp(self):
+        self.ci = {"GITHUB_ACTIONS": "true", "GITHUB_SERVER_URL": "https://github.com",
+                   "GITHUB_REPOSITORY": "example/project", "GITHUB_RUN_ID": "19",
+                   "GITHUB_RUN_ATTEMPT": "2", "FOCUSPOCUS_CI_JOB_ID": "37", "GITHUB_SHA": self.revision}
+        self.snapshot = {key: 17 for key in report.SIZES}
+        self.snapshot["immutable"] = "private-fixture-marker"
+        self.inputs = dict(environment=self.ci, revision=self.revision, architecture="amd64", image_id=self.image,
+                           snapshot=self.snapshot, archive_sha256="c" * 64, archive_bytes=42, rpo=2.51, rto=3.14)
+
+    def test_sanitized_native_report_is_linked_to_exact_image_and_job(self):
+        evidence = report.summary(**self.inputs)
+        self.assertEqual((evidence["source_revision"], evidence["image_id"]), (self.revision, self.image))
+        self.assertEqual(evidence["ci_job_url"], "https://github.com/example/project/actions/runs/19/job/37")
+        self.assertEqual(evidence["ci_run_attempt"], 2)
+        self.assertEqual(evidence["validated_rto_seconds"], 3.14)
+        self.assertTrue(evidence["revoked_membership_reconciled"] and evidence["concurrent_migrators_serialized"])
+        with tempfile.TemporaryDirectory() as folder:
+            destination = report.publish(Path(folder), evidence)
+            self.assertEqual(destination.relative_to(folder).as_posix(), "recovery/report.json")
+            self.assertNotIn("private-fixture-marker", destination.read_text())
+            self.assertEqual(json.loads(destination.read_text()), evidence)
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
+
+    def test_wrong_revision_missing_job_or_missed_objective_cannot_produce_a_passing_report(self):
+        for override, error in [
+            ({"revision": "f" * 40}, ValueError), ({"revision": ""}, ValueError),
+            ({"environment": {**self.ci, "FOCUSPOCUS_CI_JOB_ID": ""}}, ValueError),
+            ({"rto": 14400.1}, RuntimeError), ({"rpo": 86400.1}, RuntimeError),
+            ({"snapshot": {**self.snapshot, "actions": "private"}}, ValueError),
+        ]:
+            with self.subTest(override=list(override)), self.assertRaises(error):
+                report.summary(**{**self.inputs, **override})
+
+    def test_local_unlabeled_image_and_non_following_artifact_paths(self):
+        evidence = report.summary(**{**self.inputs, "environment": {}, "revision": ""})
+        self.assertIsNone(evidence["source_revision"])
+        self.assertIsNone(evidence["ci_job_url"])
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "recovery").symlink_to(root, target_is_directory=True)
+            with self.assertRaises(ValueError):
+                report.publish(root, evidence)
+
+
+class MigrationContentionTests(unittest.TestCase):
+    def test_finished_process_cannot_count_as_an_overlap(self):
+        process = Future()
+        process.set_result(None)
+        with patch.object(concurrent_migrations, "sql", return_value="f"):
+            with self.assertRaisesRegex(RuntimeError, "finished before"):
+                concurrent_migrations.wait_for(None, concurrent_migrations.CONTENTION, "overlap", [process])
+
+    def test_requires_database_observation_even_when_both_processes_are_running(self):
+        with patch.object(concurrent_migrations, "sql", side_effect=["f", "t"]) as query:
+            with patch.object(concurrent_migrations.time, "sleep"):
+                concurrent_migrations.wait_for(None, concurrent_migrations.CONTENTION, "overlap", [Future(), Future()])
+        self.assertEqual(query.call_count, 2)

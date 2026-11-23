@@ -77,6 +77,7 @@ python3 -B ops/qa-replacement.py after "$scratch/probe-checkpoint"
 dc exec -T worker python manage.py worker_health
 dc exec -T web python - < ops/check-worker.py
 python3 -B ops/recovery/drill.py "$scratch"
+test -s build/recovery/report.json
 if (( browser_status != 0 )); then
   echo "Replacement and restore passed. The primary browser suite exited with status $browser_status." >&2
   exit "$browser_status"

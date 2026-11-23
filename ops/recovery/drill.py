@@ -1,6 +1,5 @@
 """Rehearse migration failure and authenticated recovery in verify-stack's generated project."""
 
-from datetime import datetime, timezone
 import json
 import os
 from pathlib import Path
@@ -11,6 +10,8 @@ import sys
 import time
 
 from envelope import openssl, seal, unseal
+import concurrent_migrations
+import report
 
 
 ROOT = Path.cwd()
@@ -53,13 +54,19 @@ class Stack:
             return self.run(*self.app_args("worker", database), "python", "-", stdin=checks,
                             stdout=subprocess.PIPE, text=True).stdout.strip()
 
-    def restore(self, database, archive):
+    def create_database(self, database):
         # createdb must succeed exclusively. Never empty, drop or reuse an existing database.
         self.run("exec", "-T", "test-db", "createdb", "-U", "postgres", "-O", "fpmigrate", database)
+
+    def bootstrap_roles(self, database):
+        self.run("exec", "-T", "-e", f"POSTGRES_DB={database}", "test-db", "sh", "/docker-entrypoint-initdb.d/10-roles.sh")
+
+    def restore(self, database, archive):
+        self.create_database(database)
         with archive.open("rb") as data:
             self.run("exec", "-T", "test-db", "pg_restore", "-U", "fpmigrate", "--single-transaction",
                      "--exit-on-error", "--no-owner", "--no-acl", "-d", database, stdin=data)
-        self.run("exec", "-T", "-e", f"POSTGRES_DB={database}", "test-db", "sh", "/docker-entrypoint-initdb.d/10-roles.sh")
+        self.bootstrap_roles(database)
         self.run(*self.app_args("migrate", database))
 
     def recovered_worker(self):
@@ -117,6 +124,8 @@ def run(scratch):
     stack.run("stop", "worker")
     with Path("ops/performance/seed.py").open() as seed:
         stack.run("exec", "-T", "web", "python", "-", stdin=seed, stdout=subprocess.DEVNULL)
+    grant_record = recovery / "shared-grant.json"
+    grant_record.write_text(stack.fixture("grant-prepare"))
     last_included = time.monotonic()
     stack.fixture("seed")
     saved = stack.digest("focuspocus")
@@ -127,6 +136,11 @@ def run(scratch):
     digest = seal(cert, original, [*stack.compose, "exec", "-T", "db", "pg_dump", "-U", "postgres",
                                    "--format=custom", "focuspocus"])
     stack.fixture("later")
+    # Only an access decision verified on the post-cut source goes into the independent grant log.
+    with grant_record.open() as grant:
+        revoked = stack.fixture("grant-revoke", stdin=grant)
+    grant_log = recovery / "post-cut-revocations.json"
+    grant_log.write_text(revoked)
     retrieved = staging / original.name
     shutil.copyfile(original, retrieved)
     original.unlink()
@@ -150,23 +164,25 @@ def run(scratch):
     stack.run(*stack.app_args("worker", CLEAN), "python", "manage.py", "fence_restored_database")
     if stack.fixture("fenced", CLEAN) != before["immutable"] or stack.digest(CLEAN) != saved:
         raise RuntimeError("The recovery fence changed account, history or saved workspace data.")
+    with grant_log.open() as decision:
+        stack.fixture("grant-reconcile", CLEAN, stdin=decision)
     checkpoint = scratch / "probe-checkpoint"
     with checkpoint.open() as accounts:
         stack.fixture("isolation", CLEAN, stdin=accounts)
     stack.recovered_worker()
     subprocess.run([sys.executable, "-B", "ops/qa-offline-restore.py", str(checkpoint)], check=True)
     rpo, rto = loss - last_included, time.monotonic() - loss
-    if not 0 <= rpo <= 86400 or not 0 <= rto <= 14400:
-        raise RuntimeError(f"QA recovery missed its objectives (RPO {rpo:.1f}s, RTO {rto:.1f}s).")
+    concurrent_migrations.verify(stack, CLEAN)
     image = stack.run("ps", "-q", "web", capture_output=True, text=True).stdout.strip()
     image_id = subprocess.check_output(["docker", "inspect", "--format", "{{.Image}}", image], text=True).strip()
-    evidence = {
-        "scope": "single-host synthetic recovery drill", "arch": os.environ["EXPECTED_ARCH"],
-        "completed_utc": datetime.now(timezone.utc).isoformat(), "image_id": image_id,
-        "rpo_upper_bound_seconds": round(rpo, 2), "validated_rto_seconds": round(rto, 2),
-        "archive_sha256": digest, "archive_bytes": retrieved.stat().st_size,
-        **{k: before[k] for k in ("database_bytes", "actions", "jobs", "workspaces", "attachment_bytes")},
-    }
+    revision = subprocess.check_output([
+        "docker", "image", "inspect", "--format", '{{with .Config.Labels}}{{index . "org.opencontainers.image.revision"}}{{end}}',
+        image_id,
+    ], text=True).strip()
+    evidence = report.summary(architecture=os.environ["EXPECTED_ARCH"], image_id=image_id, revision=revision,
+                              environment=os.environ, snapshot=before, archive_sha256=digest,
+                              archive_bytes=retrieved.stat().st_size, rpo=rpo, rto=rto)
+    report.publish(ROOT / "build", evidence)
     print("Recovery evidence " + json.dumps(evidence, sort_keys=True), flush=True)
 
 

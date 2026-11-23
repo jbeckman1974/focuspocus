@@ -19,6 +19,7 @@ from django.contrib.sessions.models import Session
 from core.content.models import AttachmentBlob, AttachmentBody, AttachmentLink
 from core.integrations.models import PushDevice, Reminder, ReminderDelivery
 from core.models import Change, Item, Job, Receipt, Workspace
+import grants
 
 
 LEASED = "qa-restore-before-cut"
@@ -137,6 +138,8 @@ def main(phase):
         "source": ("db", "focuspocus"), "restored": ("test-db", "restored_fixture"),
         "fenced": ("test-db", "restored_fixture"), "isolation": ("test-db", "restored_fixture"),
         "unready": ("test-db", "failed_fixture"), "release_head": ("test-db", "failed_fixture"),
+        "grant-prepare": ("db", "focuspocus"), "grant-revoke": ("db", "focuspocus"),
+        "grant-reconcile": ("test-db", "restored_fixture"),
     }
     require(os.environ.get("APP_ENV") == "development"
             and (connection.settings_dict["HOST"], connection.settings_dict["NAME"]) == targets[phase],
@@ -151,6 +154,16 @@ def main(phase):
         print(check_fence())
     elif phase == "isolation":
         check_isolation()
+    elif phase == "grant-prepare":
+        print(json.dumps(grants.prepare()))
+    elif phase == "grant-revoke":
+        grant = json.load(sys.stdin)
+        grants.revoke(grant)
+        print(json.dumps({"decision": "revoked", "grant": grant}))
+    elif phase == "grant-reconcile":
+        entry = json.load(sys.stdin)
+        require(entry["decision"] == "revoked", "Expected a verified post-cut revocation.")
+        grants.revoke(entry["grant"])
     elif phase == "release_head":
         from django.db.migrations.executor import MigrationExecutor
 

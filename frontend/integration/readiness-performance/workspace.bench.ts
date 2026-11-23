@@ -1,16 +1,27 @@
 import { expect, test } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import { signIn } from "../account.ts";
 import { nearestRank, recorder } from "./evidence.ts";
-import { measureEditing, measureSearch, measureViews } from "./interactions.ts";
+import {
+  measureEditing,
+  measureSearch,
+  measureViews,
+  type ExpectedRows,
+} from "./interactions.ts";
 import { convergence } from "./sessions.ts";
 import { idleClones } from "./idle.ts";
+import { installViewportCheck } from "./viewport.ts";
 
 test("10,000-action authenticated release workspace", async ({
   page,
   browser,
 }) => {
   const evidence = recorder(browser.version());
+  const { expectedRows } = JSON.parse(
+    readFileSync("/run/qa-accounts.json", "utf8"),
+  ) as { expectedRows: ExpectedRows };
   evidence.phase("cold authenticated startup");
+  await page.addInitScript(installViewportCheck);
   await page.addInitScript(() => {
     performance.setResourceTimingBufferSize(5000);
     window.addEventListener(
@@ -60,9 +71,9 @@ test("10,000-action authenticated release workspace", async ({
     p50Ms: nearestRank(roundTripMs, 0.5),
     p95Ms: nearestRank(roundTripMs, 0.95),
   });
-  await measureViews(page, evidence);
+  await measureViews(page, evidence, expectedRows);
   await measureEditing(page, evidence);
-  await measureSearch(page, evidence);
+  await measureSearch(page, evidence, expectedRows);
   const selection = await convergence(page, browser, evidence);
   const idle = await idleClones(page, evidence);
   const overBudget = evidence.finish();

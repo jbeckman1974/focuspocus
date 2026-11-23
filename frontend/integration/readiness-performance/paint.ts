@@ -1,8 +1,9 @@
 import type { Page } from "@playwright/test";
+import type { FixtureRow, ViewportWindow } from "./viewport.ts";
 
 export type Target =
-  | { kind: "outline"; name: string; count: number; actions: string[] }
-  | { kind: "search"; text: string; count: number; actions: string[] }
+  | { kind: "outline"; name: string; count: number; rows: FixtureRow[] }
+  | { kind: "search"; text: string; count: number; rows: FixtureRow[] }
   | { kind: "selection" | "title"; text: string }
   | { kind: "editing"; value: string };
 
@@ -14,9 +15,12 @@ export type ProbeWindow = Window & {
 // Record the trusted browser event timestamp, including any waiting in the event queue.
 // Two successive animation frames bracket a paint of the verified state. Playwright
 // polling and transport time do not contribute to the observation.
+type Trigger =
+  "pointerdown" | "keydown" | "beforeinput" | "last-search-key" | "online";
+
 export async function armPaint(
   page: Page,
-  event: string | null,
+  event: Trigger | null,
   target: Target,
 ) {
   await page.evaluate(
@@ -70,15 +74,15 @@ export async function armPaint(
             count?.textContent !== target.count + " items"
           )
             return false;
-          if (!target.actions.length)
-            return tree.querySelector('[role="treeitem"]') === null;
-          const rendered = tree.querySelectorAll(
-            '[role="treeitem"][aria-label^="Action "]',
-          );
-          return target.actions.every(
-            (title, i) =>
-              rendered[i]?.getAttribute("aria-label") === title &&
-              visible(rendered[i], tree),
+          const list = tree.querySelector<HTMLElement>(".outline-window");
+          return (
+            list &&
+            (window as ViewportWindow).benchmarkViewport!(
+              "outline",
+              tree,
+              list,
+              target.rows,
+            )
           );
         }
         if (target.kind === "search") {
@@ -88,14 +92,22 @@ export async function armPaint(
           const field = document.querySelector<HTMLInputElement>(
             'input[type="search"]',
           );
-          const rows = results?.querySelectorAll("button[data-item-id]");
+          if (
+            field?.value !== target.text ||
+            results?.querySelector('[role="status"]')?.textContent !==
+              target.count + " matches"
+          )
+            return false;
+          const clip = results?.closest<HTMLElement>(".planning-page");
+          const list = results?.querySelector<HTMLElement>(".planning-results");
           return (
-            field?.value === target.text &&
-            results?.querySelector('[role="status"]')?.textContent ===
-              target.count + " matches" &&
-            target.actions.every(
-              (title, i) =>
-                rows?.[i]?.textContent === title && visible(rows[i]),
+            clip &&
+            list &&
+            (window as ViewportWindow).benchmarkViewport!(
+              "search",
+              clip,
+              list,
+              target.rows,
             )
           );
         }
@@ -104,10 +116,10 @@ export async function armPaint(
       (window as ProbeWindow).benchmarkPaint = new Promise<number>(
         (resolve) => {
           const start = (from: number) => {
-            let seen = false;
+            let seen: ReturnType<typeof check> = false;
             const frame = () => {
               const ready = check();
-              if (ready && seen) {
+              if (ready && ready === seen) {
                 const at = performance.now();
                 (window as ProbeWindow).benchmarkPaintAt =
                   performance.timeOrigin + at;
@@ -121,17 +133,32 @@ export async function armPaint(
             requestAnimationFrame(frame);
           };
           if (event) {
+            const browserEvent =
+              event === "last-search-key" ? "keydown" : event;
             const listen = (input: Event) => {
               if (!input.isTrusted) return;
-              window.removeEventListener(event, listen, true);
+              if (event === "last-search-key") {
+                const field = input.target;
+                if (
+                  target.kind !== "search" ||
+                  !(input instanceof KeyboardEvent) ||
+                  !(field instanceof HTMLInputElement) ||
+                  field.type !== "search" ||
+                  field !== document.activeElement ||
+                  field.value !== target.text.slice(0, -1) ||
+                  input.key !== target.text.at(-1)
+                )
+                  return;
+              }
+              window.removeEventListener(browserEvent, listen, true);
               clearTimeout(timeout);
               start(input.timeStamp);
             };
             const timeout = window.setTimeout(() => {
-              window.removeEventListener(event, listen, true);
+              window.removeEventListener(browserEvent, listen, true);
               resolve(-1);
             }, 60_000);
-            window.addEventListener(event, listen, true);
+            window.addEventListener(browserEvent, listen, true);
           } else start(performance.now());
         },
       );
@@ -151,7 +178,7 @@ export async function painted(page: Page): Promise<number> {
 
 export async function interaction(
   page: Page,
-  event: string,
+  event: Trigger,
   target: Target,
   dispatch: () => Promise<unknown>,
 ) {

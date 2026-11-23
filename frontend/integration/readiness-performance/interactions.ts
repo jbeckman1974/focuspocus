@@ -3,33 +3,30 @@ import { task } from "../../e2e/controls.ts";
 import { openPlanning } from "../planning-controls.ts";
 import { interaction, type Target } from "./paint.ts";
 import { type Evidence, series, switches } from "./evidence.ts";
+import type { FixtureRow } from "./viewport.ts";
 
-export const flagged = {
-  kind: "outline",
-  name: "Flagged",
-  count: 1428,
-  actions: ["Action 00007", "Action 00014"],
-} satisfies Target;
-const completed = {
-  kind: "outline",
-  name: "Completed",
-  count: 769,
-  actions: ["Action 00013", "Action 00026"],
-} satisfies Target;
-const bench = {
-  kind: "search",
-  text: "bench",
-  count: 434,
-  actions: ["Action 00023", "Action 00046"],
-} satisfies Target;
-const ledger = {
-  kind: "search",
-  text: "ledger",
-  count: 217,
-  actions: ["Action 00046", "Action 00092"],
-} satisfies Target;
+export type ExpectedRows = Record<
+  "flagged" | "completed" | "bench" | "ledger",
+  FixtureRow[]
+>;
 
-export async function measureViews(page: Page, evidence: Evidence) {
+export async function measureViews(
+  page: Page,
+  evidence: Evidence,
+  rows: ExpectedRows,
+) {
+  const flagged = {
+    kind: "outline",
+    name: "Flagged",
+    count: 1428,
+    rows: rows.flagged,
+  } as const;
+  const completed = {
+    kind: "outline",
+    name: "Completed",
+    count: 769,
+    rows: rows.completed,
+  } as const;
   function switchTo(target: Extract<Target, { kind: "outline" }>) {
     return interaction(page, "pointerdown", target, () =>
       openPlanning(page, target.name),
@@ -76,13 +73,30 @@ export async function measureEditing(page: Page, evidence: Evidence) {
   await title.press("Escape");
 }
 
-export async function measureSearch(page: Page, evidence: Evidence) {
+export async function measureSearch(
+  page: Page,
+  evidence: Evidence,
+  rows: ExpectedRows,
+) {
   await openPlanning(page, "Perspectives");
   await page
     .getByLabel("Search scope", { exact: true })
     .selectOption("everything");
   const field = page.getByLabel("Search tasks", { exact: true });
-  const switchTo = (target: Extract<Target, { kind: "search" }>) =>
+  const bench = {
+    kind: "search",
+    text: "bench",
+    count: 434,
+    rows: rows.bench,
+  } as const;
+  const ledger = {
+    kind: "search",
+    text: "ledger",
+    count: 217,
+    rows: rows.ledger,
+  } as const;
+  type Search = Extract<Target, { kind: "search" }>;
+  const switchTo = (target: Search) =>
     interaction(page, "beforeinput", target, () => field.fill(target.text));
   evidence.phase("cold note searches");
   evidence.observe("firstBenchSearchMs", await switchTo(bench));
@@ -90,5 +104,17 @@ export async function measureSearch(page: Page, evidence: Evidence) {
   await switches(evidence, [
     { name: "searchBench", run: () => switchTo(bench) },
     { name: "searchLedger", run: () => switchTo(ledger) },
+  ]);
+  // Select the previous term, then type a normal burst. Arm the probe before
+  // the first key so instrumenting the last key cannot introduce a pause.
+  async function typeQuery(target: Search) {
+    await field.press("ControlOrMeta+a");
+    return interaction(page, "last-search-key", target, () =>
+      field.pressSequentially(target.text, { delay: 35 }),
+    );
+  }
+  await switches(evidence, [
+    { name: "typedSearchBench", run: () => typeQuery(bench) },
+    { name: "typedSearchLedger", run: () => typeQuery(ledger) },
   ]);
 }

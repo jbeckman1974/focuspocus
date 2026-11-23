@@ -8,7 +8,7 @@ umask 077
 test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$FOCUSPOCUS_TEST_BROWSER_IMAGE")" = "linux/$EXPECTED_ARCH"
 docker run --rm --network none "$FOCUSPOCUS_TEST_BROWSER_IMAGE" \
   node --test integration/readiness-performance/statistics.test.ts
-docker exec -i "$FOCUSPOCUS_QA_WEB_ID" python - < ops/performance/seed.py > "$scratch/accounts.json"
+docker exec -i "$FOCUSPOCUS_QA_WEB_ID" python - --browser-benchmark < ops/performance/seed.py > "$scratch/accounts.json"
 # The containing directory is 0700. Mount just the selected file into the browser.
 chmod 0444 "$scratch/accounts.json"
 touch "$scratch/browser.json"

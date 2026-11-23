@@ -44,6 +44,8 @@ jobs:
           docker build --target browser-tests -t browser-qualify frontend
           docker run --rm --shm-size=512m -e CI=true browser-qualify
       - name: Qualify the production image, database and worker
+        env:
+          FOCUSPOCUS_CI_JOB_ID: ${{ job.check_run_id }}
         run: |
           export FOCUSPOCUS_TEST_BROWSER_IMAGE=browser-qualify EXPECTED_ARCH="$PLATFORM"
           export FOCUSPOCUS_IMAGE="focuspocus-candidate:$PLATFORM"
@@ -62,10 +64,20 @@ jobs:
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: release-readiness
+          overwrite: true
           path: |
             build/performance/report.json
             build/performance/SHA256SUMS
             build/pg-upgrade/report.json
+          retention-days: 30
+          if-no-files-found: warn
+      - name: Retain the encrypted-recovery verification summary
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: release-recovery-${{ inputs.platform }}
+          path: build/recovery/report.json
+          overwrite: true
           retention-days: 30
           if-no-files-found: warn
       - name: Stage the tested image and record its registry identity
@@ -85,6 +97,7 @@ jobs:
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-${{ inputs.platform }}
+          overwrite: true
           path: ${{ runner.temp }}/qualified/qualified.json
           retention-days: 1
           if-no-files-found: error

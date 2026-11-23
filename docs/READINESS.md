@@ -41,6 +41,8 @@ Use an independent source copy. Start with synthetic tasks on the tested candida
 
 Joe approved the Sorbet layout from Sample 4F in Light and Dark on November 23. The LAN pilot ran the reviewed source at `06b9b8e`, merged through PR #14 at `826d5fc`. Mac Chrome verified the existing owner login, Board progress after reload, shared selection with List and Calendar, and both themes. [Pilot evidence](https://github.com/jbeckman1974/focuspocus/pull/14#issuecomment-7116127691)
 
+The M7 pilot at `d5b86a9` retained the same database after the application services were replaced. Mac Chrome verified the owner session and the shared task workflow in all three presentations. The automated keyboard, appearance and touch checks passed in Chromium, Firefox and WebKit. The operator will run the separate physical rehearsal from a clean checkout with temporary access to the local Docker socket. [Cross-browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45286814212/job/138085176265)
+
 ### Hands-on checks for the owner
 
 1. In the signed-in workspace, make a small test project with three tasks. Give one a tag and a due date. Start it on the Board, find it on Calendar and finish and undo it in List. Try the sequence with the keyboard and the pointer. Record the preferred editing mode and any command or focus change that slows you down.
