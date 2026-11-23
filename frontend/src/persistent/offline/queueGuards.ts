@@ -54,6 +54,10 @@ export function writeScopes(
       case "bulk-edit":
         if ("due" in p) return ["workspace"];
         break;
+      case "set-properties":
+        if (!("inProgress" in p) || Object.keys(p).length !== 2)
+          return ["workspace"];
+        break;
       case "set-tags":
         // Exclusive and inherited tag rules consult more than the selected tag.
         return ["workspace"];
@@ -230,6 +234,13 @@ export function comparison(snapshot: Snapshot, keys: string[], write?: Write) {
         ["complete", "reopen", "bulk-inspect", "set-properties"].includes(name)
       )
         summary.push("status " + row.status);
+      if (
+        write?.name === "set-properties" &&
+        "inProgress" in write.envelope.payload
+      )
+        summary.push(
+          "inProgress" in row && row.inProgress ? "in progress" : "to do",
+        );
       return summary.join(" · ");
     })
     .join(" · ");

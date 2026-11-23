@@ -1,4 +1,4 @@
-"""Explicit version-one workspace record schema and data extraction."""
+"""Explicit workspace record schema and data extraction."""
 from dataclasses import dataclass
 from heapq import merge
 from operator import itemgetter
@@ -29,7 +29,7 @@ class Table:
 TABLES = (
     Table("tags", Tag, "id title status version parent_id exclusive", (("parent_id", "tags"),)),
     Table("items", Item,
-          "id parent_id kind title position done disposition mode auto_complete flagged created_at changed_at "
+          "id parent_id kind title position done disposition mode auto_complete flagged in_progress created_at changed_at "
           "completed_at dropped_at due schedule duration_minutes version shelf shelf_root shelf_before filing_project_id is_miscellaneous",
           (("parent_id", "items"), ("filing_project_id", "items"), ("shelf_root", "items"), ("shelf_before", "items"))),
     Table("itemTags", ItemTag, "item_id tag_id", (("item_id", "items"), ("tag_id", "tags"))),

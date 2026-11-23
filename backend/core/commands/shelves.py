@@ -113,6 +113,7 @@ def copy_subtree(tree, source, parent_id, result, *, duplicate=False, repeat_suc
             parent_id=parent_id if item.pk == root.pk else copies[item.parent_id].pk,
             schedule=item.schedule, duration_minutes=item.duration_minutes, due=item.due, done=item.done, mode=item.mode, flagged=item.flagged, auto_complete=item.auto_complete,
             disposition=item.disposition, completed_at=item.completed_at, dropped_at=item.dropped_at,
+            in_progress=False if repeat_successor else item.in_progress,
             changed_at=now, created_at=now,
             filing_project_id=(item.filing_project_id if item.pk == root.pk and parent_id is None
                                and item.filing_project_id and tree.items.filter(pk=item.filing_project_id, kind="project").exists() else None),

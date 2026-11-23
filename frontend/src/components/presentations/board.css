@@ -1,0 +1,203 @@
+.task-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-content: start;
+  gap: clamp(0.6rem, 1.3vw, 1.25rem);
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 0.9rem var(--outline-pad) 1.5rem;
+}
+.board-lane {
+  --lane-bg: var(--sorbet-next);
+  --lane-ink: var(--sorbet-next-ink);
+  min-width: 0;
+  min-height: min(46vh, 25rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  padding: clamp(0.65rem, 1vw, 1.05rem);
+  border: 1px solid color-mix(in srgb, var(--lane-ink) 14%, transparent);
+  border-radius: 17px;
+  background: var(--lane-bg);
+  color: var(--lane-ink);
+}
+.board-lane[data-lane="progress"] {
+  --lane-bg: var(--sorbet-progress);
+  --lane-ink: var(--sorbet-progress-ink);
+}
+.board-lane[data-lane="done"] {
+  --lane-bg: var(--sorbet-done);
+  --lane-ink: var(--sorbet-done-ink);
+}
+.board-lane:is([data-lane="held"], [data-lane="dropped"]) {
+  --lane-bg: var(--surface-subtle);
+  --lane-ink: var(--muted);
+  min-height: auto;
+}
+.board-lane > header {
+  display: flex;
+  gap: 0.45rem;
+  align-items: baseline;
+}
+.board-lane h2 {
+  margin: 0;
+  font-size: 1.12em;
+  letter-spacing: -0.025em;
+}
+.board-count {
+  font-size: 0.8em;
+  font-variant-numeric: tabular-nums;
+}
+.board-lane ul {
+  display: grid;
+  gap: 0.6rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.board-card {
+  min-width: 0;
+  padding: 0.72rem 0.68rem;
+  color: var(--ink);
+  background: var(--surface-raised);
+  border-radius: 13px;
+  border: 1px solid
+    color-mix(in srgb, var(--lane-ink) 17%, var(--surface-raised));
+  box-shadow: 0 2px 5px rgb(22 16 44 / 8%);
+}
+.board-card[data-selected="true"] {
+  border-color: var(--lane-ink);
+  box-shadow: 0 0 0 1px var(--lane-ink);
+}
+.board-card-line,
+.board-card-meta,
+.board-card-actions,
+.board-add {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+.board-card-line {
+  align-items: flex-start;
+}
+.task-board .board-card-title {
+  flex: 1;
+  min-width: 0;
+  padding: 2px 0;
+  text-align: start;
+  overflow-wrap: anywhere;
+  font-weight: 650;
+  line-height: 1.35;
+  background: none;
+  border: 0;
+  border-radius: 3px;
+}
+.board-card[data-done="true"] .board-card-title {
+  text-decoration: line-through;
+  color: var(--muted);
+}
+.task-board .board-check {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.2rem;
+  height: 1.2rem;
+  margin-block-start: 3px;
+  padding: 0;
+  color: var(--ink);
+  border: 1.6px solid currentColor;
+  border-radius: 5px;
+  background: transparent;
+}
+.board-check::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+}
+.task-board .board-card[data-done="true"] .board-check {
+  background: var(--sorbet-done);
+  color: var(--sorbet-done-ink);
+  border-radius: 50%;
+}
+.board-card-meta,
+.board-card-actions {
+  flex-wrap: wrap;
+  margin-block-start: 0.55rem;
+  font-size: 0.82em;
+}
+.board-card-meta :is(time, span) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.28em;
+  max-width: 100%;
+  padding: 0.12em 0.45em;
+  border-radius: 0.75em;
+  overflow-wrap: anywhere;
+}
+.board-due {
+  background: var(--sorbet-progress);
+  color: var(--sorbet-progress-ink);
+}
+.board-tag {
+  background: var(--sorbet-next);
+  color: var(--sorbet-next-ink);
+}
+.board-blocked {
+  background: var(--surface-subtle);
+  color: var(--muted);
+}
+.board-card-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 0.45rem;
+}
+.board-card-actions button {
+  padding: 0.28rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+.board-card-actions button:hover:enabled {
+  background: var(--surface-hover);
+}
+.task-board .board-add {
+  justify-content: center;
+  margin-top: auto;
+  min-height: 2.2rem;
+  font-weight: 600;
+  border: 1px dashed var(--lane-ink);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--lane-ink);
+}
+.board-empty {
+  margin: 0;
+  font-size: 0.84em;
+  color: var(--lane-ink);
+}
+.task-board .board-more {
+  align-self: flex-start;
+  padding: 0.25rem;
+  color: var(--lane-ink);
+  background: transparent;
+  border: 0;
+  text-decoration: underline;
+}
+.fp-shell[data-density="compact"] .board-card {
+  padding-block: 0.42rem;
+}
+@container task-presentation (max-width: 37rem) {
+  .task-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .board-lane {
+    min-height: auto;
+  }
+}
+@media (forced-colors: active) {
+  .board-card[data-selected="true"] {
+    outline: 2px solid Highlight;
+  }
+}

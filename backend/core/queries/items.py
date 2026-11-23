@@ -9,7 +9,7 @@ from core.scheduling.storage import read_schedule
 
 ITEM_FIELDS = (
     "id", "parent_id", "kind", "position", "title", "version", "done", "disposition", "mode",
-    "flagged", "auto_complete", "filing_project_id", "due", "schedule", "duration_minutes",
+    "flagged", "auto_complete", "in_progress", "filing_project_id", "due", "schedule", "duration_minutes",
     "created_at", "changed_at", "completed_at", "dropped_at",
 )
 
@@ -45,7 +45,7 @@ def direct_rows(workspace, tags_by_item):
             "version": item.version, "position": item.position, "tags": tags_by_item.get(item.id, []),
             "due": iso(item.due), "schedule": read_schedule(item), "durationMinutes": item.duration_minutes,
             "done": item.done, "status": "completed" if item.done else item.disposition, "mode": mode_for(item),
-            "flagged": item.flagged, "autoComplete": item.auto_complete,
+            "flagged": item.flagged, "autoComplete": item.auto_complete, "inProgress": item.in_progress,
             "filingProjectId": str(item.filing_project_id) if item.filing_project_id else None,
             "createdAt": iso(item.created_at), "changedAt": iso(item.changed_at),
             "completedAt": iso(item.completed_at), "droppedAt": iso(item.dropped_at),

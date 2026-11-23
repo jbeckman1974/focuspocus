@@ -36,6 +36,7 @@ const labels: Record<Command["type"], string> = {
   setTitle: "title edit",
   setTag: "tag edit",
   setDue: "due date edit",
+  setProgress: "progress change",
   group: "group",
   indent: "indent",
   outdent: "outdent",
@@ -125,12 +126,14 @@ export class WorkspaceSession {
     );
   };
 
-  select = (ids: string[]) => {
+  select = (ids: string[], reveal = false) => {
     const { workspace, view, collapsed } = this.snapshot;
     this.show(
       workspace,
       view,
-      reconcileSelection(workspace, view, collapsed, ids),
+      reveal
+        ? revealSelection(workspace, view, collapsed, ids)
+        : reconcileSelection(workspace, view, collapsed, ids),
     );
   };
 

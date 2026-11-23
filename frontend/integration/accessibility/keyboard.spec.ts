@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type JSHandle } from "@playwright/test";
 import {
   activate,
   chooseWithKeys,
@@ -9,6 +9,36 @@ import {
   taskId,
 } from "../../e2e/controls.ts";
 import { signIn, withProfile } from "../account.ts";
+
+const focusPaths = new WeakMap<Page, JSHandle<string[]>>();
+
+async function recordFocus(page: Page) {
+  const path = await page.evaluateHandle(() => {
+    const visited: string[] = [];
+    document.addEventListener("focusin", (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      const label =
+        target.getAttribute("aria-label") ??
+        (target instanceof HTMLButtonElement ? target.textContent?.trim() : "");
+      visited.push(
+        [target.getAttribute("role") ?? target.localName, label]
+          .filter(Boolean)
+          .join(" "),
+      );
+      if (visited.length > 120) visited.shift();
+    });
+    return visited;
+  });
+  focusPaths.set(page, path);
+}
+
+test.afterEach(async ({ page }, info) => {
+  const path = focusPaths.get(page);
+  if (path && info.status !== info.expectedStatus)
+    console.log("Keyboard focus targets", await path.jsonValue());
+  await path?.dispose();
+});
 
 test.beforeAll(async ({ browser, browserName }) => {
   console.log(
@@ -21,6 +51,7 @@ test("AT-16/17/24 · organize a private outline by keyboard and keep its named s
   browser,
 }) => {
   await signIn(page, "planner");
+  await recordFocus(page);
   const tree = page.getByRole("tree", { name: "Task outline" });
   const capture = page.getByRole("textbox", { name: "Task titles" });
   await activate(
@@ -80,9 +111,19 @@ test("AT-16/17/24 · organize a private outline by keyboard and keep its named s
   await expect(dialog).toBeHidden();
   await expect(tree).toBeFocused();
   await page.keyboard.press("F2");
-  await expect(
-    page.getByRole("textbox", { name: "Task title", exact: true }),
-  ).toBeFocused();
+  const editor = tripod.getByRole("textbox", {
+    name: "Task title",
+    exact: true,
+  });
+  await expect(editor).toBeFocused();
+  // A queued dialog focus handoff used to steal focus after F2 had opened this input.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+      ),
+  );
+  await expect(editor).toBeFocused();
   await page.keyboard.press("ControlOrMeta+a");
   await page.keyboard.insertText("Tripod checked");
   await page.keyboard.press("Enter");
@@ -114,6 +155,7 @@ test("AT-15/24 · review a project by keyboard without completing its action", a
   page,
 }) => {
   await signIn(page, "planner");
+  await recordFocus(page);
   const project = "Accessible project review";
   await activate(
     page,
@@ -146,17 +188,22 @@ test("AT-15/24 · review a project by keyboard without completing its action", a
     nav.getByRole("button", { name: "Review", exact: true }),
   );
   const review = page.getByRole("region", { name: "Review", exact: true });
-  await chooseWithKeys(
-    page,
-    review.getByRole("combobox", { name: "Review scope" }),
-    "All projects",
-  );
+  const scope = review.getByRole("combobox", { name: "Review scope" });
+  await chooseWithKeys(page, scope, "All projects");
+  const queuedProject = review
+    .getByRole("group", { name: "Review queue" })
+    .getByRole("button", { name: project, exact: true });
+  await activate(page, queuedProject);
   const item = review.getByRole("button", { name: label, exact: true });
   await expect(item).toHaveAttribute("data-item-id", id);
   await activate(page, item);
   await expect(item).toHaveAttribute("aria-pressed", "true");
   await activate(page, review.getByRole("button", { name: "Mark reviewed" }));
+  await expect(scope).toBeFocused();
   await expect(review.getByText(/Last reviewed/)).toBeVisible();
+  await expect(scope).toBeFocused();
+  await tabTo(page, queuedProject);
+  await expect(queuedProject).toHaveAttribute("aria-pressed", "true");
   await activate(page, sidebarDestination(page, project));
   await expect(task(page, label)).toHaveAttribute("data-task-id", id);
   await expect(task(page, label)).toHaveAccessibleDescription(/Active/);

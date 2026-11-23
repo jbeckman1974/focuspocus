@@ -41,8 +41,9 @@ import { useCatalog } from "./planning/useCatalog.ts";
 import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
 import type { WorkspaceInfo } from "./tools/WorkspaceRouter.tsx";
 import { WriteNotice } from "./WriteNotice.tsx";
+import { useTaskLayout } from "../workspace/taskLayout.ts";
 
-const expanded = new Set<string>();
+const expandedRows = new Set<string>();
 const noSelection: string[] = [];
 
 interface Props {
@@ -93,6 +94,7 @@ function ConnectedOutline({
 }: Props & { channel: WorkspaceChannel; trusted: boolean }) {
   const state = useSyncExternalStore(channel.subscribe, channel.getSnapshot);
   const snapshot = state.snapshot;
+  const layout = useTaskLayout();
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
   const planning = usePlanningNavigation(catalog.data);
   const [currentView, setView] = useState<View>(inbox);
@@ -103,7 +105,8 @@ function ConnectedOutline({
   const [collapsedRows, setCollapsed] = useState<Record<string, Set<string>>>(
     {},
   );
-  const collapsed = collapsedRows[key] ?? expanded;
+  const collapsed =
+    layout === "list" ? (collapsedRows[key] ?? expandedRows) : expandedRows;
   const [filters, setFilters] = useState<Record<string, Availability>>({});
   const availability = filters[key] ?? "everything";
   const [cleanupEpoch, setCleanupEpoch] = useState(0);
@@ -160,7 +163,8 @@ function ConnectedOutline({
     : outlineSelection;
   const settings = usePersonalPreferences(id, actorId, csrf);
   const showInspector =
-    settings.device.inspectorOpen ?? window.innerWidth > 850;
+    settings.device.inspectorOpen ??
+    (layout === "list" && window.innerWidth > 850);
   const setShowInspector = (open: boolean) =>
     settings.setDevice({ inspectorOpen: open });
   const mode = settings.account.editMode;
@@ -250,8 +254,22 @@ function ConnectedOutline({
 
   const choose = (ids: string[]) => {
     if (planning.page) return planning.select(ids);
+    const saved = collapsedRows[key];
+    if (layout !== "list" && saved?.size && ids.length) {
+      const revealed = revealSelection(snapshot, view, saved, ids).collapsed;
+      if (revealed.size !== saved.size)
+        setCollapsed((previous) => ({ ...previous, [key]: new Set(revealed) }));
+    }
     setSelected((previous) => ({ ...previous, [key]: ids }));
   };
+
+  function captureTask() {
+    if (planning.page || layout === "list" || view.kind !== "project")
+      setView(inbox);
+    planning.close();
+    if (window.innerWidth <= 850) setShowInspector(false);
+    setCapture((n) => n + 1);
+  }
 
   const tagIntent = state.pending?.intent;
   const pendingTag =
@@ -382,12 +400,7 @@ function ConnectedOutline({
         selection={selection}
         onSelect={choose}
         run={run}
-        onCapture={() => {
-          planning.close();
-          setView(inbox);
-          if (window.innerWidth <= 850) setShowInspector(false);
-          setCapture((n) => n + 1);
-        }}
+        onCapture={captureTask}
         workspaceLabel={activeSpace.private ? username : activeSpace.name}
         accountControls={
           <>
@@ -450,6 +463,10 @@ function ConnectedOutline({
           search={() => openPlanning("perspectives")}
         >
           <Outline
+            layout={layout}
+            onCapture={captureTask}
+            onCaptureHandled={() => setCapture(0)}
+            timeZone={snapshot.viewZone || snapshot.timeZone}
             mutationsDisabled={mutationsDisabled}
             rows={rows}
             count={projection.result?.count}
@@ -470,13 +487,15 @@ function ConnectedOutline({
                 />
                 {project && controls(project, "project")}
                 {folder && controls(folder, "folder")}
-                {projection.message && (
-                  <p role="alert">
-                    {projection.message}{" "}
-                    <button onClick={projection.retry}>Retry outline</button>
-                  </p>
-                )}
               </div>
+            }
+            notice={
+              projection.message && (
+                <p role="alert">
+                  {projection.message}{" "}
+                  <button onClick={projection.retry}>Retry outline</button>
+                </p>
+              )
             }
             workspace={snapshot}
             view={view}

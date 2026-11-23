@@ -59,6 +59,7 @@ class Item(ItemLifecycleFields):
     mode = models.CharField(max_length=16, null=True, blank=True)
     auto_complete = models.BooleanField(default=False)
     flagged = models.BooleanField(default=False)
+    in_progress = models.BooleanField(default=False, db_default=False)
     created_at = models.DateTimeField(null=True, default=timezone.now)
     changed_at = models.DateTimeField(null=True, default=timezone.now)
     completed_at = models.DateTimeField(null=True, blank=True)
@@ -90,6 +91,8 @@ class Item(ItemLifecycleFields):
                 name="item_auto_complete",
             ),
             models.CheckConstraint(condition=~models.Q(kind="folder", done=True), name="folder_completion"),
+            models.CheckConstraint(condition=models.Q(in_progress=False) | models.Q(kind__in=("action", "group")),
+                                   name="item_progress_task"),
             models.CheckConstraint(
                 condition=models.Q(duration_minutes__isnull=True) | models.Q(duration_minutes__lte=MAX_DURATION_MINUTES),
                 name="item_duration_range",

@@ -1,6 +1,6 @@
 import { canReorder } from "../outline/views.ts";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { INBOX, indexWorkspace, visibleRows } from "../outline/index.ts";
 import type {
   Command,
@@ -17,11 +17,24 @@ import type { EditDraft } from "./outline/TaskRow.tsx";
 import { ActionDialog } from "./outline/ActionDialog.tsx";
 import { viewTitle } from "./outline/controls.ts";
 import "./outline/outline.css";
+import { Icon } from "./frame/Icon.tsx";
+import { LayoutSwitch } from "./presentations/LayoutSwitch.tsx";
+import { TaskBoard } from "./presentations/TaskBoard.tsx";
+import { TaskCalendar } from "./presentations/TaskCalendar.tsx";
+import type { TaskLayout } from "../workspace/taskLayout.ts";
+import "./presentations/layout.css";
+
+const expandedRows = new Set<string>();
 
 interface OutlineProps {
   mutationsDisabled?: boolean;
   rows?: OutlineRow[];
   tools?: ReactNode;
+  notice?: ReactNode;
+  layout: TaskLayout;
+  timeZone?: string;
+  onCapture: () => void;
+  onCaptureHandled: () => void;
   count?: number;
   retainedCount?: number;
   workspace: Workspace;
@@ -41,10 +54,16 @@ interface OutlineProps {
 }
 
 export function Outline(props: OutlineProps) {
-  const { workspace, view, selection } = props;
+  const { workspace, view, selection, layout } = props;
+  const list = layout === "list";
+  const collapsed = list ? props.collapsed : expandedRows;
   const rows = useMemo(
-    () => props.rows ?? visibleRows(workspace, view, props.collapsed),
-    [workspace, view, props.collapsed, props.rows],
+    () => props.rows ?? visibleRows(workspace, view, collapsed),
+    [workspace, view, collapsed, props.rows],
+  );
+  const flatRows = useMemo(
+    () => (list ? [] : rows.filter((row) => !row.context)),
+    [list, rows],
   );
   const tree = useRef<HTMLDivElement>(null);
   const identity = viewKey(view);
@@ -53,6 +72,7 @@ export function Outline(props: OutlineProps) {
     {},
   );
   const [panel, setPanel] = useState<OutlinePanel>();
+  const returnToTree = useRef(false);
   const [multiple, setMultiple] = useState(false);
   const editId = editing[identity];
   const draft: EditDraft | undefined =
@@ -67,14 +87,18 @@ export function Outline(props: OutlineProps) {
       : undefined;
   const title = viewTitle(view, workspace);
   const count = props.count ?? rows.length;
+  const destination = view.kind === "project" ? title : "Inbox";
 
-  function focusTree() {
-    tree.current?.focus({ preventScroll: true });
-  }
+  useLayoutEffect(() => {
+    if (!panel && returnToTree.current) {
+      returnToTree.current = false;
+      tree.current?.focus({ preventScroll: true });
+    }
+  }, [panel]);
 
   function closePanel() {
+    returnToTree.current = true;
     setPanel(undefined);
-    window.requestAnimationFrame(focusTree);
   }
 
   function edit(task: Task) {
@@ -101,7 +125,7 @@ export function Outline(props: OutlineProps) {
       });
     }
     setEditing((previous) => ({ ...previous, [identity]: undefined }));
-    focusTree();
+    tree.current?.focus({ preventScroll: true });
   }
 
   async function saveEdit() {
@@ -118,9 +142,27 @@ export function Outline(props: OutlineProps) {
   }
 
   return (
-    <section className="task-outline" aria-label={`${title} tasks`}>
+    <section
+      className="task-outline"
+      data-layout={layout}
+      aria-label={`${title} tasks`}
+    >
       <header className="outline-heading">
         <div className="outline-heading-title">
+          <Icon
+            name={
+              view.kind === "inbox"
+                ? "inbox"
+                : view.kind === "tag" || view.kind === "tags"
+                  ? "tags"
+                  : view.kind === "project" ||
+                      view.kind === "projects" ||
+                      view.kind === "folder"
+                    ? "projects"
+                    : "all"
+            }
+            size={26}
+          />
           <h1>{title}</h1>
           <span className="outline-count">
             {count} {count === 1 ? "item" : "items"}
@@ -149,12 +191,24 @@ export function Outline(props: OutlineProps) {
           </button>
         </div>
       </header>
-      {props.tools}
+      <div className="presentation-bar">
+        <LayoutSwitch layout={layout} />
+        {!list && props.tools && (
+          <details className="presentation-options">
+            <summary>View options</summary>
+            {props.tools}
+          </details>
+        )}
+      </div>
+      {props.notice}
+      {list && props.tools}
       <Capture
         disabled={props.mutationsDisabled}
+        collapsible={!list}
         identity={identity}
-        destination={view.kind === "project" ? title : "Inbox"}
+        destination={destination}
         signal={props.captureSignal}
+        onFocusRequestHandled={props.onCaptureHandled}
         submit={(titles) =>
           props.run({
             type: "capture",
@@ -163,81 +217,115 @@ export function Outline(props: OutlineProps) {
           })
         }
       />
-      <div className="outline-toolbar" role="group" aria-label="Task actions">
-        <button
-          type="button"
-          aria-pressed={multiple}
-          onClick={() => setMultiple(!multiple)}
-        >
-          Select multiple
-        </button>
-        <span className="outline-selection-count" aria-live="polite">
-          {selection.length} selected
-        </span>
-        <div className="outline-toolbar-commands">
-          <button
-            type="button"
-            disabled={selection.length !== 1 || !selectedTask}
-            onClick={() => selectedTask && edit(selectedTask)}
+      {list && (
+        <>
+          <div
+            className="outline-toolbar"
+            role="group"
+            aria-label="Task actions"
           >
-            Edit
-          </button>
-          <button
-            type="button"
-            disabled={props.mutationsDisabled || !selection.length}
-            onClick={() => setPanel("group")}
-          >
-            Group…
-          </button>
-          <button
-            type="button"
-            disabled={props.mutationsDisabled || !selection.length}
-            onClick={() => setPanel("move")}
-          >
-            Move…
-          </button>
-          <button
-            type="button"
-            className="outline-more"
-            aria-label="Outline commands"
-            title="Outline commands (?)"
-            onClick={() => setPanel("commands")}
-          >
-            •••
-          </button>
-        </div>
-      </div>
-      {!rows.length && (
-        <p className="outline-empty">
-          {view.kind === "tag"
-            ? "No tasks have this tag."
-            : "This outline is empty."}
-        </p>
+            <button
+              type="button"
+              aria-pressed={multiple}
+              onClick={() => setMultiple(!multiple)}
+            >
+              Select multiple
+            </button>
+            <span className="outline-selection-count" aria-live="polite">
+              {selection.length} selected
+            </span>
+            <div className="outline-toolbar-commands">
+              <button
+                type="button"
+                disabled={selection.length !== 1 || !selectedTask}
+                onClick={() => selectedTask && edit(selectedTask)}
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                disabled={props.mutationsDisabled || !selection.length}
+                onClick={() => setPanel("group")}
+              >
+                Group…
+              </button>
+              <button
+                type="button"
+                disabled={props.mutationsDisabled || !selection.length}
+                onClick={() => setPanel("move")}
+              >
+                Move…
+              </button>
+              <button
+                type="button"
+                className="outline-more"
+                aria-label="Outline commands"
+                title="Outline commands (?)"
+                onClick={() => setPanel("commands")}
+              >
+                •••
+              </button>
+            </div>
+          </div>
+          {!rows.length && (
+            <p className="outline-empty">
+              {view.kind === "tag"
+                ? "No tasks have this tag."
+                : "This outline is empty."}
+            </p>
+          )}
+          <TaskTree
+            mutationsDisabled={props.mutationsDisabled}
+            workspace={workspace}
+            view={view}
+            rows={rows}
+            tree={tree}
+            selection={selection}
+            select={props.onSelect}
+            multiple={multiple}
+            collapsed={props.collapsed}
+            toggle={props.onToggle}
+            run={props.run}
+            edit={edit}
+            draft={draft}
+            changeDraft={(value) => {
+              if (editId)
+                setTitles((previous) => ({ ...previous, [editId]: value }));
+            }}
+            saveDraft={saveEdit}
+            cancelDraft={cancelEdit}
+            panel={setPanel}
+            undo={props.undo}
+            redo={props.redo}
+          />
+        </>
       )}
-      <TaskTree
-        mutationsDisabled={props.mutationsDisabled}
-        workspace={workspace}
-        view={view}
-        rows={rows}
-        tree={tree}
-        selection={selection}
-        select={props.onSelect}
-        multiple={multiple}
-        collapsed={props.collapsed}
-        toggle={props.onToggle}
-        run={props.run}
-        edit={edit}
-        draft={draft}
-        changeDraft={(value) => {
-          if (editId)
-            setTitles((previous) => ({ ...previous, [editId]: value }));
-        }}
-        saveDraft={saveEdit}
-        cancelDraft={cancelEdit}
-        panel={setPanel}
-        undo={props.undo}
-        redo={props.redo}
-      />
+      {layout === "board" && (
+        <TaskBoard
+          key={identity}
+          rows={flatRows}
+          workspace={workspace}
+          selection={selection}
+          onSelect={props.onSelect}
+          onInspect={props.onInspect}
+          run={props.run}
+          disabled={props.mutationsDisabled}
+          timeZone={props.timeZone}
+          onCapture={props.onCapture}
+          destination={destination}
+        />
+      )}
+      {layout === "calendar" && (
+        <TaskCalendar
+          key={identity}
+          workspace={workspace}
+          rows={flatRows}
+          selection={selection}
+          timeZone={props.timeZone}
+          onSelect={props.onSelect}
+          onInspect={props.onInspect}
+        />
+      )}
       {panel && (
         <ActionDialog
           key={panel}

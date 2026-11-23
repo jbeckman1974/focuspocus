@@ -1,8 +1,9 @@
-import { WorkspaceMenu } from "./frame/WorkspaceMenu.tsx";
+import { FluentProvider } from "@fluentui/react-components";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import type { Command, View, Workspace } from "../outline/index.ts";
-import { Icon } from "./frame/Icon.tsx";
+import { WorkspaceToolbar } from "./frame/WorkspaceToolbar.tsx";
+import { useWorkspaceTheme } from "./frame/workspaceTheme.ts";
 import { Inspector } from "./frame/Inspector.tsx";
 import type { PlanningNavigation } from "./frame/Navigation.tsx";
 import { Rail, Sidebar } from "./frame/Navigation.tsx";
@@ -10,6 +11,7 @@ import { PaneDivider } from "./frame/PaneDivider.tsx";
 import { Preferences } from "./frame/Preferences.tsx";
 import type { Appearance, EditMode } from "./frame/Preferences.tsx";
 import "./frame/frame.css";
+import "./frame/fluent.css";
 
 import type { PersonalSettings } from "../persistent/preferences/types.ts";
 import { PersonalControls } from "../persistent/preferences/PersonalControls.tsx";
@@ -82,6 +84,8 @@ export function Frame({
   const [sampleSidebarSize, setSampleSidebarSize] = useState(212);
   const [sampleInspectorSize, setSampleInspectorSize] = useState(260);
   const appearance = personalPreferences?.account ?? sampleAppearance;
+  const { theme, colorScheme } = useWorkspaceTheme(appearance.theme);
+  const preferencesTrigger = useRef<HTMLElement | null>(null);
   const sidebarSize =
     personalPreferences?.device.sidebarSize ?? sampleSidebarSize;
   const inspectorSize =
@@ -105,7 +109,7 @@ export function Frame({
   const sidebarWidth = Math.min(sidebarSize, sidebarMax);
   const inspectorWidth = Math.min(inspectorSize, inspectorMax);
   const columns =
-    `var(--rail-width) ${sidebarWidth}px 6px minmax(0, 1fr)` +
+    `${sidebarWidth}px 6px minmax(0, 1fr)` +
     (inspectorVisible ? ` 6px ${inspectorWidth}px` : "");
 
   useLayoutEffect(() => {
@@ -170,6 +174,22 @@ export function Frame({
     onCapture();
   }
 
+  function openPreferences(trigger: HTMLElement) {
+    preferencesTrigger.current = trigger;
+    setPreferencesOpen(true);
+  }
+
+  useLayoutEffect(() => {
+    if (!preferencesOpen && preferencesTrigger.current) {
+      const trigger = preferencesTrigger.current;
+      preferencesTrigger.current = null;
+      const target = trigger.getClientRects().length
+        ? trigger
+        : (browseToggle.current ?? main.current);
+      target?.focus({ preventScroll: true });
+    }
+  }, [preferencesOpen]);
+
   const navigation = {
     workspace,
     view,
@@ -186,79 +206,41 @@ export function Frame({
       },
     },
     onView: chooseView,
-    onPreferences: () => setPreferencesOpen(true),
+    onPreferences: openPreferences,
   };
   return (
     <CompletionShortcut.Provider
       value={personalPreferences?.account.shortcut ?? "x"}
     >
-      <div
+      <FluentProvider
+        theme={theme}
         data-motion={personalPreferences?.account.motion ?? "system"}
         className="fp-shell"
         data-theme={appearance.theme}
+        data-color-scheme={colorScheme}
         data-density={appearance.density}
         data-text-size={appearance.textSize}
       >
-        <header className="fp-topbar">
-          <div className="fp-wordmark">
-            <span className="fp-brandmark" aria-hidden="true">
-              <Icon name="mark" size={24} />
-            </span>
-            <span>{workspaceLabel ?? "Sample workspace"}</span>
-          </div>
-          <div className="fp-top-actions">
-            {accountControls && (
-              <WorkspaceMenu narrow={width <= 600}>
-                {accountControls}
-              </WorkspaceMenu>
-            )}
-            {compact && (
-              <button
-                ref={browseToggle}
-                type="button"
-                className="fp-top-button"
-                aria-label="Browse"
-                aria-expanded={browseOpen}
-                aria-controls="workspace-navigation"
-                title="Browse"
-                onClick={toggleBrowse}
-              >
-                <Icon name="browse" />
-                <span>Browse</span>
-              </button>
-            )}
-            <button
-              type="button"
-              className="fp-primary"
-              aria-label="Add task"
-              title="Add task"
-              onClick={capture}
-            >
-              <Icon name="add" size={16} />
-              <span>Add task</span>
-            </button>
-            <button
-              ref={inspectorToggle}
-              type="button"
-              className="fp-top-button"
-              aria-label="Inspector"
-              aria-expanded={inspectorVisible}
-              aria-controls="task-inspector"
-              title="Inspector"
-              onClick={toggleInspector}
-            >
-              <Icon name="inspector" />
-              <span>Inspector</span>
-            </button>
-          </div>
-        </header>
+        <WorkspaceToolbar
+          label={workspaceLabel}
+          accountControls={accountControls}
+          compact={compact}
+          narrow={width <= 600}
+          browseOpen={browseOpen}
+          inspectorOpen={inspectorVisible}
+          browseToggle={browseToggle}
+          inspectorToggle={inspectorToggle}
+          onBrowse={toggleBrowse}
+          onInspector={toggleInspector}
+          onCapture={capture}
+        />
         <div
           className="fp-layout"
           style={compact ? undefined : { gridTemplateColumns: columns }}
         >
-          {!compact && <Rail {...navigation} />}
           <div
-            className="fp-panel-slot"
+            className="fp-panel-slot fp-navigation-slot"
+            id="workspace-navigation"
             hidden={compact && !browseOpen}
             onFocusCapture={() => {
               lastPanel.current = "browse";
@@ -267,6 +249,7 @@ export function Frame({
               if (compact && event.key === "Escape") closeBrowse();
             }}
           >
+            {!compact && <Rail {...navigation} />}
             <Sidebar {...navigation} compact={compact} onClose={closeBrowse} />
           </div>
           {!compact && (
@@ -328,8 +311,8 @@ export function Frame({
               ? "Private workspace"
               : "Sample data resets on reload"}
           </span>
-          {personalPreferences?.retry && !preferencesOpen && (
-            <button onClick={() => setPreferencesOpen(true)}>
+          {personalPreferences?.retry && (
+            <button onClick={(event) => openPreferences(event.currentTarget)}>
               Review preference changes
             </button>
           )}
@@ -340,6 +323,8 @@ export function Frame({
         {preferencesOpen && (
           <Preferences
             appearance={appearance}
+            colorScheme={colorScheme}
+            motion={personalPreferences?.account.motion ?? "system"}
             onAppearance={
               personalPreferences
                 ? personalPreferences.setAccount
@@ -364,7 +349,7 @@ export function Frame({
             }
           />
         )}
-      </div>
+      </FluentProvider>
     </CompletionShortcut.Provider>
   );
 }

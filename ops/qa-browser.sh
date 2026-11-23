@@ -59,9 +59,11 @@ import sys
 targets = sorted(Path("frontend/integration").glob("offline*.spec.ts"))
 targets += [Path("public-shell.spec.ts"), Path("touch-workspace.spec.ts")]
 prefixes = [""] + [path.name + "/" for path in targets if path.name != "offline-restore.spec.ts"]
+names = [prefix + role for prefix in prefixes for role in ("owner", "neighbor", "planner")]
+names.append("board-presentations.spec.ts/owner")
 accounts = {
-    prefix + role: {"username": "qa_" + secrets.token_hex(10), "password": secrets.token_urlsafe(32)}
-    for prefix in prefixes for role in ("owner", "neighbor", "planner")
+    name: {"username": "qa_" + secrets.token_hex(10), "password": secrets.token_urlsafe(32)}
+    for name in names
 }
 Path(sys.argv[1]).write_text(json.dumps(accounts), encoding="utf-8")
 PY

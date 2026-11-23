@@ -1,3 +1,4 @@
+import { Button, Select } from "@fluentui/react-components";
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import type { Snapshot } from "../api.ts";
 import type { WorkspaceInfo } from "./WorkspaceRouter.tsx";
@@ -30,7 +31,8 @@ export function WorkspaceTools(props: Props) {
       {props.spaces.length > 1 && (
         <label>
           Workspace{" "}
-          <select
+          <Select
+            size="small"
             aria-label="Active workspace"
             value={props.workspace.id}
             onChange={(e) =>
@@ -42,12 +44,17 @@ export function WorkspaceTools(props: Props) {
                 {workspaceOption(space, props.spaces)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
       )}
-      <button type="button" onClick={() => setOpen(true)}>
+      <Button
+        type="button"
+        appearance="subtle"
+        size="small"
+        onClick={() => setOpen(true)}
+      >
         Workspace tools…
-      </button>
+      </Button>
       {open && <ToolsDialog {...props} close={() => setOpen(false)} />}
     </>
   );

@@ -17,6 +17,7 @@ test("invalid commands reject atomically and preserve every original property", 
     { type: "setTitle", ids: ["A01"], title: "Two\nlines" },
     { type: "setTag", ids: ["I01", "foreign"], tagId: "field", enabled: true },
     { type: "setTag", ids: ["I01"], tagId: "foreign", enabled: true },
+    { type: "setProgress", ids: ["I01", "foreign"], inProgress: true },
     { type: "setDue", ids: ["I01", "I02"], due: "2027-02-29" },
     { type: "setDue", ids: ["I01"], due: "2026-04-31" },
     { type: "setDue", ids: ["I01"], due: "2026-1-10" },
@@ -88,6 +89,7 @@ test("idempotent commands preserve history identity and unrelated records remain
   const noChanges: Command[] = [
     { type: "rename", id: "I01", title: " Loose receipt " },
     { type: "setDue", ids: ["I01", "I02"], due: null },
+    { type: "setProgress", ids: ["I01", "I02"], inProgress: false },
     { type: "setTag", ids: ["I03"], tagId: "desk", enabled: true },
     { type: "setTag", ids: ["I01", "I01"], tagId: "desk", enabled: false },
     { type: "complete", ids: ["A11"] },
@@ -105,6 +107,40 @@ test("idempotent commands preserve history identity and unrelated records remain
   assert.deepEqual(renamed.selection, ["I01", "I02"]);
   assert.strictEqual(renamed.workspace.tasks[2], workspace.tasks[2]);
   assert.equal(workspace.tasks[0]!.title, "Loose receipt");
+});
+
+test("progress is direct even when completion is inherited from a group", () => {
+  const original = createSample();
+  const child = original.tasks.find(
+    (row) => row.parentId === "G01" && !row.done,
+  )!;
+  const started = applyCommand(original, {
+    type: "setProgress",
+    ids: [child.id],
+    inProgress: true,
+  }).workspace;
+  const closed = applyCommand(started, {
+    type: "complete",
+    ids: ["G01"],
+  }).workspace;
+  assert.equal(effectiveDone(closed, child.id), true);
+  assert.equal(
+    closed.tasks.find((row) => row.id === child.id)?.inProgress,
+    true,
+  );
+  const reopened = applyCommand(closed, {
+    type: "reopen",
+    ids: ["G01"],
+  }).workspace;
+  assert.equal(effectiveDone(reopened, child.id), false);
+  assert.equal(
+    reopened.tasks.find((row) => row.id === child.id)?.inProgress,
+    true,
+  );
+  assert.equal(
+    reopened.tasks.find((row) => row.id === "G01")?.inProgress ?? false,
+    false,
+  );
 });
 
 test("reopening a group restores each child's prior direct completion", () => {

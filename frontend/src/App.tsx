@@ -3,19 +3,33 @@ import { Frame } from "./components/Frame.tsx";
 import { Outline } from "./components/Outline.tsx";
 import { WorkspaceSession } from "./workspace/session.ts";
 import { inbox } from "./workspace/viewState.ts";
+import { useTaskLayout } from "./workspace/taskLayout.ts";
+import { createOffsiteSample } from "./outline/offsiteSample.ts";
 
 function compactLayout() {
   return window.matchMedia("(max-width: 850px)").matches;
 }
 
+function sampleSession() {
+  if (new URLSearchParams(window.location.search).get("demo") !== "offsite")
+    return new WorkspaceSession();
+  const session = new WorkspaceSession(createOffsiteSample(new Date()));
+  session.changeView({ kind: "project", id: "offsite" });
+  session.select(["venue"]);
+  return session;
+}
+
 export default function App() {
   const [{ session, generation }, setFixture] = useState(() => ({
-    session: new WorkspaceSession(),
+    session: sampleSession(),
     generation: 0,
   }));
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot);
   const [captureSignal, setCaptureSignal] = useState(0);
-  const [inspectorOpen, setInspectorOpen] = useState(() => !compactLayout());
+  const layout = useTaskLayout();
+  const [inspectorChoice, setInspectorOpen] = useState<boolean | null>(null);
+  const inspectorOpen =
+    inspectorChoice ?? (layout === "list" && !compactLayout());
   const [editMode, setEditMode] = useState<"inline" | "inspector">("inline");
 
   useEffect(() => {
@@ -28,7 +42,8 @@ export default function App() {
   }, [session, state.notice]);
 
   function quickCapture() {
-    session.changeView(inbox);
+    if (layout === "list" || state.view.kind !== "project")
+      session.changeView(inbox);
     if (compactLayout()) setInspectorOpen(false);
     setCaptureSignal((value) => value + 1);
   }
@@ -49,9 +64,9 @@ export default function App() {
     ) {
       return;
     }
-    setFixture({ session: new WorkspaceSession(), generation: generation + 1 });
+    setFixture({ session: sampleSession(), generation: generation + 1 });
     setCaptureSignal(0);
-    setInspectorOpen(!compactLayout());
+    setInspectorOpen(null);
     setEditMode("inline");
   }
 
@@ -73,10 +88,13 @@ export default function App() {
       message={state.notice?.text ?? ""}
     >
       <Outline
+        layout={layout}
+        onCapture={quickCapture}
+        onCaptureHandled={() => setCaptureSignal(0)}
         workspace={state.workspace}
         view={state.view}
         selection={state.selection}
-        onSelect={session.select}
+        onSelect={(ids) => session.select(ids, layout !== "list")}
         run={session.run}
         collapsed={state.collapsed}
         onToggle={session.toggle}

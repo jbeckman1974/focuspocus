@@ -39,4 +39,11 @@ Use an independent source copy. Start with synthetic tasks on the tested candida
 | Full review cycle | Record one review and the expected next date, then use the application through the next due review and complete it. Compare queue membership and the next scheduled date with the original. Record actual dates and interruptions. |
 | Decision | Joe records **adopt**, **continue the pilot** or **defer** with the date, exact build, open FR/AT/OBS identifiers and impact of each accepted limitation. Link corrective retests when required. Removing the README warning requires Joe’s agreement after completing the applicable gates. |
 
-The LAN test instance runs the merged M6 source at `4e2cdbad`. Joe’s review-cycle start and finish dates, M7 pilot candidate, accepted exceptions and replacement decision are pending.
+Joe approved the Sorbet layout from Sample 4F in Light and Dark on November 23. The LAN pilot ran the reviewed source at `06b9b8e`, merged through PR #14 at `826d5fc`. Mac Chrome verified the existing owner login, Board progress after reload, shared selection with List and Calendar, and both themes. [Pilot evidence](https://github.com/jbeckman1974/focuspocus/pull/14#issuecomment-7116127691)
+
+### Hands-on checks for the owner
+
+1. In the signed-in workspace, make a small test project with three tasks. Give one a tag and a due date. Start it on the Board, find it on Calendar and finish and undo it in List. Try the sequence with the keyboard and the pointer. Record the preferred editing mode and any command or focus change that slows you down.
+2. Open the workspace on a second device. Capture or move a task on one and check that the other shows it once, in the expected place. On a trusted device save a task and small attachment offline, quit the browser, reopen it offline, reconnect and check both on the second device. Record browser, OS, and whether this was an installed app or a tab. [Device steps](OFFLINE_DEVICE.md)
+3. Record one project review, its expected next review date, and what Forecast and a saved view show. Use the project through the next due review and compare the resulting queue and next date with your expectation. Record start and finish dates and anything that would block adoption.
+4. Before relying on imported work, preview a representative copy of your TaskPaper or CSV export and inspect the omission report for fields you depend on. Keep task contents and files in the private pilot workspace. Report the counts and any switch-critical differences. [Import guide](PORTABILITY.md)
