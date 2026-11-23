@@ -17,7 +17,7 @@ def main() -> None:
     assert "Version 3, 29 June 2007" in license_text and "END OF TERMS AND CONDITIONS" in license_text
     notices = json.loads(Path("/srv/frontend/app/third-party-licenses.json").read_text())
     browser_packages = {entry["name"]: entry for entry in notices}
-    for name in ("react", "react-dom", "scheduler"):
+    for name in ("react", "react-dom", "scheduler", "@fluentui/react-icons"):
         notice = browser_packages[name]
         assert notice["version"] and "MIT" in notice["identifier"], name
         assert "ermission is hereby granted" in notice["text"], name
