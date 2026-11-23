@@ -5,9 +5,12 @@ import os
 from pathlib import Path
 import platform
 import re
+import stat
 import subprocess
 import sys
 from uuid import uuid4
+
+from recovery import report as recovery_report
 
 
 LABEL = "io.github.focuspocus.test-run"
@@ -74,7 +77,7 @@ def check_host(revision):
     subprocess.run(["bash", "ops/assert-native.sh"], check=True)
 
 
-def verify(revision, record, lock_fd):
+def verify(revision, record, lock_fd, recovery_attempt):
     run_id = record.stem
     tags = {target: image_tag(run_id, target) for target in TARGETS}
     if any(tagged_id(tag) for tag in tags.values()):
@@ -100,6 +103,7 @@ def verify(revision, record, lock_fd):
             "FOCUSPOCUS_IMAGE": tags["application"],
             "FOCUSPOCUS_TEST_BROWSER_IMAGE": browser,
             "FOCUSPOCUS_ACCESSIBILITY_IMAGE": tags["accessibility-tests"],
+            "FOCUSPOCUS_HOST_RECOVERY_ATTEMPT": recovery_attempt,
         }
         for options in ((), ("--performance",), ("--accessibility",), ("--pg-upgrade",)):
             run("python3", "-B", "ops/host_test_data.py", *options, env=suite_env)
@@ -113,11 +117,16 @@ def main(revision):
     if state.is_symlink() or state.parent.is_symlink():
         raise ValueError("Test state must remain inside this checkout.")
     state.mkdir(mode=0o700, parents=True, exist_ok=True)
-    with (state / "lock").open("a") as lock:
+    lock_fd = os.open(state / "lock", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(lock_fd, "a") as lock:
+        if not stat.S_ISREG(os.fstat(lock_fd).st_mode):
+            raise ValueError("The test-host lock must be a regular file.")
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        recovery_attempt = recovery_report.begin_attempt(state.parent)
         for record in sorted(state.glob("*.images")):
             cleanup(record)
-        verify(revision, state / f"{uuid4().hex}.images", lock.fileno())
+        verify(revision, state / f"{uuid4().hex}.images", lock.fileno(), recovery_attempt)
+        recovery_report.verify_current(state.parent, recovery_attempt)
     print(f"Verified {revision} on native {platform.machine()} openSUSE Tumbleweed.")
 
 

@@ -7,6 +7,8 @@ root=$(pwd -P)
 test -f ops/db-init.sh
 test ! -L build
 mkdir -p build
+FOCUSPOCUS_RECOVERY_ATTEMPT=$(python3 -B ops/recovery/report.py begin)
+export FOCUSPOCUS_RECOVERY_ATTEMPT
 scratch=$(mktemp -d "$root/build/qa-stack.XXXXXXXXXX")
 slug=$(basename "$scratch" | tr '[:upper:].' '[:lower:]-')
 export COMPOSE_PROJECT_NAME="focuspocus-$slug"
@@ -77,7 +79,7 @@ python3 -B ops/qa-replacement.py after "$scratch/probe-checkpoint"
 dc exec -T worker python manage.py worker_health
 dc exec -T web python - < ops/check-worker.py
 python3 -B ops/recovery/drill.py "$scratch"
-test -s build/recovery/report.json
+python3 -B ops/recovery/report.py verify-current
 if (( browser_status != 0 )); then
   echo "Replacement and restore passed. The primary browser suite exited with status $browser_status." >&2
   exit "$browser_status"

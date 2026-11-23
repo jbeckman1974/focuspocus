@@ -183,7 +183,7 @@ def run(scratch):
     evidence = report.summary(architecture=os.environ["EXPECTED_ARCH"], image_id=image_id, revision=revision,
                               environment=os.environ, snapshot=before, archive_sha256=digest,
                               archive_bytes=retrieved.stat().st_size, rpo=rpo, rto=rto)
-    report.publish(ROOT / "build", evidence)
+    report.publish(ROOT / "build", evidence, os.environ["FOCUSPOCUS_RECOVERY_ATTEMPT"])
     print("Recovery evidence " + json.dumps(evidence, sort_keys=True), flush=True)
 
 

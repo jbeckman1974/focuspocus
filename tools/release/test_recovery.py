@@ -3,6 +3,8 @@
 from pathlib import Path
 from concurrent.futures import Future
 import json
+import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -97,10 +99,13 @@ class RecoveryReportTests(unittest.TestCase):
         self.assertEqual(evidence["validated_rto_seconds"], 3.14)
         self.assertTrue(evidence["revoked_membership_reconciled"] and evidence["concurrent_migrators_serialized"])
         with tempfile.TemporaryDirectory() as folder:
-            destination = report.publish(Path(folder), evidence)
+            build = Path(folder)
+            attempt = report.begin_attempt(build)
+            destination = report.publish(build, evidence, attempt)
             self.assertEqual(destination.relative_to(folder).as_posix(), "recovery/report.json")
             self.assertNotIn("private-fixture-marker", destination.read_text())
-            self.assertEqual(json.loads(destination.read_text()), evidence)
+            self.assertEqual(json.loads(destination.read_text()), {**evidence, "recovery_attempt": attempt})
+            report.verify_current(build, attempt)
             self.assertEqual(destination.stat().st_mode & 0o777, 0o600)
 
     def test_wrong_revision_missing_job_or_missed_objective_cannot_produce_a_passing_report(self):
@@ -121,7 +126,59 @@ class RecoveryReportTests(unittest.TestCase):
             root = Path(folder)
             (root / "recovery").symlink_to(root, target_is_directory=True)
             with self.assertRaises(ValueError):
-                report.publish(root, evidence)
+                report.begin_attempt(root)
+
+    def test_standalone_retry_interrupted_before_stack_setup_preserves_the_prior_report(self):
+        with tempfile.TemporaryDirectory() as folder:
+            checkout = Path(folder)
+            build = checkout / "build"
+            build.mkdir()
+            first = report.begin_attempt(build)
+            prior = report.summary(**self.inputs)
+            current = report.publish(build, prior, first)
+            contents = current.read_bytes()
+            self.assertEqual(report.begin_attempt(build, inherited=first), first)
+            self.assertEqual(current.read_bytes(), contents)
+            scripts = checkout / "ops/recovery"
+            scripts.mkdir(parents=True)
+            shutil.copyfile(report.__file__, scripts / "report.py")
+            (scripts.parent / "db-init.sh").touch()
+            stop = checkout / "mktemp"
+            stop.write_text("#!/bin/sh\nexit 23\n")
+            stop.chmod(0o700)
+            env = {**os.environ, "FOCUSPOCUS_IMAGE": "candidate", "EXPECTED_ARCH": "amd64",
+                   "PATH": str(checkout) + os.pathsep + os.environ["PATH"]}
+            env.pop("FOCUSPOCUS_HOST_RECOVERY_ATTEMPT", None)
+            verifier = Path(__file__).resolve().parents[2] / "ops/verify-stack.sh"
+            result = subprocess.run(["bash", str(verifier)], cwd=checkout, env=env, capture_output=True)
+            self.assertEqual(result.returncode, 23, result.stderr)
+            self.assertFalse(current.exists())
+            self.assertEqual([p.read_bytes() for p in current.parent.glob("previous-*/report.json")], [contents])
+            with self.assertRaisesRegex(ValueError, "newer invocation"):
+                report.begin_attempt(build, inherited=first)
+            with self.assertRaisesRegex(ValueError, "newer invocation"):
+                report.publish(build, prior, first)
+            self.assertFalse(current.exists())
+
+    def test_symlinked_report_or_attempt_marker_leaves_its_target_intact(self):
+        with tempfile.TemporaryDirectory() as folder:
+            base = Path(folder)
+            build = base / "build"
+            build.mkdir()
+            sentinel = base / "unrelated"
+            sentinel.write_text("retain me")
+            for name in ("report.json", ".attempt"):
+                with self.subTest(name=name):
+                    attempt = report.begin_attempt(build)
+                    path = build / "recovery" / name
+                    path.unlink(missing_ok=True)
+                    path.symlink_to(sentinel)
+                    with self.assertRaisesRegex(ValueError, "regular files"):
+                        report.begin_attempt(build)
+                    with self.assertRaisesRegex(ValueError, "regular files"):
+                        report.publish(build, {}, attempt)
+                    self.assertEqual(sentinel.read_text(), "retain me")
+                    path.unlink()
 
 
 class MigrationContentionTests(unittest.TestCase):

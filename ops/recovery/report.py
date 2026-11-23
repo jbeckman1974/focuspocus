@@ -1,11 +1,16 @@
 """Publish only the evidence approved for the synthetic encrypted-recovery artifact."""
 
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import json
 import os
 from pathlib import Path
 import re
+import stat
+import sys
 import tempfile
+from uuid import uuid4
 
 
 SIZES = ("database_bytes", "actions", "jobs", "workspaces", "attachment_bytes")
@@ -49,20 +54,84 @@ def summary(*, architecture, image_id, revision, environment, snapshot, archive_
     }
 
 
-def publish(build, report):
+@contextmanager
+def evidence_directory(build):
     destination = build / "recovery"
     if build.is_symlink() or destination.is_symlink():
         raise ValueError("Recovery evidence must stay inside the checkout build directory.")
     destination.mkdir(mode=0o700, exist_ok=True)
-    output = destination / "report.json"
-    with tempfile.NamedTemporaryFile(mode="w", dir=destination, delete=False) as temporary:
+    directory = os.open(destination, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        fcntl.flock(directory, fcntl.LOCK_EX)
+        for name in ("report.json", ".attempt"):
+            path = destination / name
+            try:
+                mode = path.lstat().st_mode
+            except FileNotFoundError:
+                continue
+            if not stat.S_ISREG(mode):
+                raise ValueError("Recovery evidence must use regular files inside the checkout.")
+        yield destination
+    finally:
+        os.close(directory)
+
+
+def write_json(output, value):
+    with tempfile.NamedTemporaryFile(mode="w", dir=output.parent, delete=False) as temporary:
         pending = Path(temporary.name)
         try:
-            json.dump(report, temporary, indent=2, sort_keys=True, allow_nan=False)
+            json.dump(value, temporary, indent=2, sort_keys=True, allow_nan=False)
             temporary.write("\n")
             temporary.flush()
             os.fsync(temporary.fileno())
             os.replace(pending, output)
         finally:
             pending.unlink(missing_ok=True)
-    return output
+
+
+def require_attempt(directory, attempt):
+    marker = directory / ".attempt"
+    if not re.fullmatch(r"[a-f0-9]{32}", attempt) or not marker.exists() or json.loads(marker.read_text()) != attempt:
+        raise ValueError("A newer invocation owns the current recovery report.")
+
+
+def begin_attempt(build, inherited=None):
+    with evidence_directory(build) as directory:
+        if inherited is not None:
+            require_attempt(directory, inherited)
+            return inherited
+        output = directory / "report.json"
+        if output.exists():
+            previous = Path(tempfile.mkdtemp(prefix="previous-", dir=directory))
+            output.rename(previous / output.name)
+        attempt = uuid4().hex
+        write_json(directory / ".attempt", attempt)
+        return attempt
+
+
+def publish(build, report, attempt):
+    with evidence_directory(build) as directory:
+        require_attempt(directory, attempt)
+        output = directory / "report.json"
+        write_json(output, {**report, "recovery_attempt": attempt})
+        return output
+
+
+def verify_current(build, attempt):
+    with evidence_directory(build) as directory:
+        require_attempt(directory, attempt)
+        output = directory / "report.json"
+        if not output.is_file():
+            raise ValueError("This recovery attempt has no completed report.")
+        report = json.loads(output.read_text())
+        if report.get("recovery_attempt") != attempt or report.get("result") != "passed":
+            raise ValueError("The available report does not verify this recovery attempt.")
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["begin"]:
+        print(begin_attempt(Path("build"), os.getenv("FOCUSPOCUS_HOST_RECOVERY_ATTEMPT")))
+    elif sys.argv[1:] == ["verify-current"]:
+        verify_current(Path("build"), os.environ["FOCUSPOCUS_RECOVERY_ATTEMPT"])
+    else:
+        sys.exit("Usage: python3 -B ops/recovery/report.py {begin|verify-current}")
