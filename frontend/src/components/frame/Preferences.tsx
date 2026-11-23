@@ -9,7 +9,7 @@ import {
   Field,
   Select,
 } from "@fluentui/react-components";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Icon } from "./Icon.tsx";
 
 type Theme = "system" | "light" | "dark";
@@ -46,10 +46,12 @@ export function Preferences({
   onClose,
   onReset,
 }: Props) {
+  // Replacing the entrance animation while the dialog is open would remount the focused control.
+  const [reduceEntranceMotion] = useState(motion === "reduced");
   return (
     <Dialog
       open
-      surfaceMotion={motion === "reduced" ? null : undefined}
+      surfaceMotion={reduceEntranceMotion ? null : undefined}
       onOpenChange={(_, state) => {
         if (!state.open) onClose();
       }}
@@ -57,7 +59,7 @@ export function Preferences({
       <DialogSurface
         className="fp-preferences"
         style={{ colorScheme }}
-        backdropMotion={motion === "reduced" ? null : undefined}
+        backdropMotion={reduceEntranceMotion ? null : undefined}
         data-text-size={appearance.textSize}
         data-motion={motion}
       >
