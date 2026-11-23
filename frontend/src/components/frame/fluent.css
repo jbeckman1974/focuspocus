@@ -1,0 +1,279 @@
+.fp-command-bar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  position: relative;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--colorNeutralStroke2);
+  color: var(--colorNeutralForeground1);
+  background: var(--colorNeutralBackground1);
+  font-family: var(--fontFamilyBase);
+}
+.fp-command-identity,
+.fp-command-actions,
+.fp-workspace-menu > div {
+  display: flex;
+  align-items: center;
+}
+.fp-command-identity {
+  min-width: 0;
+  gap: 10px;
+  min-height: 54px;
+}
+.fp-command-identity strong {
+  font-size: 1.13em;
+  letter-spacing: -0.025em;
+}
+.fp-app-mark {
+  display: grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  flex: none;
+  border-radius: var(--borderRadiusLarge);
+  color: var(--colorNeutralForegroundOnBrand);
+  background: var(--colorBrandBackground);
+}
+.fp-command-context {
+  min-width: 0;
+  border-inline-start: 1px solid var(--colorNeutralStroke2);
+  padding-inline-start: 11px;
+  color: var(--colorNeutralForeground2);
+  font-size: 0.9em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.fp-command-actions.fui-Toolbar {
+  justify-self: end;
+  gap: 4px;
+  padding: 0;
+}
+.fp-command-actions [aria-expanded="true"] {
+  color: var(--colorBrandForeground1);
+  background: var(--colorBrandBackground2);
+}
+.fp-workspace-menu {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.fp-workspace-menu summary {
+  display: none;
+}
+.fp-workspace-menu > div {
+  flex-wrap: wrap;
+  gap: 3px 6px;
+  border-top: 1px solid var(--colorNeutralStroke3);
+  padding: 5px 0;
+}
+.fp-workspace-menu > div > label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.fp-workspace-menu .private-actions {
+  gap: 2px;
+}
+.fp-workspace-menu [role="status"] {
+  font-size: 0.88em;
+}
+.fp-shell[data-density="compact"] .fp-command-identity {
+  min-height: 46px;
+}
+.fp-shell[data-text-size="large"] .fp-command-bar .fui-Button {
+  font-size: 1em;
+}
+
+.fp-preferences.fui-DialogSurface {
+  width: min(38rem, calc(100vw - 24px));
+  max-width: 100%;
+  max-height: calc(100dvh - 24px);
+  padding: clamp(16px, 3vw, 26px);
+  border-radius: var(--borderRadiusXLarge);
+}
+.fp-preferences .fui-DialogBody {
+  max-height: calc(100dvh - 80px);
+  min-height: 0;
+}
+.fp-preferences .fui-DialogTitle {
+  align-items: center;
+}
+.fp-preferences .fp-preferences-content {
+  min-height: 0;
+  padding: 1px 3px 3px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.fp-preference-section {
+  display: grid;
+  gap: 10px;
+  padding: 16px 0;
+  border-top: 1px solid var(--colorNeutralStroke2);
+}
+.fp-preference-section:first-child {
+  border-top: 0;
+  padding-top: 4px;
+}
+.fp-preference-section h3 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: var(--fontWeightSemibold);
+  color: var(--colorBrandForeground1);
+}
+.fp-preference-grid,
+.fp-preference-times {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 20px;
+}
+.fp-preference-times {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.fp-preferences :is(.fui-Select, .fui-Input) {
+  width: 100%;
+  min-width: 0;
+}
+.fp-preferences .fui-Input input {
+  min-width: 0;
+}
+.fp-preference-times .fui-Button {
+  padding-inline: 0;
+  text-align: start;
+  color: var(--colorBrandForegroundLink);
+}
+.fp-preference-retry,
+.fp-preferences-footer > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.fp-preferences .fp-preferences-footer {
+  grid-column: 1 / -1;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  border-top: 1px solid var(--colorNeutralStroke2);
+  padding-top: 14px;
+  flex-wrap: wrap;
+}
+.fp-preferences-footer p {
+  flex: 1 1 13rem;
+  margin: 0;
+  font-size: var(--fontSizeBase200);
+  line-height: var(--lineHeightBase200);
+  color: var(--colorNeutralForeground2);
+}
+.fp-preferences[data-text-size="large"] {
+  --fontSizeBase200: 15px;
+  --fontSizeBase300: 18px;
+  --lineHeightBase200: 21px;
+  --lineHeightBase300: 26px;
+  font-size: 18px;
+}
+.fp-preferences[data-motion="reduced"],
+.fp-preferences[data-motion="reduced"] * {
+  animation-duration: 0s !important;
+  transition-duration: 0s !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .fp-preferences,
+  .fp-preferences * {
+    animation-duration: 0s !important;
+    transition-duration: 0s !important;
+  }
+}
+@media (max-width: 600px) {
+  .fp-command-bar {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    gap: 4px;
+    padding: 0 8px;
+  }
+  .fp-command-actions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+  .fp-workspace-menu {
+    grid-column: 2;
+    grid-row: 1;
+  }
+  .fp-workspace-menu summary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px;
+    border-radius: var(--borderRadiusMedium);
+    cursor: pointer;
+  }
+  .fp-workspace-menu summary::-webkit-details-marker {
+    display: none;
+  }
+  .fp-workspace-menu > div {
+    position: absolute;
+    z-index: 5;
+    inset: 100% 8px auto;
+    max-height: 55dvh;
+    overflow: auto;
+    display: grid;
+    gap: 6px;
+    padding: 10px;
+    background: var(--colorNeutralBackground1);
+    border: 1px solid var(--colorNeutralStroke2);
+    border-radius: var(--borderRadiusLarge);
+    box-shadow: var(--shadow16);
+  }
+  .fp-workspace-menu:not([open]) > div {
+    display: none;
+  }
+  .fp-workspace-menu :is(select, label) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .fp-command-context {
+    display: none;
+  }
+}
+@media (max-width: 520px) {
+  .fp-command-identity {
+    gap: 6px;
+  }
+  .fp-command-label,
+  .fp-workspace-menu summary span {
+    display: none;
+  }
+  .fp-command-actions .fui-Button {
+    min-width: 36px;
+    padding-inline: 5px;
+  }
+  .fp-preference-times {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .fp-preference-times > div {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 8px;
+  }
+}
+@media (max-width: 390px) {
+  .fp-preference-grid,
+  .fp-preference-times > div {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fp-preference-times .fui-Button {
+    justify-self: start;
+  }
+  .fp-preferences-footer p {
+    flex-basis: 100%;
+  }
+}
+@media (pointer: coarse) and (max-width: 850px) {
+  .fp-command-actions .fui-Button,
+  .fp-workspace-menu summary,
+  .fp-workspace-menu .fui-Button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

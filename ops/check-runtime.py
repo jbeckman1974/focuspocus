@@ -15,6 +15,12 @@ def main() -> None:
     assert release["ID"] == "opensuse-tumbleweed", release.get("ID")
     license_text = Path("/usr/share/licenses/focuspocus/LICENSE").read_text()
     assert "Version 3, 29 June 2007" in license_text and "END OF TERMS AND CONDITIONS" in license_text
+    notices = json.loads(Path("/srv/frontend/app/third-party-licenses.json").read_text())
+    browser_packages = {entry["name"]: entry for entry in notices}
+    for name in ("react", "react-dom", "scheduler"):
+        notice = browser_packages[name]
+        assert notice["version"] and "MIT" in notice["identifier"], name
+        assert "ermission is hereby granted" in notice["text"], name
     assert sys.version_info[:3] == (3, 13, 18), sys.version
     assert sys.prefix == "/opt/venv", sys.prefix
     assert platform.machine() in {"x86_64", "aarch64"}, platform.machine()
@@ -26,6 +32,7 @@ def main() -> None:
         "os": release["ID"], "snapshot": release["VERSION_ID"],
         "machine": platform.machine(), "python": platform.python_version(),
         "libpq": psycopg.pq.version(), "packages": versions,
+        "browser_packages": {name: entry["version"] for name, entry in browser_packages.items()},
     }
     print(json.dumps(report, sort_keys=True))
 

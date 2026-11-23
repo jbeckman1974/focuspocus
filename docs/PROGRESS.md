@@ -175,3 +175,9 @@ Offline replay also checks the chosen parent for a nested tag and the workspace 
 Both native platforms then passed 33 of 34 authenticated journeys, including the multi-tab sign-out and account-switch scenario. The remaining move test now waits for that specific local write to finish and checks the destination before terminating Chromium. A separate unit round trip confirms that reloading the saved projection retains the moved task’s ID and parent. [Native browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45020004659)
 
 The disposable validation harness now completes its independent replacement and clean-restore checks when a primary browser assertion fails. The failed assertion still fails the qualification, and an interrupted run exits immediately. This allows the clone and primary browser results to be diagnosed in the same run.
+
+## Fluent 2 interface trial
+
+The owner evaluation starts from the M6 pilot at `4e2cdbad`. The workspace toolbar and Preferences use Fluent UI React 9.75.2 with the FocusPocus green accent. The trial covers system, light and dark themes, the keyboard path into and out of Preferences, large text, compact rows and narrow windows. The account still saves appearance and editing choices, and each device keeps its pane layout.
+
+A clean native Linux container generated the lock and verified the integrity of all 166 package records. Existing package versions stayed pinned. The npm audit reported zero known vulnerabilities. On native AMD64 the formatter, TypeScript, all 109 frontend unit tests, the production build and all eight Chromium journeys passed. The new journey checks keyboard operation of the toolbar, live system theme changes, an explicit theme override and focus return after closing the dialog. Joe's visual review is pending.

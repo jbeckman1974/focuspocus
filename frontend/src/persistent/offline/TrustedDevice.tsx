@@ -1,3 +1,4 @@
+import { Button } from "@fluentui/react-components";
 import { createContext, useContext, useEffect, useState } from "react";
 import { actorRequest, type Snapshot } from "../api.ts";
 import type { WorkspaceInfo } from "../tools/WorkspaceRouter.tsx";
@@ -117,17 +118,33 @@ export function TrustDeviceControl({
             <span>
               Remove the offline copy and all pending edits for this workspace?
             </span>{" "}
-            <button type="button" disabled={busy} onClick={() => void forget()}>
+            <Button
+              appearance="subtle"
+              size="small"
+              type="button"
+              disabled={busy}
+              onClick={() => void forget()}
+            >
               Remove offline data
-            </button>{" "}
-            <button type="button" onClick={() => setForgetting(false)}>
+            </Button>{" "}
+            <Button
+              appearance="subtle"
+              size="small"
+              type="button"
+              onClick={() => setForgetting(false)}
+            >
               Keep offline data
-            </button>
+            </Button>
           </>
         ) : (
-          <button type="button" onClick={() => setForgetting(true)}>
+          <Button
+            appearance="subtle"
+            size="small"
+            type="button"
+            onClick={() => setForgetting(true)}
+          >
             Forget offline workspace
-          </button>
+          </Button>
         )}
         {error && <span role="alert">{error}</span>}
       </span>
@@ -182,13 +199,15 @@ export function TrustDeviceControl({
   }
   return (
     <span>
-      <button
+      <Button
+        appearance="subtle"
+        size="small"
         type="button"
         onClick={() => void enable()}
         disabled={busy || loading || !snapshot || binding.offlineBootstrap}
       >
         Enable offline editing on this device
-      </button>
+      </Button>
       {error && <span role="alert">{error}</span>}
     </span>
   );

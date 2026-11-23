@@ -19,7 +19,7 @@ interface NavigationProps {
   workspace: Workspace;
   view: View;
   onView: (view: View) => void;
-  onPreferences: () => void;
+  onPreferences: (trigger: HTMLElement) => void;
 }
 
 function isCurrent(view: View, target: View): boolean {
@@ -103,7 +103,7 @@ export function Rail({
         type="button"
         aria-label="Preferences"
         title="Preferences"
-        onClick={onPreferences}
+        onClick={(event) => onPreferences(event.currentTarget)}
       >
         <Icon name="preferences" size={21} />
       </button>
@@ -227,7 +227,7 @@ export function Sidebar({
         <button
           type="button"
           className="fp-secondary fp-mobile-settings"
-          onClick={onPreferences}
+          onClick={(event) => onPreferences(event.currentTarget)}
         >
           <Icon name="preferences" size={16} /> Preferences
         </button>

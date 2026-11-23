@@ -36,7 +36,7 @@
   padding: 0.5rem 0.75rem;
 }
 .account-card button,
-.private-actions button,
+.private-actions button:not(.fui-Button),
 .write-notice button {
   cursor: pointer;
 }
@@ -51,7 +51,7 @@
   flex-wrap: wrap;
   align-items: center;
 }
-.private-actions button,
+.private-actions button:not(.fui-Button),
 .write-notice button {
   background: var(--surface);
   color: var(--text);
@@ -78,16 +78,6 @@
 .fp-dialog form {
   padding: 1rem;
 }
-@media (max-width: 850px) {
-  .fp-topbar:has(.private-actions) {
-    flex-wrap: wrap;
-  }
-  .fp-topbar:has(.private-actions) .fp-top-actions {
-    flex-wrap: wrap;
-    max-width: 100%;
-  }
-}
-
 .private-outline-tools,
 .rule-controls {
   display: flex;
