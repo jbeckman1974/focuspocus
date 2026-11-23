@@ -22,7 +22,7 @@ export function WorkspaceToolbar(props: Props) {
     <header className="fp-command-bar">
       <div className="fp-command-identity">
         <span className="fp-app-mark">
-          <Icon name="mark" size={21} />
+          <Icon name="mark" size={29} />
         </span>
         <strong>FocusPocus</strong>
         <span className="fp-command-context" title={props.label}>
@@ -45,6 +45,7 @@ export function WorkspaceToolbar(props: Props) {
         )}
         <Button
           appearance="primary"
+          className="fp-add-task"
           aria-label="Add task"
           title="Add task"
           icon={<Icon name="add" size={17} />}

@@ -9,7 +9,7 @@ from uuid import UUID
 
 
 FORMAT = "focuspocus-workspace"
-VERSION = 1
+VERSION = 2
 MAX_RECORD_BYTES = 64 * 1024 * 1024
 MAX_INDEX_BYTES = 4 * 1024 * 1024
 MAX_FILES = 12000
@@ -101,7 +101,7 @@ def open_bundle(file):
             raise ValueError("Oversized bundle metadata.")
         manifest = _json(archive.read("manifest.json"))
         if (not isinstance(manifest, dict) or manifest.get("format") != FORMAT or type(manifest.get("version")) is not int
-                or manifest["version"] != VERSION or type(manifest.get("revision")) is not int or manifest["revision"] < 0):
+                or manifest["version"] not in (1, VERSION) or type(manifest.get("revision")) is not int or manifest["revision"] < 0):
             raise ValueError("Unsupported workspace bundle version or revision.")
         UUID(manifest["workspaceId"])
         raw = archive.read("records.json")
@@ -110,6 +110,13 @@ def open_bundle(file):
         records = _json(raw)
         if not isinstance(records, dict) or manifest["counts"] != counts(records):
             raise ValueError("Invalid record counts.")
+        if manifest["version"] == 1:
+            if not isinstance(records.get("items"), list):
+                raise ValueError("Invalid version-one item records.")
+            for item in records["items"]:
+                if not isinstance(item, dict) or "in_progress" in item:
+                    raise ValueError("Invalid version-one item fields.")
+                item["in_progress"] = False
         return archive, records
     except BaseException:
         archive.close()

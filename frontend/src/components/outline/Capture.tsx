@@ -2,9 +2,11 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 interface CaptureProps {
   disabled?: boolean;
+  collapsible?: boolean;
   identity: string;
   destination: string;
   signal: number;
+  onFocusRequestHandled: () => void;
   submit: (titles: string[]) => boolean | Promise<boolean>;
 }
 
@@ -12,21 +14,46 @@ export function Capture({
   identity,
   destination,
   disabled,
+  collapsible = false,
   signal,
+  onFocusRequestHandled,
   submit,
 }: CaptureProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const input = useRef<HTMLTextAreaElement>(null);
-  const lastSignal = useRef(signal);
+  const lastSignal = useRef(0);
+  const [openScope, setOpenScope] = useState<string>();
+  const trigger = useRef<HTMLElement | null>(null);
+  const focusRequested = useRef(false);
+  const open = !collapsible || openScope === identity;
   const saving = useRef(false);
   const draft = drafts[identity] ?? "";
 
   useLayoutEffect(() => {
-    if (lastSignal.current !== signal) {
-      input.current?.focus();
+    if (signal && lastSignal.current !== signal) {
       lastSignal.current = signal;
+      if (document.activeElement instanceof HTMLElement)
+        trigger.current = document.activeElement;
+      focusRequested.current = true;
+      setOpenScope(identity);
     }
-  }, [signal]);
+    if (!signal) lastSignal.current = 0;
+    if (open && focusRequested.current && input.current) {
+      focusRequested.current = false;
+      input.current.focus();
+      onFocusRequestHandled();
+    }
+  }, [signal, identity, open, onFocusRequestHandled]);
+
+  function close() {
+    setOpenScope(undefined);
+    const target = trigger.current?.isConnected
+      ? trigger.current
+      : document.querySelector<HTMLElement>(
+          '.task-layout-switch [aria-pressed="true"]',
+        );
+    target?.focus();
+  }
 
   function update(value: string) {
     setDrafts((previous) => ({ ...previous, [identity]: value }));
@@ -54,10 +81,17 @@ export function Capture({
     }
   }
 
+  if (!open) return null;
   return (
     <form
       className="outline-capture"
       aria-label="Capture tasks"
+      onKeyDown={(event) => {
+        if (collapsible && event.key === "Escape") {
+          event.preventDefault();
+          close();
+        }
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         addTasks();
@@ -92,6 +126,11 @@ export function Capture({
       >
         Add
       </button>
+      {collapsible && (
+        <button type="button" aria-label="Close capture" onClick={close}>
+          Close
+        </button>
+      )}
     </form>
   );
 }

@@ -17,7 +17,7 @@ import {
   resolveEntry,
   type QueueData,
 } from "./queue.ts";
-import { projectQueue } from "./queueProjection.ts";
+import { projectQueue, restoreProjection } from "./queueProjection.ts";
 import type { QueueEntry, QueueNotice, ReviewedContent } from "./queueTypes.ts";
 import {
   offlineEvents,
@@ -104,6 +104,11 @@ export class OfflineQueue {
         await fenceOfflineFormat(this.lease);
         throw new OfflineAccessError("protocol");
       }
+      data.projection = restoreProjection(
+        data.confirmed,
+        data.projection,
+        data.queue,
+      );
       if (this.active && order === this.displayEpoch) this.show(data);
       return data;
     } catch (error) {

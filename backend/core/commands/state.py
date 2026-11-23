@@ -83,7 +83,7 @@ def direct_item(item):
         "due": item.due.isoformat() if item.due else None,
         "done": item.done,
         "status": item.status, "mode": mode_for(item), "flagged": item.flagged,
-        "autoComplete": item.auto_complete, "schedule": read_schedule(item),
+        "autoComplete": item.auto_complete, "inProgress": item.in_progress, "schedule": read_schedule(item),
         "durationMinutes": item.duration_minutes,
         "tags": sorted(str(tag.pk) for tag in item.tags.all()),
         "version": item.version,

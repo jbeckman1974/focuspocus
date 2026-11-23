@@ -11,8 +11,8 @@ const manifest = {
   name: "FocusPocus",
   short_name: "FocusPocus",
   display: "standalone",
-  background_color: "#fffefa",
-  theme_color: "#245745",
+  background_color: "#fcfbff",
+  theme_color: "#1a659b",
   icons: [192, 512].map((size) => ({
     src: "/app/icon-" + size + ".png",
     sizes: size + "x" + size,

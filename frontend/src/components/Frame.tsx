@@ -109,7 +109,7 @@ export function Frame({
   const sidebarWidth = Math.min(sidebarSize, sidebarMax);
   const inspectorWidth = Math.min(inspectorSize, inspectorMax);
   const columns =
-    `var(--rail-width) ${sidebarWidth}px 6px minmax(0, 1fr)` +
+    `${sidebarWidth}px 6px minmax(0, 1fr)` +
     (inspectorVisible ? ` 6px ${inspectorWidth}px` : "");
 
   useLayoutEffect(() => {
@@ -217,6 +217,7 @@ export function Frame({
         data-motion={personalPreferences?.account.motion ?? "system"}
         className="fp-shell"
         data-theme={appearance.theme}
+        data-color-scheme={colorScheme}
         data-density={appearance.density}
         data-text-size={appearance.textSize}
       >
@@ -237,9 +238,9 @@ export function Frame({
           className="fp-layout"
           style={compact ? undefined : { gridTemplateColumns: columns }}
         >
-          {!compact && <Rail {...navigation} />}
           <div
-            className="fp-panel-slot"
+            className="fp-panel-slot fp-navigation-slot"
+            id="workspace-navigation"
             hidden={compact && !browseOpen}
             onFocusCapture={() => {
               lastPanel.current = "browse";
@@ -248,6 +249,7 @@ export function Frame({
               if (compact && event.key === "Escape") closeBrowse();
             }}
           >
+            {!compact && <Rail {...navigation} />}
             <Sidebar {...navigation} compact={compact} onClose={closeBrowse} />
           </div>
           {!compact && (

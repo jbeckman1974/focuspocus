@@ -21,7 +21,7 @@ def record(item, effective, direct_dates, effective_dates):
         "version": item.version, "position": item.position, "tags": [str(tag.pk) for tag in item.snapshot_tags],
         "due": iso(item.due), "schedule": direct_dates, "durationMinutes": item.duration_minutes,
         "done": item.done, "status": item.status, "mode": mode_for(item),
-        "flagged": item.flagged, "autoComplete": item.auto_complete,
+        "flagged": item.flagged, "autoComplete": item.auto_complete, "inProgress": item.in_progress,
         "filingProjectId": str(item.filing_project_id) if item.filing_project_id else None,
         "createdAt": iso(item.created_at), "changedAt": iso(item.changed_at),
         "completedAt": iso(item.completed_at), "droppedAt": iso(item.dropped_at),

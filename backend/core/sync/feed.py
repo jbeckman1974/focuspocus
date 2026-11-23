@@ -7,6 +7,7 @@ from core.content.files import file_limit
 from core.models import Change
 from core.organization import cleanup_mode
 from core.perspectives.focus import perspective_version, snapshot_focus
+from core.preferences.settings import date_defaults
 from core.queries.records import read_records
 from . import grants
 
@@ -50,6 +51,7 @@ def snapshot(workspace, user, view_zone=None):
     return {
         "workspaceId": str(workspace.pk),
         "maxFileBytes": file_limit(),
+        "assignmentDueTime": date_defaults(workspace, user)["due"],
         "generation": str(workspace.generation),
         "revision": workspace.revision,
         "offlineGrant": grants.descriptor(grant),

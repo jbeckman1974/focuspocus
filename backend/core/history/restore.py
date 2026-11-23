@@ -26,6 +26,11 @@ def checked_rows(workspace, journal, revision):
         model = MODELS.get(entry["model"])
         if model is None:
             raise conflict()
+        if model is Item:
+            # Receipts from before the progress marker describe unstarted items.
+            for state in ("before", "after"):
+                if entry[state] is not None:
+                    entry[state].setdefault("in_progress", False)
         obj = model.objects.filter(workspace=workspace, pk=entry["id"]).first()
         actual = row_values(obj) if obj else None
         expected = entry["after"]

@@ -13,6 +13,7 @@ export interface Properties {
   mode?: Mode | null;
   status?: ItemStatus;
   flagged?: boolean;
+  inProgress?: boolean;
   autoComplete?: boolean;
 }
 
@@ -21,6 +22,10 @@ export interface RuleFields extends Properties {
   completedAt?: string | null;
   repeat?: Occurrence | null;
   schedule?: Schedule;
+  // A new offline row can inherit a deadline before the server evaluates its other rules.
+  projectedDue?: EffectiveDate;
+  // Keep the resolved direct instant when a pending edit temporarily makes an ancestor earlier.
+  maskedDirectDue?: EffectiveDate;
   durationMinutes?: number | null;
   parentId?: string;
   effective?: {

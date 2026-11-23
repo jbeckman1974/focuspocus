@@ -59,6 +59,7 @@ export function Preferences({
       <DialogSurface
         className="fp-preferences"
         style={{ colorScheme }}
+        data-color-scheme={colorScheme}
         backdropMotion={reduceEntranceMotion ? null : undefined}
         data-text-size={appearance.textSize}
         data-motion={motion}
@@ -74,7 +75,9 @@ export function Preferences({
               />
             }
           >
-            Workspace preferences
+            <span className="fp-title-with-icon">
+              <Icon name="preferences" size={26} /> Workspace preferences
+            </span>
           </DialogTitle>
           <DialogContent className="fp-preferences-content">
             <section

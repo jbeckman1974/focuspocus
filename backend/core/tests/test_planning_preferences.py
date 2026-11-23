@@ -76,6 +76,8 @@ class PreferenceTests(OutlineApiMixin, TestCase):
         date = {"kind": "date", "value": "2026-12-31"}
         self.command("set-schedule", {"ids": [old], "schedule": {"due": date}})
         self.change(self.account, 0, {"dateDefaults": {"due": "08:30"}})
+        snapshot = self.client.get(self.base + "snapshot").json()
+        self.assertEqual((snapshot["dateDefaults"]["due"], snapshot["assignmentDueTime"]), ("18:00", "08:30"))
         preview = self.client.get(self.base + "date-preview", {"field": "due", "text": date["value"]})
         self.assertEqual(preview.json()["value"], {**date, "defaultTime": "08:30"})
         self.command("bulk-inspect", {"ids": [new], "changes": {"schedule": {"due": date}}})

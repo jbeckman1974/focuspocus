@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
   createDarkTheme,
   createLightTheme,
@@ -7,22 +7,22 @@ import {
 import type { Appearance } from "./Preferences.tsx";
 
 const brand: BrandVariants = {
-  10: "#071c14",
-  20: "#0e2a20",
-  30: "#14382a",
-  40: "#184633",
-  50: "#1c503c",
-  60: "#205c45",
-  70: "#24654d",
-  80: "#297456",
-  90: "#378464",
-  100: "#489573",
-  110: "#5ca686",
-  120: "#72b699",
-  130: "#8bc6ab",
-  140: "#a6d5bd",
-  150: "#c1e4d1",
-  160: "#dff1e5",
+  10: "#1c102b",
+  20: "#301940",
+  30: "#422155",
+  40: "#502668",
+  50: "#5f2c80",
+  60: "#6d3198",
+  70: "#7838ac",
+  80: "#8243c2",
+  90: "#9659ce",
+  100: "#af7bdf",
+  110: "#bf92e8",
+  120: "#cda8ee",
+  130: "#d9bcf3",
+  140: "#e5cff6",
+  150: "#f0e0fb",
+  160: "#f9f2fe",
 };
 
 const light = { theme: createLightTheme(brand), colorScheme: "light" } as const;
@@ -43,6 +43,18 @@ export function useWorkspaceTheme(choice: Appearance["theme"]) {
     systemIsDark,
     () => false,
   );
+  useEffect(() => {
+    if (choice === "system") return;
+    const source = document.querySelector<HTMLMetaElement>(
+      `meta[name="theme-color"][data-scheme="${choice}"]`,
+    );
+    if (!source) return;
+    const override = document.createElement("meta");
+    override.name = "theme-color";
+    override.content = source.content;
+    document.head.prepend(override);
+    return () => override.remove();
+  }, [choice]);
   return choice === "dark" || (choice === "system" && systemDark)
     ? dark
     : light;

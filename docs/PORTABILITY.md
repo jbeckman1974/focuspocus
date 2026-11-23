@@ -12,6 +12,8 @@ Keep the original file and its source IDs. Retrying an acknowledged commit uses 
 
 The workspace owner can download a readable CSV, or a complete versioned ZIP bundle for restoration. CSV shows the active outline in manual order and includes plain-text notes. Text that could be interpreted as a spreadsheet formula receives a leading apostrophe. The ZIP preserves the original text, relationships, shelves, dates, repeats, review state, history and attachment bytes.
 
+The Sorbet pilot writes version 2 ZIP bundles, which also preserve a task's in-progress marker. It can restore version 1 bundles, assigning the original tasks their existing completion state with no in-progress marker.
+
 Restore creates a **new owned workspace**. It checks the manifest, record lengths, relationships and file hashes before committing. An owner can include their personal workspace settings and explicitly choose whether to apply account-wide preferences. The initial format supports 64 MiB of record metadata and up to 12,000 distinct attachments, subject to the configured attachment quotas. Keep the original bundle until the restored contents have been compared.
 
 An operator's PostgreSQL backup separately recovers accounts, memberships, job state and service operation. After an operational restore, the database fence invalidates browser sessions and holds external deliveries for reconciliation. [Backup and restore procedures](OPERATIONS.md)

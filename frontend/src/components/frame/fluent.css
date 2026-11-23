@@ -3,10 +3,9 @@
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   position: relative;
-  padding: 0 20px;
-  border-bottom: 1px solid var(--colorNeutralStroke2);
-  color: var(--colorNeutralForeground1);
-  background: var(--colorNeutralBackground1);
+  border-bottom: 1px solid var(--line);
+  color: var(--command-ink);
+  background: var(--command-background);
   font-family: var(--fontFamilyBase);
 }
 .fp-command-identity,
@@ -17,12 +16,17 @@
 }
 .fp-command-identity {
   min-width: 0;
-  gap: 10px;
-  min-height: 54px;
+  gap: 9px;
+  min-height: 48px;
+  padding-inline-start: clamp(12px, 2vw, 24px);
 }
 .fp-command-identity strong {
-  font-size: 1.13em;
-  letter-spacing: -0.025em;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 1.22em;
+  letter-spacing: -0.035em;
 }
 .fp-app-mark {
   display: grid;
@@ -30,15 +34,14 @@
   width: 31px;
   height: 31px;
   flex: none;
-  border-radius: var(--borderRadiusLarge);
-  color: var(--colorNeutralForegroundOnBrand);
-  background: var(--colorBrandBackground);
+  color: inherit;
 }
 .fp-command-context {
   min-width: 0;
-  border-inline-start: 1px solid var(--colorNeutralStroke2);
+  border-inline-start: 1px solid
+    color-mix(in srgb, currentColor 48%, transparent);
   padding-inline-start: 11px;
-  color: var(--colorNeutralForeground2);
+  color: inherit;
   font-size: 0.9em;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -48,10 +51,35 @@
   justify-self: end;
   gap: 4px;
   padding: 0;
+  margin-inline-end: clamp(10px, 1.6vw, 20px);
 }
-.fp-command-actions [aria-expanded="true"] {
-  color: var(--colorBrandForeground1);
-  background: var(--colorBrandBackground2);
+.fp-command-actions.fui-Toolbar > button {
+  border-radius: 8px;
+}
+.fp-command-actions.fui-Toolbar > button:not(.fp-add-task) {
+  color: var(--command-ink);
+  background: transparent;
+}
+.fp-command-actions.fui-Toolbar
+  > button:not(.fp-add-task):is(:hover, [aria-expanded="true"]),
+.fp-workspace-menu summary:hover {
+  background: color-mix(in srgb, var(--command-ink) 16%, transparent);
+}
+.fp-command-actions.fui-Toolbar > .fp-add-task {
+  color: var(--command-accent-ink);
+  background: var(--command-accent);
+  border-color: color-mix(
+    in srgb,
+    var(--command-accent-ink) 35%,
+    var(--command-accent)
+  );
+}
+.fp-command-actions.fui-Toolbar > .fp-add-task:is(:hover, :active) {
+  background: var(--command-accent-hover);
+}
+.fp-command-bar :is(.fp-command-actions button, summary):focus-visible {
+  outline: 2px solid var(--command-ink);
+  outline-offset: 2px;
 }
 .fp-workspace-menu {
   grid-column: 1 / -1;
@@ -62,9 +90,10 @@
 }
 .fp-workspace-menu > div {
   flex-wrap: wrap;
-  gap: 3px 6px;
-  border-top: 1px solid var(--colorNeutralStroke3);
-  padding: 5px 0;
+  gap: 2px 6px;
+  padding: 3px clamp(10px, 1.6vw, 20px);
+  color: var(--ink);
+  background: var(--surface-subtle);
 }
 .fp-workspace-menu > div > label {
   display: flex;
@@ -78,7 +107,7 @@
   font-size: 0.88em;
 }
 .fp-shell[data-density="compact"] .fp-command-identity {
-  min-height: 46px;
+  min-height: 42px;
 }
 .fp-shell[data-text-size="large"] .fp-command-bar .fui-Button {
   font-size: 1em;
@@ -89,7 +118,10 @@
   max-width: 100%;
   max-height: calc(100dvh - 24px);
   padding: clamp(16px, 3vw, 26px);
-  border-radius: var(--borderRadiusXLarge);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--ink);
+  background: var(--surface);
 }
 .fp-preferences .fui-DialogBody {
   max-height: calc(100dvh - 80px);
@@ -99,26 +131,40 @@
   align-items: center;
 }
 .fp-preferences .fp-preferences-content {
+  display: grid;
+  gap: 10px;
   min-height: 0;
   padding: 1px 3px 3px;
   overflow: auto;
   overscroll-behavior: contain;
 }
 .fp-preference-section {
+  --section-surface: var(--sorbet-next);
+  --section-ink: var(--sorbet-next-ink);
   display: grid;
   gap: 10px;
-  padding: 16px 0;
-  border-top: 1px solid var(--colorNeutralStroke2);
+  padding: 12px clamp(10px, 2vw, 16px);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(
+    in srgb,
+    var(--section-surface) 38%,
+    var(--surface-raised)
+  );
 }
-.fp-preference-section:first-child {
-  border-top: 0;
-  padding-top: 4px;
+.fp-preference-section[aria-labelledby="interaction-heading"] {
+  --section-surface: var(--sorbet-sky);
+  --section-ink: var(--sorbet-sky-ink);
+}
+.fp-preference-section[aria-labelledby="default-times-heading"] {
+  --section-surface: var(--sorbet-progress);
+  --section-ink: var(--sorbet-progress-ink);
 }
 .fp-preference-section h3 {
   margin: 0;
   font-size: 1em;
   font-weight: var(--fontWeightSemibold);
-  color: var(--colorBrandForeground1);
+  color: var(--section-ink);
 }
 .fp-preference-grid,
 .fp-preference-times {
@@ -153,7 +199,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 8px 16px;
-  border-top: 1px solid var(--colorNeutralStroke2);
+  border-top: 1px solid var(--line);
   padding-top: 14px;
   flex-wrap: wrap;
 }
@@ -162,7 +208,7 @@
   margin: 0;
   font-size: var(--fontSizeBase200);
   line-height: var(--lineHeightBase200);
-  color: var(--colorNeutralForeground2);
+  color: var(--muted);
 }
 .fp-preferences[data-text-size="large"] {
   --fontSizeBase200: 15px;
@@ -189,9 +235,13 @@
     gap: 4px;
     padding: 0 8px;
   }
-  .fp-command-actions {
+  .fp-command-identity {
+    padding-inline-start: 0;
+  }
+  .fp-command-actions.fui-Toolbar {
     grid-column: 3;
     grid-row: 1;
+    margin-inline-end: 0;
   }
   .fp-workspace-menu {
     grid-column: 2;
@@ -218,8 +268,8 @@
     display: grid;
     gap: 6px;
     padding: 10px;
-    background: var(--colorNeutralBackground1);
-    border: 1px solid var(--colorNeutralStroke2);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
     border-radius: var(--borderRadiusLarge);
     box-shadow: var(--shadow16);
   }
@@ -258,6 +308,17 @@
   }
 }
 @media (max-width: 390px) {
+  .fp-command-identity {
+    gap: 4px;
+  }
+  .fp-app-mark,
+  .fp-app-mark svg {
+    width: 23px;
+    height: 23px;
+  }
+  .fp-command-identity strong {
+    font-size: 1em;
+  }
   .fp-preference-grid,
   .fp-preference-times > div {
     grid-template-columns: minmax(0, 1fr);
