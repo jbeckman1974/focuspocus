@@ -7,8 +7,11 @@ import time
 
 
 DATABASE = "contended_fixture"
+BASELINE_DATABASE = "prior_release_fixture"
+BASE_MIGRATION = "0021_membership_incarnations"
 HOLDER = "focuspocus-qa-ledger-holder"
 LEDGER = "SELECT app || ':' || name FROM django_migrations ORDER BY app, name"
+SAVED_ITEM = "SELECT id, workspace_id, title, position, version, flagged FROM core_item ORDER BY id"
 
 
 def sql(stack, database, query):
@@ -75,13 +78,18 @@ CONTENTION = f"""
 
 
 def verify(stack, reference_database):
-    stack.create_database(DATABASE)
+    stack.create_database(BASELINE_DATABASE)
+    stack.bootstrap_roles(BASELINE_DATABASE)
+    stack.run(*stack.app_args("migrate", BASELINE_DATABASE), "python", "/qa-recovery/fixture.py", "migration-baseline")
+    item = sql(stack, BASELINE_DATABASE, SAVED_ITEM)
+    stack.create_database(DATABASE, template=BASELINE_DATABASE)
     stack.bootstrap_roles(DATABASE)
     migrate = stack.app_args("migrate", DATABASE)
-    stack.run(*migrate, "python", "manage.py", "migrate", "contenttypes", "0001_initial", "--noinput")
-    initial = sql(stack, DATABASE, LEDGER).splitlines()
-    if initial != ["contenttypes:0001_initial"]:
-        raise RuntimeError("The contention fixture must start with pending release migrations.")
+    prior = sql(stack, DATABASE, LEDGER).splitlines()
+    reference = sql(stack, reference_database, LEDGER).splitlines()
+    if (not item or sql(stack, DATABASE, SAVED_ITEM) != item or f"core:{BASE_MIGRATION}" not in prior
+            or not any(entry.startswith("core:") and entry not in prior for entry in reference)):
+        raise RuntimeError("The contender clone requires a saved task and pending application migrations.")
     with ThreadPoolExecutor(max_workers=2) as pool:
         with hold_ledger(stack):
             processes = [pool.submit(stack.run, *migrate, stdout=subprocess.DEVNULL, timeout=180) for _ in range(2)]
@@ -89,7 +97,8 @@ def verify(stack, reference_database):
         for process in processes:
             process.result()
     actual = sql(stack, DATABASE, LEDGER).splitlines()
-    reference = sql(stack, reference_database, LEDGER).splitlines()
-    if actual != reference or not any(entry.startswith("core:") for entry in actual) or len(actual) != len(set(actual)):
+    if actual != reference or len(actual) != len(set(actual)):
         raise RuntimeError("The contended migration ledger differs from a single-owner release upgrade.")
+    if sql(stack, DATABASE, SAVED_ITEM) != item:
+        raise RuntimeError("The contended upgrade changed the saved task.")
     stack.run(*migrate, "python", "manage.py", "migrate", "--check")

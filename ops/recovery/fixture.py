@@ -9,6 +9,7 @@ import uuid
 
 import django
 from django.db import connection, transaction
+from django.db.migrations.executor import MigrationExecutor
 from django.test import Client
 from django.utils import timezone
 
@@ -19,6 +20,7 @@ from django.contrib.sessions.models import Session
 from core.content.models import AttachmentBlob, AttachmentBody, AttachmentLink
 from core.integrations.models import PushDevice, Reminder, ReminderDelivery
 from core.models import Change, Item, Job, Receipt, Workspace
+from concurrent_migrations import BASELINE_DATABASE, BASE_MIGRATION
 import grants
 
 
@@ -140,6 +142,7 @@ def main(phase):
         "unready": ("test-db", "failed_fixture"), "release_head": ("test-db", "failed_fixture"),
         "grant-prepare": ("db", "focuspocus"), "grant-revoke": ("db", "focuspocus"),
         "grant-reconcile": ("test-db", "restored_fixture"),
+        "migration-baseline": ("test-db", BASELINE_DATABASE),
     }
     require(os.environ.get("APP_ENV") == "development"
             and (connection.settings_dict["HOST"], connection.settings_dict["NAME"]) == targets[phase],
@@ -164,9 +167,16 @@ def main(phase):
         entry = json.load(sys.stdin)
         require(entry["decision"] == "revoked", "Expected a verified post-cut revocation.")
         grants.revoke(entry["grant"])
+    elif phase == "migration-baseline":
+        target = [("core", BASE_MIGRATION)]
+        executor = MigrationExecutor(connection)
+        executor.migrate(target)
+        historical = executor.loader.project_state(target).apps
+        workspace = historical.get_model("core", "Workspace").objects.create()
+        historical.get_model("core", "Item").objects.create(
+            workspace=workspace, kind="action", title="Contended upgrade fixture", position=12, version=4, flagged=True,
+        )
     elif phase == "release_head":
-        from django.db.migrations.executor import MigrationExecutor
-
         heads = MigrationExecutor(connection).loader.graph.leaf_nodes("core")
         require(len(heads) == 1, "Expected a single merged release migration head.")
         print(heads[0][1])

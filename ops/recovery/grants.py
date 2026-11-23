@@ -11,6 +11,9 @@ from core.commands.context import issue_context
 from core.models import Membership
 
 
+SHARED_TASK = "Shared recovery fixture"
+
+
 class Actor:
     def __init__(self, user):
         self.browser = Client(HTTP_HOST="localhost", enforce_csrf_checks=True)
@@ -27,6 +30,13 @@ class Actor:
         return response.json()
 
 
+def capture(context, revision, title):
+    return {
+        "operationId": str(uuid.uuid4()), "context": context, "expectedRevision": revision,
+        "payload": {"parentId": "inbox", "items": [{"id": str(uuid.uuid4()), "title": title}]},
+    }
+
+
 def prepare():
     suffix = uuid.uuid4().hex
     owner = provision_account("qa-recovery-owner-" + suffix, secrets.token_urlsafe(32))
@@ -39,7 +49,9 @@ def prepare():
         "username": member.username, "role": "editor", "expectedVersion": manager.request(shared)["version"],
     })
     editor.request("sharing/accept", {"token": invitation["token"]})
-    editor.request(f"workspaces/{workspace}/snapshot")
+    base = f"workspaces/{workspace}/"
+    snapshot = editor.request(base + "snapshot")
+    editor.request(base + "commands/capture", capture(snapshot["context"], snapshot["revision"], SHARED_TASK))
     grant = Membership.objects.get(workspace_id=workspace, user=member, role="editor")
     return {"workspace": workspace, "owner": owner.pk, "member": member.pk, "incarnation": str(grant.incarnation)}
 
@@ -61,11 +73,11 @@ def revoke(record):
     version = manager.request(roster)["version"]
     manager.request(roster + f"members/{member_id}", {"role": None, "expectedVersion": version})
     snapshot = manager.request(base + "snapshot")
+    if [task["title"] for task in snapshot["tasks"]] != [SHARED_TASK]:
+        raise RuntimeError("The shared owner cannot read the task saved by the editor before backup.")
     editor = Actor(current.user)
     editor.request(base + "snapshot", status=404)
-    editor.request(base + "commands/capture", {
-        "operationId": str(uuid.uuid4()), "context": pending_context, "expectedRevision": snapshot["revision"],
-        "payload": {"parentId": "inbox", "items": [{"id": str(uuid.uuid4()), "title": "Revoked write fixture"}]},
-    }, status=404)
+    editor.request(base + "commands/capture", capture(pending_context, snapshot["revision"], "Revoked write fixture"),
+                   status=404)
     if any(w["id"] == workspace for w in editor.request("sharing/workspaces")["workspaces"]):
         raise RuntimeError("The revoked shared workspace is still listed.")

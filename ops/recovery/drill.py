@@ -54,9 +54,10 @@ class Stack:
             return self.run(*self.app_args("worker", database), "python", "-", stdin=checks,
                             stdout=subprocess.PIPE, text=True).stdout.strip()
 
-    def create_database(self, database):
+    def create_database(self, database, *, template=None):
         # createdb must succeed exclusively. Never empty, drop or reuse an existing database.
-        self.run("exec", "-T", "test-db", "createdb", "-U", "postgres", "-O", "fpmigrate", database)
+        source = ["--template", template] if template else []
+        self.run("exec", "-T", "test-db", "createdb", "-U", "postgres", "-O", "fpmigrate", *source, database)
 
     def bootstrap_roles(self, database):
         self.run("exec", "-T", "-e", f"POSTGRES_DB={database}", "test-db", "sh", "/docker-entrypoint-initdb.d/10-roles.sh")
