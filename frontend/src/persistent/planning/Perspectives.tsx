@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Entry } from "../../outline/index.ts";
 import { newDefinition } from "./perspective.ts";
 import type { SaveBody } from "./perspective.ts";
@@ -74,13 +74,23 @@ export function Perspectives({
   const [selectionFilter, setSelectionFilter] = useState<string[]>();
   const [editing, setEditing] = useState<{ initial: SaveBody; base: number }>();
   const [deleting, setDeleting] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setNeedle(text);
+  const searchTimer = useRef<number>(undefined);
+  useEffect(() => () => window.clearTimeout(searchTimer.current), []);
+
+  function search(value: string) {
+    setText(value);
+    const firstInput = searchTimer.current === undefined;
+    function submit() {
+      setNeedle(value);
       setOffset(0);
+    }
+    if (firstInput) submit();
+    window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      searchTimer.current = undefined;
+      if (!firstInput) submit();
     }, 180);
-    return () => window.clearTimeout(timer);
-  }, [text]);
+  }
   useEffect(() => {
     setOffset(0);
     setDeleting(false);
@@ -204,7 +214,7 @@ export function Perspectives({
           <input
             type="search"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => search(e.target.value)}
           />
         </label>
         <label>

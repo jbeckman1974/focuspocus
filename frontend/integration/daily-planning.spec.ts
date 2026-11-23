@@ -132,7 +132,9 @@ test("AT-14/15/16/25/32 · capture, forecast, focus, annotate and review a priva
       response.url().endsWith("/perspectives/query") &&
       response.request().postDataJSON()?.text === "monument",
   );
-  await page.getByLabel("Search tasks", { exact: true }).fill("monument");
+  const search = page.getByLabel("Search tasks", { exact: true });
+  await search.fill("");
+  await search.pressSequentially("monument");
   expect((await searched).status()).toBe(200);
   await expect(result).toHaveAttribute("data-item-id", original);
 
