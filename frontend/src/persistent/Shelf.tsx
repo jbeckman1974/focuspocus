@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
+import { moveDestinations } from "../components/outline/controls.ts";
+import { TaskLocation } from "../components/TaskLocation.tsx";
+import { numberedChoices, projectLocations } from "../outline/directory.ts";
+import { indexWorkspace, type Entry } from "../outline/index.ts";
 import type { Snapshot } from "./api.ts";
 import { actorRequest } from "./api.ts";
 import type { LifecycleChange, ShelfItem } from "./lifecycle.ts";
 
 export type ShelfPage = "trash" | "archive" | "preview";
+
+interface ShelfData {
+  items: ShelfItem[];
+  directories: (Entry & { kind: "folder" | "project" })[];
+  revision: number;
+}
 
 export function Shelf({
   actorId,
@@ -19,7 +29,18 @@ export function Shelf({
   const [before, setBefore] = useState("");
   const [parent, setParent] = useState("");
   const [selected, setSelected] = useState<string[]>([]);
-  const [data, setData] = useState<{ items: ShelfItem[]; revision: number }>();
+  const [data, setData] = useState<ShelfData>();
+  const prefix = useId();
+  const locations = useMemo(
+    () =>
+      projectLocations({
+        projects:
+          data?.directories?.filter((entry) => entry.kind === "project") ?? [],
+        folders:
+          data?.directories?.filter((entry) => entry.kind === "folder") ?? [],
+      }),
+    [data],
+  );
   const [error, setError] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -32,7 +53,7 @@ export function Shelf({
       page === "preview"
         ? "archive-preview?before=" + encodeURIComponent(before)
         : "shelf?state=" + page;
-    void actorRequest<{ items: ShelfItem[]; revision: number }>(
+    void actorRequest<ShelfData>(
       actorId,
       "/api/v1/workspaces/" +
         encodeURIComponent(snapshot.workspaceId) +
@@ -56,11 +77,11 @@ export function Shelf({
     before,
     attempt,
   ]);
-  const containers = [
+  const containers = numberedChoices([
+    { id: "root", title: "Project list" },
     ...(snapshot.folders ?? []),
-    ...snapshot.projects,
-    ...snapshot.tasks.filter((t) => t.kind === "group"),
-  ];
+    ...moveDestinations(snapshot, []),
+  ]);
   return (
     <section
       aria-label={
@@ -96,8 +117,6 @@ export function Shelf({
             onChange={(event) => setParent(event.currentTarget.value)}
           >
             <option value="">Original location</option>
-            <option value="inbox">Inbox</option>
-            <option value="root">Project list</option>
             {containers.map((item) => (
               <option key={item.id} value={item.id}>
                 {item.title}
@@ -107,47 +126,61 @@ export function Shelf({
         </label>
       )}
       <ul>
-        {data?.items.map((item) => (
-          <li key={item.id}>
-            {page === "preview" ? (
-              <label>
-                <input
-                  type="checkbox"
-                  checked={selected.includes(item.id)}
-                  onChange={(event) =>
-                    setSelected(
-                      event.currentTarget.checked
-                        ? [...selected, item.id]
-                        : selected.filter((id) => id !== item.id),
+        {data?.items.map((item) => {
+          const location = item.locationId
+            ? locations.get(item.locationId)
+            : indexWorkspace(snapshot).taskLocations.get(item.id);
+          const locationId = location && `${prefix}-location-${item.id}`;
+          return (
+            <li key={item.id}>
+              {page === "preview" ? (
+                <label>
+                  <input
+                    type="checkbox"
+                    aria-describedby={locationId}
+                    checked={selected.includes(item.id)}
+                    onChange={(event) =>
+                      setSelected(
+                        event.currentTarget.checked
+                          ? [...selected, item.id]
+                          : selected.filter((id) => id !== item.id),
+                      )
+                    }
+                  />
+                  {item.title}
+                  {Boolean(item.descendantCount) &&
+                    ` (includes ${item.descendantCount} descendants)`}
+                </label>
+              ) : item.shelfRootId === item.id ? (
+                <button
+                  aria-describedby={locationId}
+                  onClick={() =>
+                    submit(
+                      {
+                        name: page === "trash" ? "restore" : "retrieve",
+                        payload: {
+                          ids: [item.id],
+                          ...(parent ? { parentId: parent } : {}),
+                        },
+                      },
+                      data.revision,
                     )
                   }
-                />
-                {item.title}
-                {Boolean(item.descendantCount) &&
-                  ` (includes ${item.descendantCount} descendants)`}
-              </label>
-            ) : item.shelfRootId === item.id ? (
-              <button
-                onClick={() =>
-                  submit(
-                    {
-                      name: page === "trash" ? "restore" : "retrieve",
-                      payload: {
-                        ids: [item.id],
-                        ...(parent ? { parentId: parent } : {}),
-                      },
-                    },
-                    data.revision,
-                  )
-                }
-              >
-                {page === "trash" ? "Restore" : "Retrieve"} {item.title}
-              </button>
-            ) : (
-              <span>{item.title} · included with its removed parent</span>
-            )}
-          </li>
-        ))}
+                >
+                  {page === "trash" ? "Restore" : "Retrieve"} {item.title}
+                </button>
+              ) : (
+                <span>{item.title} · included with its removed parent</span>
+              )}
+              {location && (
+                <>
+                  {" "}
+                  <TaskLocation location={location} id={locationId} />
+                </>
+              )}
+            </li>
+          );
+        })}
       </ul>
       {page === "preview" && (
         <button

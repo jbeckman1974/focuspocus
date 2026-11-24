@@ -1,4 +1,4 @@
-import { INBOX } from "../../outline/index.ts";
+import { numberedChoices, projectLocations } from "../../outline/directory.ts";
 import type { Entry, Task, View, Workspace } from "../../outline/index.ts";
 
 export function viewTitle(view: View, workspace: Workspace): string {
@@ -98,13 +98,16 @@ export function moveDestinations(
   workspace: Workspace,
   selection: string[],
 ): Entry[] {
-  const roots = [{ id: INBOX, title: "Inbox" }, ...workspace.projects];
-  const byId = new Map(workspace.tasks.map((task) => [task.id, task]));
+  const roots = numberedChoices([...projectLocations(workspace).values()]);
+  const choices = numberedChoices(
+    workspace.tasks.filter((task) => task.kind === "group"),
+    true,
+  );
+  const byId = new Map(choices.map((task) => [task.id, task]));
   const rootNames = new Map(roots.map((root) => [root.id, root.title]));
   const selected = new Set(selection);
   const groups: Entry[] = [];
-  for (const task of workspace.tasks) {
-    if (task.kind !== "group") continue;
+  for (const task of choices) {
     const titles: string[] = [];
     const visited = new Set<string>();
     let node: Task | undefined = task;
@@ -119,5 +122,6 @@ export function moveDestinations(
       node = byId.get(node.parentId);
     }
   }
-  return [...roots, ...groups];
+  // A literal slash in a title can also match another group's full path.
+  return numberedChoices([...roots, ...groups]);
 }

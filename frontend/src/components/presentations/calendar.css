@@ -187,6 +187,23 @@
   pointer-events: auto;
 }
 
+.calendar-preview-title,
+.calendar-preview .task-location-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.calendar-preview .task-location {
+  display: flex;
+  color: inherit;
+}
+
+.calendar-preview .task-location svg {
+  width: 1em;
+  height: 1em;
+}
+
 .sorbet-calendar .calendar-preview button[data-in-progress="true"] {
   background: var(--sorbet-progress, var(--accent-wash));
   color: var(--sorbet-progress-ink, var(--accent));
@@ -255,6 +272,13 @@
 .calendar-agenda-task:hover,
 .calendar-undated h3 button:hover {
   background: var(--surface-hover);
+}
+
+.calendar-task-text {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 0.1em;
 }
 
 .sorbet-calendar .calendar-agenda-task[aria-current="true"] {

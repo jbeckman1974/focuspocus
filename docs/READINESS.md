@@ -45,6 +45,8 @@ The M7 pilot at `d5b86a9` retained the same database after the application servi
 
 ### Hands-on checks for the owner
 
+To revisit the reported Projects issue, create identically titled actions in different projects and group two pairs under the same name. Check that Projects stays open and that each task shows its project. Switch between two tasks several times with the inspector open, then select both and expand the selection count to see the current pair.
+
 1. In the signed-in workspace, make a small test project with three tasks. Give one a tag and a due date. Start it on the Board, find it on Calendar and finish and undo it in List. Try the sequence with the keyboard and the pointer. Record the preferred editing mode and any command or focus change that slows you down.
 2. Open the workspace on a second device. Capture or move a task on one and check that the other shows it once, in the expected place. On a trusted device save a task and small attachment offline, quit the browser, reopen it offline, reconnect and check both on the second device. Record browser, OS, and whether this was an installed app or a tab. [Device steps](OFFLINE_DEVICE.md)
 3. Record one project review, its expected next review date, and what Forecast and a saved view show. Use the project through the next due review and compare the resulting queue and next date with your expectation. Record start and finish dates and anything that would block adoption.

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { indexWorkspace } from "../../outline/tree.ts";
 import type { WorkspaceChannel } from "../channel.ts";
 import type { PlanningSession } from "./read.ts";
 import type { CatalogActions } from "./useCatalog.ts";
@@ -31,6 +32,7 @@ export function PlanningArea({
   children,
 }: Props) {
   const actions = {
+    locations: indexWorkspace(session.snapshot).taskLocations,
     selected: navigation.selection,
     select: navigation.select,
     report: navigation.report,

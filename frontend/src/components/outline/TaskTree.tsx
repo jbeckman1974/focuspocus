@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { DragEvent, MouseEvent, RefObject } from "react";
-import { effectiveDone, INBOX } from "../../outline/index.ts";
+import { effectiveDone, indexWorkspace, INBOX } from "../../outline/index.ts";
 import type {
   Command,
   OutlineRow,
@@ -113,6 +113,7 @@ export function TaskTree(props: TreeProps) {
         observe={rowWindow.observe}
         top={rowWindow.layout?.offsets[index]}
         task={task}
+        location={indexWorkspace(workspace).taskLocations.get(task.id)!}
         id={nav.rowId(task.id)}
         depth={depth}
         position={positions[index]}

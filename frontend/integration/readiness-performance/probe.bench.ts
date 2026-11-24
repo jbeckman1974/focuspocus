@@ -16,7 +16,7 @@ test("the paint probe requires every visible identity in order and a filled firs
     button, [role=treeitem] { display: block; width: 100%; height: 30px; box-sizing: border-box; }
     @media (prefers-color-scheme: dark) { button, [role=treeitem] { height: 35px; } }
   </style><div class="clip" id="tree"><div class="outline-window">${rows.map((row) => `<div role="treeitem" data-task-id="${row.id}" aria-label="${row.title}"><span class="outline-title">${row.title}</span></div>`).join("")}</div></div>
-    <div class="clip" id="results"><ul>${rows.map((row) => `<li><button data-item-id="${row.id}">${row.title}</button></li>`).join("")}</ul></div>`);
+    <div class="clip" id="results"><ul>${rows.map((row) => `<li><button data-item-id="${row.id}"><span class="planning-result-title">${row.title}</span><span>Survey project</span></button></li>`).join("")}</ul></div>`);
   await page.evaluate(installViewportCheck);
   for (const scheme of ["light", "dark"] as const) {
     await page.emulateMedia({ colorScheme: scheme });
@@ -31,6 +31,10 @@ test("the paint probe requires every visible identity in order and a filled firs
       late.dataset.itemId = "wrong-id";
       const staleId = search();
       late.dataset.itemId = originalId;
+      const searchTitle = late.querySelector(".planning-result-title")!;
+      searchTitle.textContent = "Stale title";
+      const staleSearchTitle = search();
+      searchTitle.textContent = expected[2].title;
       const titles = [...list.querySelectorAll("button")];
       list.children[2].before(list.children[3]);
       const swapped = search();
@@ -54,6 +58,7 @@ test("the paint probe requires every visible identity in order and a filled firs
         correctSearch,
         correctOutline,
         staleId,
+        staleSearchTitle,
         staleTitle,
         swapped,
         truncated,
@@ -65,6 +70,7 @@ test("the paint probe requires every visible identity in order and a filled firs
       correctSearch: visible,
       correctOutline: visible,
       staleId: 0,
+      staleSearchTitle: 0,
       staleTitle: 0,
       swapped: 0,
       truncated: 0,
@@ -77,7 +83,7 @@ test("a typed search starts on its final trusted key and waits for the settled r
   page,
 }) => {
   await page.setContent(`<style>.planning-page{overflow:auto;height:140px} ul{margin:0;padding:0} li{list-style:none} button{display:block;height:30px}</style>
-    <input type="search"><main class="planning-page"><section aria-label="Search results"><p role="status">13 matches</p><ul class="planning-results">${rows.map((row) => `<li><button data-item-id="${row.id}">${row.title}</button></li>`).join("")}</ul></section></main>`);
+    <input type="search"><main class="planning-page"><section aria-label="Search results"><p role="status">13 matches</p><ul class="planning-results">${rows.map((row) => `<li><button data-item-id="${row.id}"><span class="planning-result-title">${row.title}</span></button></li>`).join("")}</ul></section></main>`);
   await page.evaluate(installViewportCheck);
   await page.evaluate(() => {
     window.addEventListener(

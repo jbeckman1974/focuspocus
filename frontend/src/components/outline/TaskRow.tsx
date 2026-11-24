@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef } from "react";
 import type { CSSProperties, DragEvent, MouseEvent } from "react";
-import type { Task } from "../../outline/index.ts";
+import type { Entry, Task } from "../../outline/index.ts";
+import { TaskLocation } from "../TaskLocation.tsx";
 
 export interface EditDraft {
   id: string;
@@ -11,6 +12,7 @@ interface RowProps {
   top?: number;
   observe?: (row: HTMLDivElement | null) => void | (() => void);
   task: Task;
+  location: Entry;
   id: string;
   depth: number;
   position: number;
@@ -56,7 +58,7 @@ export function TaskRow(props: RowProps) {
       id={props.id}
       role="treeitem"
       aria-label={task.title}
-      aria-describedby={`${props.id}-details`}
+      aria-describedby={`${props.id}-location ${props.id}-details`}
       aria-selected={props.selected}
       aria-expanded={props.hasChildren ? props.expanded : undefined}
       aria-level={props.depth + 1}
@@ -125,40 +127,44 @@ export function TaskRow(props: RowProps) {
       >
         <span aria-hidden="true">{props.done ? "✓" : ""}</span>
       </button>
-      {editing ? (
-        <form
-          className="outline-inline-edit"
-          onSubmit={(event) => {
-            event.preventDefault();
-            props.save();
-          }}
-          onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing) return;
-            if (event.key === "Escape") {
+      <div className="outline-task-text">
+        {editing ? (
+          <form
+            className="outline-inline-edit"
+            onSubmit={(event) => {
               event.preventDefault();
-              props.cancel();
-            }
-          }}
-        >
-          <input
-            ref={input}
-            aria-label="Task title"
-            value={draft.title}
-            onChange={(event) => props.changeDraft(event.currentTarget.value)}
-          />
-          <button
-            type="submit"
-            disabled={props.mutationsDisabled || !draft.title.trim()}
-            aria-label="Save title"
+              props.save();
+            }}
+            onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return;
+              if (event.key === "Escape") {
+                event.preventDefault();
+                props.cancel();
+              }
+            }}
           >
-            Save
-          </button>
-          <button type="button" onClick={props.cancel} aria-label="Cancel edit">
-            Cancel
-          </button>
-        </form>
-      ) : (
-        <>
+            <input
+              ref={input}
+              aria-label="Task title"
+              value={draft.title}
+              onChange={(event) => props.changeDraft(event.currentTarget.value)}
+            />
+            <button
+              type="submit"
+              disabled={props.mutationsDisabled || !draft.title.trim()}
+              aria-label="Save title"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={props.cancel}
+              aria-label="Cancel edit"
+            >
+              Cancel
+            </button>
+          </form>
+        ) : (
           <span
             className={
               task.kind === "group"
@@ -168,22 +174,25 @@ export function TaskRow(props: RowProps) {
           >
             {task.title}
           </span>
-          <span className="outline-fields">
-            {task.effective?.flagged && <span aria-label="Flagged">⚑</span>}
-            {task.effective?.blocked && (
-              <span
-                className="outline-blocked"
-                title={task.effective.reason ?? undefined}
-              >
-                Blocked
-              </span>
-            )}
-            {props.tags.length > 0 && (
-              <span className="outline-tags">{props.tags.join(" · ")}</span>
-            )}
-            {task.due && <time dateTime={task.due}>{task.due}</time>}
-          </span>
-        </>
+        )}
+        <TaskLocation location={props.location} id={`${props.id}-location`} />
+      </div>
+      {!editing && (
+        <span className="outline-fields">
+          {task.effective?.flagged && <span aria-label="Flagged">⚑</span>}
+          {task.effective?.blocked && (
+            <span
+              className="outline-blocked"
+              title={task.effective.reason ?? undefined}
+            >
+              Blocked
+            </span>
+          )}
+          {props.tags.length > 0 && (
+            <span className="outline-tags">{props.tags.join(" · ")}</span>
+          )}
+          {task.due && <time dateTime={task.due}>{task.due}</time>}
+        </span>
       )}
     </div>
   );

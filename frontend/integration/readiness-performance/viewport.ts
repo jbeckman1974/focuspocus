@@ -48,7 +48,9 @@ export function installViewportCheck() {
         continue;
       }
       const fixture = expected[visible];
-      const title = outline ? row.querySelector(".outline-title") : row;
+      const title = row.querySelector(
+        outline ? ".outline-title" : ".planning-result-title",
+      );
       if (
         !fixture ||
         !title ||

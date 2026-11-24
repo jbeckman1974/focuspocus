@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Entry } from "../../outline/index.ts";
+import { TaskLocation } from "../../components/TaskLocation.tsx";
 import { newDefinition } from "./perspective.ts";
 import type { SaveBody } from "./perspective.ts";
 import { PerspectiveEditor } from "./PerspectiveEditor.tsx";
@@ -41,7 +42,12 @@ function ContextRows({
           }}
         >
           {row.context ? (
-            <span>{row.title}</span>
+            <span className="planning-context-label">
+              {row.title}
+              {actions.locations.has(row.id) && (
+                <TaskLocation location={actions.locations.get(row.id)!} />
+              )}
+            </span>
           ) : (
             <ResultList {...actions} entries={entries} ids={[row.id]} />
           )}

@@ -76,6 +76,28 @@ class LifecycleTests(OutlineApiMixin, TestCase):
             self.assertNotEqual(fresh, old)
         self.assertEqual([item["id"] for item in self.client.get(self.base + "shelf?state=archive").json()["items"]], [old])
 
+    def test_trash_preserves_project_context_when_the_group_and_project_are_archived(self):
+        folder = self.create("folder", "District")
+        project = self.create("project", "Access review", parentId=folder)
+        self.create("project", "Unrelated project")
+        child, sibling = self.capture(["Check drawing", "Check monument"], parent=project)
+        group = str(uuid4())
+        self.command("group", {"id": group, "ids": [child, sibling], "title": "Fieldwork"})
+        inbox = self.create("action", "Check drawing")
+        self.command("delete", {"ids": [child]})
+        self.command("delete", {"ids": [inbox]})
+        self.command("complete", {"ids": [project]})
+        self.command("archive", {"ids": [project], "before": "2099-01-01"})
+
+        trash = self.client.get(self.base + "shelf?state=trash").json()
+        self.assertEqual({row["id"]: row["locationId"] for row in trash["items"]},
+                         {child: project, inbox: "inbox"})
+        self.assertEqual({row["id"]: row["title"] for row in trash["directories"]},
+                         {folder: "District", project: "Access review"})
+        archive = self.client.get(self.base + "shelf?state=archive").json()
+        self.assertEqual({row["id"]: row["locationId"] for row in archive["items"] if "locationId" in row},
+                         {sibling: project, group: project})
+
     def test_nested_exclusive_choices_and_insertion_copy(self):
         project = self.create("project", "Survey")
         where = self.create("tag", "Venue", exclusive=True)

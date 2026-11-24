@@ -82,6 +82,10 @@
 .board-card-line {
   align-items: flex-start;
 }
+.board-card > .task-location {
+  display: flex;
+  margin: 0.15rem 0 0 1.65rem;
+}
 .task-board .board-card-title {
   flex: 1;
   min-width: 0;

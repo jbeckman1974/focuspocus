@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { prepare } from "../src/persistent/writes.ts";
+import type { Intent } from "../src/persistent/writes.ts";
+import {
+  selectionAfterWrite,
+  viewAfterTaskWrite,
+} from "../src/persistent/commandSelection.ts";
+import { expandSelectionAncestors } from "../src/workspace/viewState.ts";
 import {
   outlineQuery,
   projectedRows,
@@ -41,6 +47,78 @@ function result(ids: string[]): OutlineResult {
     count: ids.filter((id) => id !== "g").length,
   };
 }
+
+test("structural edits keep their scope and only a move outside the current outline follows its project", () => {
+  const overview = { kind: "projects" } as const;
+  const folder = { kind: "folder", id: "folder" } as const;
+  const group: Intent = { type: "group", ids: ["a", "b"], title: "Plans" };
+  const move: Intent = { type: "move", ids: ["g"], parentId: "p" };
+  const organizerMove: Intent = {
+    type: "lifecycle",
+    change: { name: "move", payload: { ids: ["g"], parentId: "p" } },
+  };
+  for (const scope of [overview, folder]) {
+    assert.equal(viewAfterTaskWrite(snapshot, scope, group, ["g"], "g"), scope);
+    assert.equal(
+      viewAfterTaskWrite(snapshot, scope, move, ["g"], "g", {
+        ...result([]),
+        revision: 4,
+      }),
+      null,
+    );
+    // The group can be a contextual ancestor of matching actions in a filtered view.
+    assert.equal(
+      viewAfterTaskWrite(snapshot, scope, move, ["g"], "g", result(["g", "a"])),
+      scope,
+    );
+    assert.deepEqual(
+      viewAfterTaskWrite(
+        snapshot,
+        scope,
+        organizerMove,
+        ["g"],
+        "g",
+        result([]),
+      ),
+      { kind: "project", id: "p" },
+    );
+  }
+  const collapsed = new Set(["g", "unrelated"]);
+  assert.deepEqual(
+    [...expandSelectionAncestors(snapshot, collapsed, ["a", "b"])],
+    ["unrelated"],
+  );
+  assert.deepEqual([...collapsed], ["g", "unrelated"]);
+  assert.equal(expandSelectionAncestors(snapshot, collapsed, ["c"]), collapsed);
+});
+
+test("a trusted-device ungroup selects the restored children from its own receipt", () => {
+  const intent: Intent = {
+    type: "lifecycle",
+    change: { name: "ungroup", payload: { ids: ["g"] } },
+  };
+  const staged = { operationId: "latest", selection: ["g"], intent };
+  const receipt = {
+    operationId: "latest",
+    selection: ["a", "b"],
+    revision: 6,
+    contextId: "context",
+    undoable: true,
+  };
+  const older = {
+    intent,
+    receipt: { ...receipt, operationId: "prior", revision: 5 },
+  };
+  assert.equal(selectionAfterWrite(staged, older, 5), null);
+  assert.equal(selectionAfterWrite(staged, { intent, receipt }, 5), null);
+  assert.deepEqual(
+    selectionAfterWrite(staged, { intent, receipt }, 6)?.selection,
+    ["a", "b"],
+  );
+  const group: Intent = { type: "group", ids: ["a", "b"], title: "Plans" };
+  const local = { ...staged, intent: group };
+  assert.equal(selectionAfterWrite(local, older, 5), local);
+});
 
 test("scopes project and tag availability to the same UUID the sidebar selected", () => {
   assert.deepEqual(

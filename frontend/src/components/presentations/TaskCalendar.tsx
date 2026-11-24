@@ -9,7 +9,9 @@ import {
 import type { KeyboardEvent } from "react";
 import type { OutlineRow, Task, Workspace } from "../../outline/types.ts";
 import { effectiveDone } from "../../outline/views.ts";
+import { indexWorkspace } from "../../outline/tree.ts";
 import { Icon } from "../frame/Icon.tsx";
+import { TaskLocation } from "../TaskLocation.tsx";
 import { taskPage } from "./taskPage.ts";
 import {
   calendarTasks,
@@ -61,12 +63,15 @@ function TaskAgenda({
   openTask: (task: Task) => void;
 }) {
   const [limit, setLimit] = useState(20);
+  const prefix = useId();
+  const { taskLocations } = indexWorkspace(workspace);
   const visible = taskPage(tasks, limit, selection);
   return (
     <>
       <ul className="calendar-agenda-list">
         {visible.map((task) => {
           const status = progressLabel(workspace, task);
+          const locationId = `${prefix}-location-${task.id}`;
           return (
             <li key={task.id}>
               <button
@@ -75,13 +80,21 @@ function TaskAgenda({
                 data-task-id={task.id}
                 data-done={status === "Completed"}
                 data-in-progress={status === "In progress" || undefined}
+                aria-label={status ? `${task.title} ${status}` : task.title}
+                aria-describedby={locationId}
                 aria-current={selection.has(task.id) || undefined}
                 onClick={() => openTask(task)}
               >
                 <span className="calendar-task-mark" aria-hidden="true">
                   {status === "Completed" && <Icon name="complete" size={13} />}
                 </span>
-                <span>{task.title}</span>
+                <span className="calendar-task-text">
+                  <span>{task.title}</span>
+                  <TaskLocation
+                    location={taskLocations.get(task.id)!}
+                    id={locationId}
+                  />
+                </span>
                 {status && (
                   <span className="calendar-task-status">{status}</span>
                 )}
@@ -126,6 +139,7 @@ export function TaskCalendar({
     (tasks.byDay.size === 0 ||
       tasks.undated.some((task) => selectedIds.has(task.id)));
   const undatedId = useId();
+  const { taskLocations } = indexWorkspace(workspace);
   const activeButton = useRef<HTMLButtonElement>(null);
   const moveFocus = useRef(false);
 
@@ -248,6 +262,8 @@ export function TaskCalendar({
                   if (!day) return <td key={offset} />;
                   const entries = tasks.byDay.get(day) ?? [];
                   const preview = entries[0];
+                  const location = preview && taskLocations.get(preview.id);
+                  const locationId = `${undatedId}-preview-location-${day}`;
                   const previewStatus =
                     preview && progressLabel(workspace, preview);
                   const active = activeDay === day;
@@ -277,7 +293,7 @@ export function TaskCalendar({
                           </span>
                         )}
                       </button>
-                      {preview && (
+                      {preview && location && (
                         <div className="calendar-preview">
                           <button
                             type="button"
@@ -288,13 +304,17 @@ export function TaskCalendar({
                               previewStatus === "In progress" || undefined
                             }
                             aria-label={`Open ${preview.title}`}
+                            aria-describedby={locationId}
                             aria-current={
                               selectedIds.has(preview.id) || undefined
                             }
-                            title={preview.title}
+                            title={`${preview.title} · ${location.title}`}
                             onClick={() => openTask(preview, day)}
                           >
-                            {preview.title}
+                            <span className="calendar-preview-title">
+                              {preview.title}
+                            </span>
+                            <TaskLocation location={location} id={locationId} />
                           </button>
                           {entries.length > 1 && (
                             <span aria-hidden="true">

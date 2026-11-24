@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useEffect,
   useMemo,
   useRef,
@@ -9,14 +10,14 @@ import { Frame } from "../components/Frame.tsx";
 import { Outline } from "../components/Outline.tsx";
 import {
   homeView,
-  revealSelection,
+  expandSelectionAncestors,
   inbox,
   viewExists,
   viewKey,
-  containsSelection,
 } from "../workspace/viewState.ts";
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
+import { selectionAfterWrite, viewAfterTaskWrite } from "./commandSelection.ts";
 import type { WorkspaceChannel } from "./channel.ts";
 import { useWorkspaceChannel } from "./offline/useWorkspaceChannel.ts";
 import { TrustDeviceControl } from "./offline/TrustedDevice.tsx";
@@ -102,9 +103,9 @@ function ConnectedOutline({
     snapshot && viewExists(snapshot, currentView) ? currentView : inbox;
   const key = viewKey(view);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const [collapsedRows, setCollapsed] = useState<Record<string, Set<string>>>(
-    {},
-  );
+  const [collapsedRows, setCollapsed] = useState<
+    Record<string, ReadonlySet<string>>
+  >({});
   const collapsed =
     layout === "list" ? (collapsedRows[key] ?? expandedRows) : expandedRows;
   const [filters, setFilters] = useState<Record<string, Availability>>({});
@@ -175,17 +176,27 @@ function ConnectedOutline({
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
   useEffect(() => {
-    const change = state.lastChange;
-    const staged = state.lastStaged;
-    const navigation =
-      staged ??
-      (change && snapshot && snapshot.revision >= change.receipt.revision
-        ? { ...change.receipt, intent: change.intent }
-        : null);
-    if (!snapshot || !navigation || observed.current === navigation.operationId)
-      return;
-    observed.current = navigation.operationId;
+    if (!snapshot) return;
+    const navigation = selectionAfterWrite(
+      state.lastStaged,
+      state.lastChange,
+      snapshot.revision,
+    );
+    if (!navigation || observed.current === navigation.operationId) return;
     const ids = navigation.selection;
+    const first = ids.find((id) => tasksById.has(id));
+    const destination = first
+      ? viewAfterTaskWrite(
+          snapshot,
+          view,
+          navigation.intent,
+          ids,
+          first,
+          result,
+        )
+      : view;
+    if (!destination) return;
+    observed.current = navigation.operationId;
     if (!ids.length) return;
     if (navigation.intent.type === "project") {
       setView({ kind: "project", id: ids[0] });
@@ -205,22 +216,19 @@ function ConnectedOutline({
         navigation.intent.change.name === "file-inbox")
     )
       return;
-    const first = ids.find((id) => tasksById.has(id));
     if (!first) return;
-    const relocating = [
-      "move",
-      "capture",
-      "group",
-      "indent",
-      "outdent",
-    ].includes(navigation.intent.type);
-    const destination =
-      relocating && !containsSelection(snapshot, view, ids)
-        ? homeView(snapshot, first)
-        : view;
+    const destinationKey = viewKey(destination);
+    setCollapsed((previous) => {
+      const saved = previous[destinationKey];
+      if (!saved?.size) return previous;
+      const revealed = expandSelectionAncestors(snapshot, saved, ids);
+      return revealed === saved
+        ? previous
+        : { ...previous, [destinationKey]: revealed };
+    });
     setView(destination);
-    setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
-  }, [state.lastChange, state.lastStaged, snapshot, view, tasksById]);
+    setSelected((previous) => ({ ...previous, [destinationKey]: ids }));
+  }, [state.lastChange, state.lastStaged, snapshot, view, result, tasksById]);
 
   if (!snapshot)
     return (
@@ -256,16 +264,15 @@ function ConnectedOutline({
     if (planning.page) return planning.select(ids);
     const saved = collapsedRows[key];
     if (layout !== "list" && saved?.size && ids.length) {
-      const revealed = revealSelection(snapshot, view, saved, ids).collapsed;
-      if (revealed.size !== saved.size)
-        setCollapsed((previous) => ({ ...previous, [key]: new Set(revealed) }));
+      const revealed = expandSelectionAncestors(snapshot, saved, ids);
+      if (revealed !== saved)
+        setCollapsed((previous) => ({ ...previous, [key]: revealed }));
     }
     setSelected((previous) => ({ ...previous, [key]: ids }));
   };
 
   function captureTask() {
-    if (planning.page || layout === "list" || view.kind !== "project")
-      setView(inbox);
+    if (planning.page || view.kind !== "project") setView(inbox);
     planning.close();
     if (window.innerWidth <= 850) setShowInspector(false);
     setCapture((n) => n + 1);
@@ -289,16 +296,15 @@ function ConnectedOutline({
     if (!tasksById.has(id)) return;
     const destination = homeView(snapshot, id);
     const destinationKey = viewKey(destination);
-    const memory = revealSelection(
+    const revealed = expandSelectionAncestors(
       snapshot,
-      destination,
-      collapsedRows[destinationKey] ?? new Set(),
+      collapsedRows[destinationKey] ?? expandedRows,
       [id],
     );
     setFilters((current) => ({ ...current, [destinationKey]: "everything" }));
     setCollapsed((current) => ({
       ...current,
-      [destinationKey]: new Set(memory.collapsed),
+      [destinationKey]: revealed,
     }));
     setSelected((current) => ({ ...current, [destinationKey]: [id] }));
     setView(destination);
@@ -358,17 +364,16 @@ function ConnectedOutline({
     planning.open(target, projection.result?.matchIds ?? [], outlineSelection);
   }
   const inspectorTools = task ? (
-    <>
+    <Fragment key={task.id}>
       {controls(task, task.kind)}
       <ContentTools
-        key={task.id}
         snapshot={snapshot}
         itemId={task.id}
         readOnly={mutationsDisabled}
         actorId={actorId}
         stageContent={trusted ? channel.stageContent : undefined}
       />
-    </>
+    </Fragment>
   ) : selection.length > 1 ? (
     <BulkInspector
       snapshot={snapshot}

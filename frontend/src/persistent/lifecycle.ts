@@ -32,6 +32,7 @@ export type LifecycleChange =
   | { name: "file-inbox"; payload: Record<string, never> };
 
 export interface ShelfItem extends Entry {
+  locationId?: string | null;
   shelfRootId?: string | null;
   descendantCount?: number;
   kind: "folder" | "project" | "group" | "action";

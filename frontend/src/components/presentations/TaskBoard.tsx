@@ -1,12 +1,14 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   effectiveDone,
+  indexWorkspace,
   type Command,
   type OutlineRow,
   type Task,
   type Workspace,
 } from "../../outline/index.ts";
 import { Icon } from "../frame/Icon.tsx";
+import { TaskLocation } from "../TaskLocation.tsx";
 import { taskPage } from "./taskPage.ts";
 import { formatDueDay, taskDueDay } from "./calendarDates.ts";
 import "./board.css";
@@ -54,6 +56,8 @@ export function TaskBoard({
   destination,
 }: BoardProps) {
   const board = useRef<HTMLElement>(null);
+  const prefix = useId();
+  const { taskLocations } = indexWorkspace(workspace);
   const [limits, setLimits] = useState<Partial<Record<Lane, number>>>({});
   const selectedIds = useMemo(() => new Set(selection), [selection]);
   const focusAfterMove = useRef<{
@@ -141,6 +145,7 @@ export function TaskBoard({
                   const done = lane === "done";
                   const active = lane === "next" || lane === "progress";
                   const due = taskDueDay(task, timeZone);
+                  const locationId = `${prefix}-location-${task.id}`;
                   return (
                     <li
                       className="board-card"
@@ -153,6 +158,7 @@ export function TaskBoard({
                         <button
                           type="button"
                           className="board-check"
+                          aria-describedby={locationId}
                           aria-label={
                             (done ? "Reopen " : "Complete ") + task.title
                           }
@@ -184,11 +190,16 @@ export function TaskBoard({
                           type="button"
                           className="board-card-title"
                           aria-pressed={selected}
+                          aria-describedby={locationId}
                           onClick={() => onSelect([task.id])}
                         >
                           {task.title}
                         </button>
                       </div>
+                      <TaskLocation
+                        location={taskLocations.get(task.id)!}
+                        id={locationId}
+                      />
                       {(due ||
                         task.tags.length > 0 ||
                         task.effective?.blocked) && (

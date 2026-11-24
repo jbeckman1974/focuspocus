@@ -42,8 +42,7 @@ export default function App() {
   }, [session, state.notice]);
 
   function quickCapture() {
-    if (layout === "list" || state.view.kind !== "project")
-      session.changeView(inbox);
+    if (state.view.kind !== "project") session.changeView(inbox);
     if (compactLayout()) setInspectorOpen(false);
     setCaptureSignal((value) => value + 1);
   }

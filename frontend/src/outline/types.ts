@@ -14,12 +14,17 @@ export interface Task extends Entry {
   due: string | null;
   done: boolean;
   inProgress?: boolean;
+  filingProjectId?: string | null;
   effective?: {
     status: "active" | "held" | "dropped" | "completed";
     flagged: boolean;
     blocked: boolean;
     reason: string | null;
   };
+}
+
+export interface TaskLocationEntry extends Entry {
+  filingTarget?: Entry;
 }
 
 export interface Workspace {
