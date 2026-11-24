@@ -2,7 +2,7 @@
 
 Joe wants to capture a task at home, organize it at the office, and return to the same outline in another browser. The reference is native OmniFocus 4.10.1 on Mac, including Pro workflows. The product will have its own implementation, identity, and artwork.
 
-**Status on November 23, 2026.** Milestones M0–M6 and the approved Sorbet layout have merged. The physical Tumbleweed pilot passed owner sign-in, Light and Dark appearance and shared task identity across List, Board and Calendar. M7 is qualifying the combined interface against a 10,000-action workspace, cross-browser keyboard and touch workflows, migration failure and recovery. The full physical rehearsal, private release images, production rollout and Joe’s review cycle have separate gates. [Readiness record](READINESS.md) · [Implementation progress](PROGRESS.md)
+**Status on November 23, 2026.** Milestones M0–M6 and the approved Sorbet layout have merged. The physical Tumbleweed pilot passed owner sign-in, Light and Dark appearance and shared task identity across List, Board and Calendar. M7 is qualifying the combined interface against a 10,000-action workspace, cross-browser keyboard and touch workflows, migration failure and recovery. The full physical rehearsal, public release images, production rollout and Joe’s review cycle have separate gates. [Readiness record](READINESS.md) · [Implementation progress](PROGRESS.md)
 
 ## Maintained specification
 

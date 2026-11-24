@@ -1,0 +1,75 @@
+name: Publish pilot image
+on:
+  push:
+    tags: ["pilot-*"]
+permissions:
+  contents: read
+jobs:
+  qualify:
+    if: github.repository == 'jbeckman1974/focuspocus'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+    uses: ./.github/workflows/qualify-platform.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      platform: ${{ matrix.platform }}
+      pilot: true
+  publish:
+    needs: qualify
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    timeout-minutes: 12
+    outputs:
+      digest: ${{ steps.publish.outputs.digest }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          pattern: candidate-*
+          path: ${{ runner.temp }}/qualified
+      - name: Assemble the qualified platform manifests
+        id: publish
+        env:
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          bash tools/release/check-session.sh
+          unset REGISTRY_TOKEN
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
+          digest=$(python3 tools/release/pilot.py stage "$repo" "$RUNNER_TEMP/qualified")
+          printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+          printf 'Compose image: `%s@%s`\n' "$repo" "$digest" >> "$GITHUB_STEP_SUMMARY"
+  readback:
+    needs: publish
+    runs-on: ${{ matrix.platform == 'amd64' && 'ubuntu-24.04' || 'ubuntu-24.04-arm' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [amd64, arm64]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+        with:
+          name: candidate-${{ matrix.platform }}
+          path: ${{ runner.temp }}/qualified
+      - name: Pull the public pilot on a clean native runner
+        shell: bash
+        env:
+          EXPECTED_ARCH: ${{ matrix.platform }}
+          DIGEST: ${{ needs.publish.outputs.digest }}
+        run: |
+          bash ops/assert-native.sh
+          DOCKER_CONFIG=$(mktemp -d)
+          export DOCKER_CONFIG
+          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
+          python3 tools/release/pilot.py readback "$repo" "$EXPECTED_ARCH" "$RUNNER_TEMP/qualified" "$DIGEST" | tee -a "$GITHUB_STEP_SUMMARY"

@@ -1,5 +1,9 @@
 # Implementation progress
 
+## November 23, 2026 · Public Docker images
+
+Joe selected public container images for future deployments. The source repository and `ghcr.io/jbeckman1974/focuspocus` use public access. GitHub Actions qualifies the pilot on AMD64 and ARM64 and reports an image digest for Dockhand. The pilot uses its own Git tag and retains its database, credentials and TLS files on the host. [Registry procedure](OPERATIONS.md#public-release-package)
+
 ## November 22, 2026 · Owner decisions
 
 Joe selected GNU GPL version 3 for the project and confirmed private release images. The README carries his warning until testing is complete. The application image includes the project license. Private registry provisioning, the physical x64 deployment and Joe's pilot each still need evidence. Joe manually applied one usage reset and authorized continued automated testing.
@@ -232,7 +236,7 @@ On the physical M6 LAN pilot, a Mac Chrome profile enrolled for offline editing,
 
 M7 now combines the Sorbet presentations with the windowed outline and the large-workspace query reader. The reader includes the saved Board progress in its scoped field projection. The post-dialog focus handoff now completes before a subsequent inline rename, and marking a project reviewed returns keyboard focus to the persistent review-scope control. The cross-browser suite checks both handoffs. All 124 frontend unit tests passed locally. The previous M7 accessibility run recorded 16 of 18 passing journeys. [Earlier cross-browser result](https://github.com/jbeckman1974/focuspocus/actions/runs/45087455627)
 
-The release publisher now verifies each platform’s immutable image and native qualification attempt before assigning release tags. A regression covers a partial retry, a stale registry configuration and a succeeding full rerun. All 55 release-tool tests passed locally with OpenSSL 3, and an independent reviewer rechecked the attempt checks. The private package marker and native readback remain release prerequisites. [Release procedure](OPERATIONS.md#private-release-package)
+The release publisher now verifies each platform’s immutable image and native qualification attempt before assigning release tags. A regression covers a partial retry, a stale registry configuration and a succeeding full rerun. All 55 release-tool tests passed locally with OpenSSL 3, and an independent reviewer rechecked the attempt checks. The private package marker and native readback remain release prerequisites. [Current release procedure](OPERATIONS.md#public-release-package)
 
 The updated M7 pilot at `d5b86a9` passed a real owner login, both themes and the Board, List and Calendar task workflow after application replacement on the designated LAN host. Its database remained in place and the pre-update private dump passed inventory verification. All 18 keyboard, touch and appearance journeys passed across Chromium, Firefox and WebKit. [Cross-browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45286814212/job/138085176265)
 
@@ -257,3 +261,5 @@ A delayed rename on the pilot also returned the inspector to the earlier task af
 The previous 10,000-action run recorded 523 and 535 ms for typed searches against a 500 ms limit. Plain searches now request just the result fields they display and read the hierarchy, titles, tags and notes required for matching. Rule-dependent searches still evaluate availability and dates. Equivalence tests cover focus, scopes, page boundaries and the existing full response. [Timing evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45294670947/job/138111924109)
 
 At `08a46af` the two typed searches reached settled results at p95 in 206 and 214 ms. The native database and signed-in browser suites passed on both platforms. The planning panel now accepts the workspace selection callback directly. A new conflict gives keyboard focus to its notice when the originating editor has lost its tab stop, so the user can reach the resolution buttons. [Measured search results](https://github.com/jbeckman1974/focuspocus/actions/runs/45305803578/job/138149232347) · [Native suites](https://github.com/jbeckman1974/focuspocus/actions/runs/45305803690)
+
+At `a4a16d9` the two-project conflict test passed in Chromium, Firefox and WebKit. All 18 keyboard and touch journeys passed, including focus on the conflict notice, keyboard reapply and a durable reread of both task IDs. [Cross-browser evidence](https://github.com/jbeckman1974/focuspocus/actions/runs/45307302754/job/138154163654)

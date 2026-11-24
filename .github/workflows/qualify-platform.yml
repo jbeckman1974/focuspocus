@@ -5,6 +5,9 @@ on:
       platform:
         type: string
         required: true
+      pilot:
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
@@ -24,13 +27,22 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - name: Verify version, source and native builder
+        env:
+          PILOT: ${{ inputs.pilot }}
         run: |
-          version=$(cat release/version)
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$version"; fi
-          bash tools/release/check-dispatch.sh
-          [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+          if [[ "$PILOT" == true ]]; then
+            version="pilot-$GITHUB_SHA"
+            test "$GITHUB_EVENT_NAME" = push
+            test "$GITHUB_REF" = "refs/tags/$version"
+            git for-each-ref --contains "$GITHUB_SHA" --format='%(refname)' refs/remotes/origin/main 'refs/remotes/origin/milestone/*' | grep -q .
+          else
+            version=$(cat release/version)
+            if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$version"; fi
+            bash tools/release/check-dispatch.sh
+            [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
+            git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          fi
           printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           test "$RUNNER_OS" = Linux && test "$RUNNER_ARCH" = "$ARCH"
           case "$PLATFORM:$(uname -m):$(docker info --format '{{.OSType}}/{{.Architecture}}')" in
             amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
@@ -86,6 +98,7 @@ jobs:
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
           bash tools/release/check-session.sh
+          unset REGISTRY_TOKEN
           image="focuspocus-candidate:$PLATFORM"
           test "$(docker inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/$PLATFORM"
           candidate="$repo:ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$PLATFORM"
@@ -93,7 +106,8 @@ jobs:
           docker push --platform "linux/$PLATFORM" "$candidate"
           mkdir -p "$RUNNER_TEMP/qualified"
           python3 tools/release/record.py "$candidate" "$image" > "$RUNNER_TEMP/qualified/qualified.json"
-          python3 tools/release/visibility.py "$(jq -er .digest "$RUNNER_TEMP/qualified/qualified.json")"
+          digest=$(jq -er .digest "$RUNNER_TEMP/qualified/qualified.json")
+          python3 tools/release/visibility.py "$digest" "$digest"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: candidate-${{ inputs.platform }}

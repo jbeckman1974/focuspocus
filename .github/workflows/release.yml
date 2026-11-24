@@ -4,7 +4,7 @@ on:
   push:
     tags: ["v*"]
     branches: [main]
-    paths: ["release/version", "release/package"]
+    paths: ["release/version"]
 permissions:
   contents: read
 concurrency:
@@ -17,20 +17,17 @@ jobs:
     timeout-minutes: 8
     permissions:
       contents: read
-      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify access to the owner-provisioned private marker
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release source and anonymous access to the public package
         run: |
           bash tools/release/check-dispatch.sh
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$(cat release/version)"; fi
-          bash tools/release/check-session.sh
+          python3 tools/release/visibility.py
   qualify:
     needs: package-access
     uses: ./.github/workflows/qualify-platform.yml
@@ -80,7 +77,6 @@ jobs:
     needs: publish
     permissions:
       contents: read
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -97,9 +93,8 @@ jobs:
         with:
           name: candidate-${{ matrix.platform }}
           path: ${{ runner.temp }}/qualified
-      - name: Pull both tags using the native default and verify the selected image
+      - name: Pull both tags anonymously using the native default and verify the selected image
         env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE: ${{ needs.publish.outputs.release }}
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.arch }}
@@ -109,8 +104,9 @@ jobs:
             amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
             *) exit 1 ;;
           esac
-          bash tools/release/check-session.sh
-          unset REGISTRY_TOKEN
+          export DOCKER_CONFIG
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/public-pull-XXXXXX")
+          printf '%s\n' '{"auths":{"ghcr.io":{}}}' > "$DOCKER_CONFIG/config.json"
           set -o pipefail
           python3 tools/release/readback.py "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE" "$PLATFORM" "$RUNNER_TEMP/qualified/qualified.json" | tee -a "$GITHUB_STEP_SUMMARY"
   promote:
@@ -130,7 +126,8 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE: ${{ needs.publish.outputs.release }}
         run: |
+          set -o pipefail
           bash tools/release/check-dispatch.sh
           bash tools/release/check-session.sh
           unset REGISTRY_TOKEN
-          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE"
+          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE" | tee -a "$GITHUB_STEP_SUMMARY"

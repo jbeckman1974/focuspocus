@@ -1,6 +1,6 @@
 # Application architecture
 
-This design takes the synthetic outline in M1 through the first private, persistent release in M2. It also defines the boundaries that recurrence, shared workspaces and offline editing will need. The [feature register](FEATURE_PARITY.md) owns reference behavior and open observations. The [verification plan](VERIFICATION_PLAN.md) owns fixtures and expected evidence. All contracts below are planned.
+This design takes the synthetic outline in M1 through the first persistent private workspaces in M2. It also defines the boundaries that recurrence, shared workspaces and offline editing will need. The [feature register](FEATURE_PARITY.md) owns reference behavior and open observations. The [verification plan](VERIFICATION_PLAN.md) owns fixtures and expected evidence. All contracts below are planned.
 
 ## Components and ownership
 

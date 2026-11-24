@@ -146,7 +146,8 @@ class PromotionTests(unittest.TestCase):
             release = publish(repo, "v0.1.0", "f" * 40, "1", "3", Path("."), "1")
             self.assertEqual(release["source"], release["version_source"])
             self.assertNotIn(repo + ":stable", tags)
-            promote_stable(repo, release)
+            self.assertEqual(promote_stable(repo, release), digest)
+            self.assertEqual(promote_stable(repo, release), digest)
         self.assertEqual(list(tags), [repo + suffix for suffix in (":ci-1-3", ":v0.1.0", ":v0.1.0-b1-3", ":stable")])
 
     def test_maintenance_keeps_original_index_and_records_both_sources(self):

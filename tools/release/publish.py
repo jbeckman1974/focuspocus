@@ -7,10 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from provenance import REVISION, RUN_ATTEMPT, RUN_NUMBER, build_order, require_ancestor, require_original_version
+from provenance import DIGEST, REVISION, RUN_ATTEMPT, RUN_NUMBER, build_order, require_ancestor, require_original_version
+from visibility import public_package, verify_public
 
 PLATFORMS = ("amd64", "arm64")
-DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def docker(*args):
@@ -135,7 +135,7 @@ def promote_stable(repo, release):
     stable = repo + ":stable"
     previous = inspect_digest(stable, optional=True)
     if previous == digest:
-        return
+        return digest
     if previous:
         old = repo + "@" + previous
         docker("pull", "--platform", "linux/amd64", old)
@@ -145,7 +145,7 @@ def promote_stable(repo, release):
         if not re.fullmatch(r"v\d+\.\d+\.\d+", old_version):
             raise ValueError("Cannot establish the current stable version")
         if tuple(map(int, old_version[1:].split("."))) > tuple(map(int, version[1:].split("."))):
-            return
+            return previous
         if old_version == version:
             old_source = labels.get("org.opencontainers.image.revision")
             require_ancestor(old_source, release["source"])
@@ -156,6 +156,7 @@ def promote_stable(repo, release):
     docker("buildx", "imagetools", "create", "--tag", stable, ref)
     if inspect_digest(stable) != digest:
         raise ValueError("Stable tag readback failed")
+    return digest
 
 
 if __name__ == "__main__":
@@ -164,6 +165,8 @@ if __name__ == "__main__":
                           maintenance=os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch")
         print(json.dumps(release))
     elif sys.argv[1] == "promote":
-        promote_stable(sys.argv[2], json.loads(sys.argv[3]))
+        stable = promote_stable(sys.argv[2], json.loads(sys.argv[3]))
+        verify_public(public_package(), "stable", stable)
+        print("Verified public stable index", stable)
     else:
         raise SystemExit("Expected stage or promote")

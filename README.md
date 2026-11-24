@@ -32,6 +32,8 @@ To work offline, open the workspace on a trusted browser profile and choose **En
 
 For a private test on an existing Tumbleweed x64 Docker host, the test runner verifies where neighboring containers keep their data and creates its database directories under a `focuspocus/` subfolder there. It binds the web interface to loopback and cleans up its own run. [Private test-host procedure](ops/README.md#private-tumbleweed-x64-test-server)
 
+The public Docker image is published to `ghcr.io/jbeckman1974/focuspocus`. Choose the version or pilot index digest from the corresponding successful publication run. The index contains the qualified Linux AMD64 and ARM64 images. [Public image and pilot procedure](docs/OPERATIONS.md#public-release-package)
+
 ## License
 
 FocusPocus is licensed under the GNU General Public License, version 3 only (`GPL-3.0-only`). Third-party components retain their respective licenses. [Full license text](LICENSE)
