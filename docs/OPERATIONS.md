@@ -127,7 +127,7 @@ The workflow checks the public package listing before writing. Each native candi
 
 The Docker build context excludes deployment secrets, host configuration, databases and archives. Supply the database, runtime credentials and operator configuration when deploying the application. Keep production data and credentials in protected storage.
 
-For a pilot, tag a reviewed commit already on `main` or a `milestone/*` branch with `pilot-<full Git commit SHA>` and push that Git tag. **Publish pilot image** qualifies both native platforms and publishes a distinct pilot image tag for its workflow run and attempt. Its job summary gives the multi-platform index digest. Set the migration, web and worker services in Dockhand to the same `ghcr.io/jbeckman1974/focuspocus@sha256:…` reference. Version release tags and `stable` are managed by **Qualify and publish version**.
+For a pilot, tag a reviewed commit already on `main` or a `milestone/*` branch with `pilot-<full Git commit SHA>` and push that Git tag. **Publish pilot image** qualifies both native platforms and publishes a distinct pilot image tag for its workflow run and attempt. Wait for the whole workflow to pass, including the anonymous pulls on AMD64 and ARM64. Use the multi-platform index digest from that successful run’s summary. Set the migration, web and worker services in Dockhand to the same `ghcr.io/jbeckman1974/focuspocus@sha256:…` reference. Version release tags and `stable` are managed by **Qualify and publish version**.
 
 ## Controlled host update
 

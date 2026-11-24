@@ -4,9 +4,11 @@
 
 Joe selected public container images for future deployments. The source repository and `ghcr.io/jbeckman1974/focuspocus` use public access. GitHub Actions qualifies the pilot on AMD64 and ARM64 and reports an image digest for Dockhand. The pilot uses its own Git tag and retains its database, credentials and TLS files on the host. [Registry procedure](OPERATIONS.md#public-release-package)
 
+GitHub qualified `af13f88` on both native architectures and both runners pulled the public image anonymously. The physical pilot now serves index `sha256:5f163776fb4a1267cb5b7e170f5c36b82313f6bb5118d02546db2aa23fd67638`. Dockhand verified the matching AMD64 image and reused the existing database bind after container recreation. Owner sign-in, all seven synthetic editing walkthroughs and a separate two-session conflict check passed on the updated pilot. [GitHub build](https://github.com/jbeckman1974/focuspocus/actions/runs/45308004269) · [Target-host results](https://github.com/jbeckman1974/focuspocus/pull/13#issuecomment-7119736297)
+
 ## November 22, 2026 · Owner decisions
 
-Joe selected GNU GPL version 3 for the project and confirmed private release images. The README carries his warning until testing is complete. The application image includes the project license. Private registry provisioning, the physical x64 deployment and Joe's pilot each still need evidence. Joe manually applied one usage reset and authorized continued automated testing.
+Joe selected GNU GPL version 3 for the project and initially selected private release images. At that date the release package, physical x64 deployment and Joe's pilot each needed evidence. The README carries his warning until testing is complete. The application image includes the project license. Joe manually applied one usage reset and authorized continued automated testing.
 
 ## November 21, 2026
 

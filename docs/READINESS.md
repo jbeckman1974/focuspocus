@@ -45,6 +45,8 @@ The M7 pilot at `d5b86a9` retained the same database after the application servi
 
 ### Hands-on checks for the owner
 
+The current pilot uses the public GitHub-built image from `af13f88`. Both native runners and the physical host verified its digest. Mac Chrome passed seven signed-in editing walkthroughs and a two-session keyboard conflict check. The existing owner login survived replacement. The physical four-suite rehearsal and the owner’s daily-use review cycle still need their own results. [Pilot verification](https://github.com/jbeckman1974/focuspocus/pull/13#issuecomment-7119736297)
+
 To revisit the reported Projects issue, create identically titled actions in different projects and group two pairs under the same name. Check that Projects stays open and that each task shows its project. Switch between two tasks several times with the inspector open, then select both and expand the selection count to see the current pair.
 
 1. In the signed-in workspace, make a small test project with three tasks. Give one a tag and a due date. Start it on the Board, find it on Calendar and finish and undo it in List. Try the sequence with the keyboard and the pointer. Record the preferred editing mode and any command or focus change that slows you down.
