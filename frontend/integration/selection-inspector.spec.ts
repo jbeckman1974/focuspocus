@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { inspector, task } from "../e2e/controls.ts";
-import { signIn, submitCapture } from "./account.ts";
+import { signIn, submitCapture, submitRename } from "./account.ts";
 
 test("the inspector replaces its controls and shows only the selected tasks", async ({
   page,
@@ -49,4 +49,44 @@ test("the inspector replaces its controls and shows only the selected tasks", as
   await expect(properties).toHaveCount(0);
   await expect(notes).toHaveCount(0);
   await expect(titleField).toHaveCount(0);
+});
+
+test("a saved rename preserves the task selected while the request was pending", async ({
+  page,
+}) => {
+  await signIn(page, "owner");
+  const original = "Review drawing scale";
+  const revised = "Review revised drawing scale";
+  const other = "Check instrument height";
+  await submitCapture(page, [original, other].join("\n"));
+  await expect(task(page, other)).toBeVisible();
+  const rename = /\/commands\/bulk-edit$/;
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route(
+    rename,
+    async (route) => {
+      await gate;
+      await route.continue();
+    },
+    { times: 1 },
+  );
+  const requested = page.waitForRequest(rename);
+  const saved = page.waitForResponse(rename);
+  try {
+    await submitRename(page, original, revised);
+    await requested;
+    await task(page, other).getByText(other, { exact: true }).click();
+    await expect(task(page, other)).toHaveAttribute("aria-selected", "true");
+  } finally {
+    release();
+  }
+  expect((await saved).status()).toBe(200);
+  await expect(task(page, revised)).toHaveAttribute("aria-selected", "false");
+  await expect(task(page, other)).toHaveAttribute("aria-selected", "true");
+  await expect(
+    inspector(page).getByRole("textbox", { name: "Title", exact: true }),
+  ).toHaveValue(other);
 });

@@ -23,33 +23,36 @@ export function projectLocations(
     if (seen.has(project.title)) repeated.add(project.title);
     seen.add(project.title);
   }
-  if (!repeated.size) return locations;
-
-  const folders = new Map(
-    numberedChoices(workspace.folders ?? [], true).map((entry) => [
-      entry.id,
-      entry,
-    ]),
-  );
-  const projects = numberedChoices(workspace.projects, true);
-  for (const [index, project] of workspace.projects.entries()) {
-    if (!repeated.has(project.title)) continue;
-    const parts = [projects[index].title];
-    const visited = new Set<string>();
-    let parent = project.parentId;
-    while (parent && folders.has(parent) && !visited.has(parent)) {
-      visited.add(parent);
-      const folder = folders.get(parent)!;
-      parts.push(folder.title);
-      parent = folder.parentId;
+  if (repeated.size) {
+    const folders = new Map(
+      numberedChoices(workspace.folders ?? [], true).map((entry) => [
+        entry.id,
+        entry,
+      ]),
+    );
+    const projects = numberedChoices(workspace.projects, true);
+    for (const [index, project] of workspace.projects.entries()) {
+      if (!repeated.has(project.title)) continue;
+      const parts = [projects[index].title];
+      const visited = new Set<string>();
+      let parent = project.parentId;
+      while (parent && folders.has(parent) && !visited.has(parent)) {
+        visited.add(parent);
+        const folder = folders.get(parent)!;
+        parts.push(folder.title);
+        parent = folder.parentId;
+      }
+      if (parts.length > 1 || parts[0] !== project.title)
+        locations.set(project.id, {
+          ...project,
+          title: parts.reverse().join(" / "),
+        });
     }
-    if (parts.length > 1 || parts[0] !== project.title)
-      locations.set(project.id, {
-        ...project,
-        title: parts.reverse().join(" / "),
-      });
   }
-  return locations;
+  // A literal project name can itself be another project's displayed folder path.
+  return new Map(
+    numberedChoices([...locations.values()]).map((entry) => [entry.id, entry]),
+  );
 }
 
 export function directoryRows<T extends FolderEntry>(
@@ -85,24 +88,32 @@ export function numberedChoices<T extends Entry>(
   entries: readonly T[],
   byParent = false,
 ): T[] {
-  const names = new Map<string, T[]>();
+  const scopes = new Map<string | null, Map<string, T[]>>();
   for (const entry of entries) {
-    const key = byParent
-      ? JSON.stringify([entry.parentId, entry.title])
-      : entry.title;
-    const siblings = names.get(key);
+    const parent = byParent ? (entry.parentId ?? "root") : null;
+    let names = scopes.get(parent);
+    if (!names) {
+      names = new Map();
+      scopes.set(parent, names);
+    }
+    const siblings = names.get(entry.title);
     if (siblings) siblings.push(entry);
-    else names.set(key, [entry]);
+    else names.set(entry.title, [entry]);
   }
   const titles = new Map<string, string>();
-  for (const siblings of names.values()) {
-    if (siblings.length > 1)
-      siblings.forEach((entry, index) =>
-        titles.set(
-          entry.id,
-          `${entry.title} (${index + 1} of ${siblings.length})`,
-        ),
-      );
+  for (const names of scopes.values()) {
+    const used = new Set(names.keys());
+    for (const [title, siblings] of names) {
+      if (siblings.length < 2) continue;
+      siblings.forEach((entry, index) => {
+        const base = `${title} (${index + 1} of ${siblings.length})`;
+        let label = base;
+        for (let suffix = 2; used.has(label); suffix++)
+          label = `${base} · ${suffix}`;
+        used.add(label);
+        titles.set(entry.id, label);
+      });
+    }
   }
   return entries.map((entry) =>
     titles.has(entry.id) ? { ...entry, title: titles.get(entry.id)! } : entry,

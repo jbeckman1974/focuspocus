@@ -35,13 +35,25 @@ def read_tags(workspace):
     return rows, by_item
 
 
+def active_items(workspace):
+    return Item.objects.filter(workspace=workspace, shelf="active").order_by("position", "id")
+
+
+def parent_key(parent_id, kind):
+    return str(parent_id) if parent_id else ("root" if kind in ("folder", "project") else "inbox")
+
+
+def search_rows(workspace, tags_by_item):
+    items = active_items(workspace).values_list("id", "parent_id", "kind", "title")
+    return [{"id": str(key), "parentId": parent_key(parent, kind), "kind": kind, "title": title,
+             "tags": tags_by_item.get(key, [])} for key, parent, kind, title in items.iterator()]
+
+
 def direct_rows(workspace, tags_by_item):
-    items = Item.objects.filter(workspace=workspace, shelf="active").order_by("position", "id")
     rows = []
-    for item in items.values_list(*ITEM_FIELDS, named=True).iterator():
-        parent = str(item.parent_id) if item.parent_id else ("root" if item.kind in ("folder", "project") else "inbox")
+    for item in active_items(workspace).values_list(*ITEM_FIELDS, named=True).iterator():
         rows.append({
-            "id": str(item.id), "kind": item.kind, "parentId": parent, "title": item.title,
+            "id": str(item.id), "kind": item.kind, "parentId": parent_key(item.parent_id, item.kind), "title": item.title,
             "version": item.version, "position": item.position, "tags": tags_by_item.get(item.id, []),
             "due": iso(item.due), "schedule": read_schedule(item), "durationMinutes": item.duration_minutes,
             "done": item.done, "status": "completed" if item.done else item.disposition, "mode": mode_for(item),

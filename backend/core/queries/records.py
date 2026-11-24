@@ -4,7 +4,20 @@ from core.repeats.read import repeat_states
 from core.rules.projection import evaluate_rows
 from core.scheduling.clock import workspace_clock
 from .calendar import schedules_for
-from .items import direct_rows, iso, read_tags
+from .items import direct_rows, iso, read_tags, search_rows
+
+
+def clock_metadata(workspace, clock, boundary=None):
+    return {"timeZone": workspace.time_zone, "viewZone": clock.zone.key,
+            "dateDefaults": {field: value.strftime("%H:%M") for field, value in clock.defaults.items()},
+            "nextDateBoundary": iso(boundary)}
+
+
+def read_text_records(workspace, view_zone):
+    """Plain text and manual order depend on active titles, hierarchy, tags and notes, independent of the clock."""
+    tags, by_item = read_tags(workspace)
+    clock = workspace_clock(workspace, view_zone=view_zone)
+    return search_rows(workspace, by_item), tags, clock_metadata(workspace, clock)
 
 
 def read_records(workspace, view_zone=None, *, clock=None):
@@ -27,9 +40,4 @@ def read_records(workspace, view_zone=None, *, clock=None):
             "reason": value.reason, "reasonSource": value.reason_source,
         }
         row["repeat"] = repeats.get(key)
-    metadata = {
-        "timeZone": workspace.time_zone, "viewZone": clock.zone.key,
-        "dateDefaults": {field: value.strftime("%H:%M") for field, value in clock.defaults.items()},
-        "nextDateBoundary": iso(boundary),
-    }
-    return rows, tags, metadata
+    return rows, tags, clock_metadata(workspace, clock, boundary)

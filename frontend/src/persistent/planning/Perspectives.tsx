@@ -119,6 +119,7 @@ export function Perspectives({
         : {}),
       text: needle,
       scope,
+      rowFields: "summary",
       offset,
       limit: 100,
       ...(session.zone ? { viewZone: session.zone } : {}),

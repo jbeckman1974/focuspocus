@@ -1,4 +1,5 @@
 from uuid import uuid4
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 
@@ -59,6 +60,40 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.assertEqual(self.space.revision, 0)
         self.assertEqual(Change.objects.filter(workspace=self.space).count(), 0)
 
+    def test_summary_search_preserves_scope_order_unicode_note_and_tag_results(self):
+        fields = ("id", "kind", "parentId", "title", "context")
+        self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))
+        self.send("bulk-edit", {"ids": [self.ids["A27"]], "title": "Straße plans"})
+        ItemNote.objects.create(workspace=self.space, item_id=self.ids["A26"], document={}, plain_text="Bench limits")
+        cases = [
+            {"scope": "everything", "text": "bench", "offset": 1, "limit": 1},
+            {"scope": "here", "text": "field"},
+            {"scope": "here", "hereIds": [self.ids["A26"], self.private_id], "text": "bench"},
+            {"scope": "everything", "text": "STRASSE", "viewZone": "America/New_York"},
+            {"scope": "everything", "text": "private marker"},
+            {"scope": "here", "hereIds": []},
+        ]
+        for body in cases:
+            with self.subTest(body=body):
+                full = self.post("query", body)
+                with patch("core.perspectives.query.read_records", side_effect=AssertionError("Unexpected rule evaluation")):
+                    summary = self.post("query", {**body, "rowFields": "summary"})
+                for key in ("matchIds", "count", "actionCount", "groups", "offset", "nextOffset",
+                            "workspaceId", "revision", "personalVersion", "focusIds", "timeZone", "viewZone", "dateDefaults"):
+                    self.assertEqual(summary[key], full[key])
+                self.assertEqual(summary["rows"], [{key: row[key] for key in fields} for row in full["rows"]])
+                self.assertIsNone(summary["nextDateBoundary"])
+        self.assertEqual(self.post("query", {**cases[3], "rowFields": "summary"})["matchIds"], [self.ids["A27"]])
+        self.send("delete", {"ids": [self.ids["A26"]]})
+        self.assertEqual(self.post("query", {**cases[2], "rowFields": "summary"})["matchIds"], [])
+
+        # Remaining and saved/preview rules can depend on the clock and need full evaluation.
+        for body in ({"scope": "remaining"}, {"definition": {**self.definition(), "presentation": "outline"}}):
+            full = self.post("query", body)
+            with patch("core.perspectives.query.read_text_records", side_effect=AssertionError("Missing rule evaluation")):
+                summary = self.post("query", {**body, "rowFields": "summary"})
+            self.assertEqual(summary, {**full, "rows": [{key: row[key] for key in fields} for row in full["rows"]]})
+
     def test_viewer_private_state_replay_conflict_and_revocation(self):
         other = get_user_model().objects.create_user(username="fixture-perspective-reader")
         member = Membership.objects.create(workspace=self.space, user=other, role="viewer")
@@ -77,6 +112,7 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         member.delete()
         self.post("commands", body, 404)
         self.post("query", {"perspectiveId": payload["id"]}, 404)
+        self.post("query", {"rowFields": "summary", "text": "bench", "scope": "everything"}, 404)
 
     def test_receipts_keep_the_acknowledged_version_and_replay_the_current_catalog(self):
         payload = self.save_body()
@@ -123,7 +159,7 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.assertEqual((result["count"], result["matchIds"]), (1, [self.ids["A18"]]))
 
     def test_invalid_input_and_undoable_shared_history_unchanged(self):
-        for bad in ({"scope": "private"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
+        for bad in ({"scope": "private"}, {"rowFields": "unknown"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
                     {"text": "bad\x00text"}, {"text": "\ud800"},
                     {"definition": {"version": 99, "expression": {"all": []}}},
                     {"definition": {"version": 1, "expression": {"sql": "arbitrary"}}}):

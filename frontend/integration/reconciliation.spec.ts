@@ -1,7 +1,20 @@
 import { expect, test as base } from "@playwright/test";
-import { activate, task, taskId } from "../e2e/controls.ts";
-import { signIn, submitCapture, submitRename, withProfile } from "./account.ts";
+import {
+  activate,
+  inspector,
+  sidebarDestination,
+  task,
+  taskId,
+} from "../e2e/controls.ts";
+import {
+  createDestination,
+  signIn,
+  submitCapture,
+  submitRename,
+  withProfile,
+} from "./account.ts";
 import { createOfflineNetwork } from "./offline-network.ts";
+import { openPlanning } from "./planning-controls.ts";
 
 const test = base.extend<{
   network: Awaited<ReturnType<typeof createOfflineNetwork>>;
@@ -77,14 +90,36 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
   const original = "Competing rename";
   const winning = "First saved title";
   const draft = "Second desired title";
+  const firstProject = "Estuary review";
+  const secondProject = "Upland review";
+  await createDestination(page, "project", firstProject);
+  await sidebarDestination(page, firstProject).click();
   await submitCapture(page, original);
   const itemId = await taskId(page, original);
+  await createDestination(page, "project", secondProject);
+  await sidebarDestination(page, secondProject).click();
+  await submitCapture(page, winning);
+  const secondId = await taskId(page, winning);
+  await openPlanning(page, "Projects");
+  await task(page, original).getByText(original, { exact: true }).click();
+  await task(page, winning)
+    .getByText(winning, { exact: true })
+    .click({ modifiers: ["ControlOrMeta"] });
+  await expect(task(page, original)).toHaveAttribute("aria-selected", "true");
+  await expect(task(page, winning)).toHaveAttribute("aria-selected", "true");
   await withProfile(browser, "owner", async (other) => {
+    await sidebarDestination(other, firstProject).click();
     await expect(task(other, original)).toHaveAttribute("data-task-id", itemId);
     const gate = network.holdNextWrite(workspaceWrites);
     try {
       await page.bringToFront();
-      await submitRename(page, original, draft);
+      const details = inspector(page);
+      await details
+        .getByRole("textbox", { name: "Title", exact: true })
+        .fill(draft);
+      await details
+        .getByRole("button", { name: "Apply title", exact: true })
+        .click();
       await gate.received;
       await other.bringToFront();
       await submitRename(other, original, winning);
@@ -102,9 +137,12 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
     await expect(
       page.getByText(`Your change: ${draft}`, { exact: true }),
     ).toBeVisible();
-    await expect(
-      page.getByText(`Current task: ${winning}`, { exact: false }),
-    ).toBeVisible();
+    const conflicts = notice
+      .locator("p")
+      .filter({ hasText: `Current task: ${winning}` });
+    await expect(conflicts).toHaveCount(2);
+    for (const project of [firstProject, secondProject])
+      await expect(conflicts.getByText(project, { exact: true })).toBeVisible();
     await expect(task(other, winning)).toHaveAttribute("data-task-id", itemId);
     await activate(page, reapply);
     await expect(reapply).toHaveCount(0);
@@ -115,6 +153,9 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
       timeout: 5000,
     });
     await other.reload();
+    await sidebarDestination(other, firstProject).click();
     await expect(task(other, draft)).toHaveAttribute("data-task-id", itemId);
+    await sidebarDestination(other, secondProject).click();
+    await expect(task(other, draft)).toHaveAttribute("data-task-id", secondId);
   });
 });

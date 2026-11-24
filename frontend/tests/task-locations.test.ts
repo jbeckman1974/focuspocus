@@ -1,12 +1,69 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { indexWorkspace } from "../src/outline/tree.ts";
+import { numberedChoices, projectLocations } from "../src/outline/directory.ts";
 import { newTask } from "../src/outline/values.ts";
 import type { Snapshot } from "../src/persistent/api.ts";
 import { project } from "../src/persistent/offline/queueProjection.ts";
 import { prepare } from "../src/persistent/writes.ts";
 
+test("duplicate choices reserve literal labels and use separate sibling scopes", () => {
+  const entries = ["A", "A", "A (1 of 2)", "A (1 of 2) · 2", "A"].map(
+    (title, index) => ({
+      id: String(index),
+      parentId: index === 4 ? "other" : "group",
+      title,
+    }),
+  );
+  const choices = numberedChoices(entries, true);
+  assert.deepEqual(
+    choices.map(({ title }) => title),
+    ["A (1 of 2) · 3", "A (2 of 2)", "A (1 of 2)", "A (1 of 2) · 2", "A"],
+  );
+  assert.deepEqual(
+    choices.map(({ id }) => id),
+    entries.map(({ id }) => id),
+  );
+});
+
+test("generated project qualifiers stay distinguishable from literal project names", () => {
+  const projects = [
+    "A",
+    "A",
+    "A (1 of 2)",
+    "Inbox",
+    "Inbox (project)",
+    "North / Survey",
+    "Survey",
+    "Survey",
+  ].map((title, index) => ({
+    id: "p" + index,
+    title,
+    parentId: index === 6 ? "f" : "root",
+  }));
+  const locations = projectLocations({
+    projects,
+    folders: [{ id: "f", title: "North" }],
+  });
+  const titles = [...locations.values()].map((entry) => entry.title);
+  assert.equal(new Set(titles).size, projects.length + 1);
+  assert.equal(locations.get("inbox")?.title, "Inbox");
+  for (const project of projects)
+    assert.ok(locations.get(project.id)?.title.includes(project.title));
+});
+
 test("locations follow nested groups, project renames and offline moves by identity", () => {
+  function savedTask(
+    id: string,
+    parentId: string,
+    title: string,
+  ): Snapshot["tasks"][number] {
+    return {
+      ...newTask(id, parentId, title),
+      effective: undefined,
+      version: 1,
+    };
+  }
   const base: Snapshot = {
     workspaceId: "w",
     generation: "g",
@@ -23,11 +80,11 @@ test("locations follow nested groups, project renames and offline moves by ident
       { id: "p3", title: "Survey", parentId: "f2", version: 1 },
     ],
     tasks: [
-      { ...newTask("a", "g", "Review drawing"), version: 1 },
-      { ...newTask("b", "p2", "Review drawing"), version: 1 },
-      { ...newTask("c", "inbox", "Review drawing"), version: 1 },
-      { ...newTask("g", "p1", "Fieldwork"), kind: "group", version: 1 },
-      { ...newTask("d", "p3", "Review drawing"), version: 1 },
+      savedTask("a", "g", "Review drawing"),
+      savedTask("b", "p2", "Review drawing"),
+      savedTask("c", "inbox", "Review drawing"),
+      { ...savedTask("g", "p1", "Fieldwork"), kind: "group" },
+      savedTask("d", "p3", "Review drawing"),
     ],
     tags: [],
   };

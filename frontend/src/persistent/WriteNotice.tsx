@@ -1,3 +1,5 @@
+import { TaskLocation } from "../components/TaskLocation.tsx";
+import { indexWorkspace } from "../outline/index.ts";
 import type { ChannelState, WorkspaceChannel } from "./channel.ts";
 import { describeDraft } from "./writes.ts";
 
@@ -22,6 +24,7 @@ export function WriteNotice({
   )
     return null;
   const intent = state.pending.intent;
+  const { taskLocations } = indexWorkspace(state.snapshot);
   const ids = "ids" in intent ? intent.ids : "id" in intent ? [intent.id] : [];
   const current = state.snapshot.tasks.filter((t) => ids.includes(t.id));
   return (
@@ -44,7 +47,8 @@ export function WriteNotice({
                 state
                   .snapshot!.tags.filter((tag) => task.tags.includes(tag.id))
                   .map((tag) => tag.title)
-                  .join(", ")}
+                  .join(", ")}{" "}
+            <TaskLocation location={taskLocations.get(task.id)!} />
           </p>
         ))}
       {state.phase === "conflict" &&

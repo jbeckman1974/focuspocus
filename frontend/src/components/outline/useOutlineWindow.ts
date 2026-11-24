@@ -8,9 +8,26 @@ interface Anchor {
   top: number;
 }
 
+function focusedAnchor(container: HTMLElement): Anchor | undefined {
+  if (container !== document.activeElement) return;
+  const id = container.getAttribute("aria-activedescendant");
+  const row = id && document.getElementById(id);
+  if (!row || !container.contains(row)) return;
+  const viewport = container.getBoundingClientRect();
+  const bounds = row.getBoundingClientRect();
+  if (bounds.bottom <= viewport.top || bounds.top >= viewport.bottom) return;
+  return {
+    item: row.dataset.taskId,
+    offset: bounds.top - viewport.top,
+    top: container.scrollTop,
+  };
+}
+
 function readAnchor(container: HTMLElement, layout?: RowLayout): Anchor {
   const top = container.scrollTop;
   if (layout) {
+    const focused = focusedAnchor(container);
+    if (focused) return focused;
     const origin =
       container.firstElementChild!.getBoundingClientRect().top -
       container.getBoundingClientRect().top +
@@ -116,6 +133,10 @@ export function useOutlineWindow(
     const measure = () => {
       const first = mounted.current.values().next().value;
       if (!first || !container.clientWidth || !container.clientHeight) return;
+      // Keyboard jumps can mount previously unmeasured rows before the active row.
+      // Keep its visible position when their measured heights replace the estimates.
+      const focused = focusedAnchor(container);
+      if (focused) anchors.current.set(identity, focused);
       const style = getComputedStyle(first);
       const width = container.clientWidth;
       const estimate = parseFloat(style.minHeight) || 42;
@@ -150,7 +171,7 @@ export function useOutlineWindow(
       observer.current?.disconnect();
       observer.current = null;
     };
-  }, [tree, enabled, updateViewport]);
+  }, [tree, identity, enabled, updateViewport]);
 
   useLayoutEffect(() => {
     const container = tree.current;

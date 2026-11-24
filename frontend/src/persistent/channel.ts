@@ -47,6 +47,7 @@ export class WorkspaceChannel {
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
+  private submittedId: string | null = null;
   private requestedSnapshot = 0;
   private finishedSnapshot = 0;
   private epoch = 0;
@@ -107,6 +108,17 @@ export class WorkspaceChannel {
   }
 
   getSnapshot = () => this.state;
+
+  get latestSubmissionId() {
+    return this.submittedId;
+  }
+
+  private prepareSubmission(intent: Intent, base: Snapshot) {
+    const write = prepare(intent, base);
+    this.submittedId = write.envelope.operationId;
+    return write;
+  }
+
   subscribe = (callback: () => void) => {
     this.listeners.add(callback);
     return () => {
@@ -272,7 +284,7 @@ export class WorkspaceChannel {
       void this.runDurable(intent, base);
       return true;
     }
-    const write = prepare(intent, base);
+    const write = this.prepareSubmission(intent, base);
     void this.send(write);
     return true;
   }
@@ -284,7 +296,7 @@ export class WorkspaceChannel {
     if (!this.durable) return this.run(intent, base);
     if (!this.active || !base || this.staging || this.state.phase !== "ready")
       return false;
-    const write = prepare(intent, base);
+    const write = this.prepareSubmission(intent, base);
     this.staging = true;
     try {
       await this.durable.stage(write, base);
@@ -317,7 +329,7 @@ export class WorkspaceChannel {
       throw new Error(
         "Open this workspace on a trusted device before saving offline.",
       );
-    const write = prepare(
+    const write = this.prepareSubmission(
       { type: "content", action: content.action, id: content.itemId },
       base,
     );
@@ -357,7 +369,9 @@ export class WorkspaceChannel {
       !this.state.snapshot
     )
       return;
-    void this.send(prepare(this.state.pending.intent, this.state.snapshot));
+    void this.send(
+      this.prepareSubmission(this.state.pending.intent, this.state.snapshot),
+    );
   }
 
   discard() {
