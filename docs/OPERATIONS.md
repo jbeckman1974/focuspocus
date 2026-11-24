@@ -131,7 +131,7 @@ For private publication, the owner first creates the package outside this public
 
 ## Controlled host update
 
-Use the same procedure for an operator-triggered Compose/Portainer update and any future automatic stable installer. Keep generic automatic container replacement disabled for this stack while updates require coordination.
+Use Dockhand for container and Compose stack changes on the managed LAN pilot. Select the target environment by name and confirm the stack. The procedure below also applies to direct Compose updates and any future automatic stable installer. Keep generic automatic container replacement disabled for this stack while updates require coordination.
 
 1. Acquire an exclusive deployment lock on the **actual AMD/Intel x64 Linux host**. Verify the host reports Linux x86_64 and the selected Docker server reports Linux on x86_64/amd64. Record the prior digests, schema, Engine/Compose versions and time. Inspect the approved index by digest, match its `linux/amd64` child digest to the CI release record, and pull the pinned index for that platform. Verify proxy configuration, storage, free disk and supported schema path before interrupting service.
 2. Validate the most recent off-host backup, available keys and last successful restore drill. For changes that may require database restoration, close writes, drain in-flight requests and worker leases, and take a fresh encrypted recovery point after the final acknowledged write. Keep other writers and external deliveries paused until verification finishes.
