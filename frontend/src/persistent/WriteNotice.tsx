@@ -1,3 +1,4 @@
+import { useLayoutEffect, useRef } from "react";
 import { TaskLocation } from "../components/TaskLocation.tsx";
 import { indexWorkspace } from "../outline/index.ts";
 import type { ChannelState, WorkspaceChannel } from "./channel.ts";
@@ -17,6 +18,22 @@ export function WriteNotice({
   state: ChannelState;
   channel: WorkspaceChannel;
 }) {
+  const notice = useRef<HTMLElement>(null);
+  const submittedFrom = useRef<Element | null>(null);
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (state.phase === "sending") submittedFrom.current = active;
+    if (
+      state.phase === "conflict" &&
+      state.conflictFresh &&
+      (active === submittedFrom.current ||
+        active === document.body ||
+        active?.matches(":disabled"))
+    ) {
+      // A blocked submit can lose its tab stop. Keep newer navigation intact.
+      notice.current?.focus();
+    }
+  }, [state.phase, state.conflictFresh]);
   if (
     !state.pending ||
     !state.snapshot ||
@@ -28,7 +45,12 @@ export function WriteNotice({
   const ids = "ids" in intent ? intent.ids : "id" in intent ? [intent.id] : [];
   const current = state.snapshot.tasks.filter((t) => ids.includes(t.id));
   return (
-    <section className="write-notice" aria-label="Pending change">
+    <section
+      className="write-notice"
+      aria-label="Pending change"
+      ref={notice}
+      tabIndex={-1}
+    >
       <h2>
         {state.phase === "uncertain"
           ? "Unconfirmed change"

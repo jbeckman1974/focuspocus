@@ -490,7 +490,8 @@ function ConnectedOutline({
             zone: viewZone,
           }}
           channel={channel}
-          navigation={{ ...planning, select: choose }}
+          navigation={planning}
+          onSelect={choose}
           catalog={catalog}
           disabled={mutationsDisabled}
           openSource={showSource}

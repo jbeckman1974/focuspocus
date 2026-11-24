@@ -144,6 +144,8 @@ test("AT-18 · stale editors retain their draft and deliberately reapply it", as
     for (const project of [firstProject, secondProject])
       await expect(conflicts.getByText(project, { exact: true })).toBeVisible();
     await expect(task(other, winning)).toHaveAttribute("data-task-id", itemId);
+    await page.bringToFront();
+    await expect(notice).toBeFocused();
     await activate(page, reapply);
     await expect(reapply).toHaveCount(0);
     await expect(

@@ -14,6 +14,7 @@ interface Props {
   session: PlanningSession;
   catalog: CatalogActions;
   navigation: PlanningNavigation;
+  onSelect: (ids: string[]) => void;
   channel: WorkspaceChannel;
   disabled: boolean;
   openSource: (id: string) => void;
@@ -25,6 +26,7 @@ export function PlanningArea({
   session,
   catalog,
   navigation,
+  onSelect,
   channel,
   disabled,
   openSource,
@@ -34,7 +36,7 @@ export function PlanningArea({
   const actions = {
     locations: indexWorkspace(session.snapshot).taskLocations,
     selected: navigation.selection,
-    select: navigation.select,
+    select: onSelect,
     report: navigation.report,
     open: openSource,
   };
