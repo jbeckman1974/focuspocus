@@ -51,6 +51,7 @@ export interface QueryRow extends Entry {
 export interface OutlineResult {
   workspaceId: string;
   revision: number;
+  captureOutsideFocus?: boolean;
   view?: string;
   rows: QueryRow[];
   count: number;

@@ -60,6 +60,41 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.assertEqual(self.space.revision, 0)
         self.assertEqual(Change.objects.filter(workspace=self.space).count(), 0)
 
+    def test_include_in_focus_preserves_concurrent_additions_and_a_later_clear(self):
+        first, second, added = (self.ids[code] for code in ("P01", "P02", "P06"))
+        self.post("commands", self.put("focus", {"ids": [first]}, 0))
+        self.assertTrue(self.read("outline", view="projects", projectId=added)["captureOutsideFocus"])
+        self.assertFalse(self.read("outline", view="projects", projectId=first)["captureOutsideFocus"])
+        self.assertTrue(self.read("outline", view="inbox")["captureOutsideFocus"])
+        stale = self.put("include-focus", {"id": added}, 1)
+        self.post("commands", self.put("focus", {"ids": [first, second]}, 1))
+        self.post("commands", stale, 409)
+        include = self.put("include-focus", {"id": added}, 2)
+        updated = self.post("commands", include)
+        self.assertEqual(updated["focusIds"], [first, second, added])
+        self.assertEqual(self.post("commands", include), updated)
+        self.assertFalse(self.read("outline", view="projects", projectId=added)["captureOutsideFocus"])
+        self.post("commands", self.put("focus", {"ids": []}, 3))
+        self.assertEqual(self.post("commands", self.put("include-focus", {"id": added}, 4))["focusIds"], [])
+        self.assertFalse(self.read("outline", view="inbox")["captureOutsideFocus"])
+        self.post("commands", self.put("include-focus", {"id": self.ids["A26"]}, 4), 404)
+
+    def test_include_retry_after_focusing_an_ancestor_does_not_pin_the_nested_project(self):
+        other, folder, project = (self.ids[code] for code in ("P03", "F01", "P01"))
+        self.post("commands", self.put("focus", {"ids": [other]}, 0))
+        self.assertTrue(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+        stale = self.put("include-focus", {"id": project}, 1)
+        focused = self.post("commands", self.put("focus", {"ids": [other, folder]}, 1))
+        self.post("commands", stale, 409)
+        # P01 is two levels below F01. Retrying should preserve the exact explicit roots and version.
+        retry = self.put("include-focus", {"id": project}, focused["personalVersion"])
+        self.assertEqual(self.post("commands", retry), focused)
+        self.assertEqual(self.post("commands", retry), focused)
+        self.assertFalse(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+        remaining = [key for key in self.read("perspectives/")["focusIds"] if key != folder]
+        self.post("commands", self.put("focus", {"ids": remaining}, focused["personalVersion"]))
+        self.assertTrue(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+
     def test_summary_search_preserves_scope_order_unicode_note_and_tag_results(self):
         fields = ("id", "kind", "parentId", "title", "context")
         self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))

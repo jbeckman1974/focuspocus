@@ -155,6 +155,44 @@ test("stale cursor triggers snapshot, revoked access drops all private content",
   assert.equal(fake.revoked(), true);
 });
 
+test("a restored snapshot never publishes the previous generation's capture receipt or undo", async () => {
+  const fake = fixture({
+    submit: async () => ({
+      operationId: "capture",
+      contextId: "context",
+      revision: 3,
+      selection: ["task"],
+      undoable: true,
+    }),
+  });
+  const channel = fake.channel;
+  await channel.tick();
+  fake.replace({ ...first, revision: 3 });
+  channel.run({ type: "capture", parentId: "inbox", titles: ["Level check"] });
+  await settle();
+  const original = channel.getSnapshot().lastChange;
+  assert.ok(original);
+  assert.equal(channel.getSnapshot().undo, original.receipt);
+  fake.replace({ ...first, revision: 4 });
+  await channel.refresh();
+  assert.equal(channel.getSnapshot().lastChange, original);
+
+  const published: (typeof original | null)[] = [];
+  const unsubscribe = channel.subscribe(() => {
+    const state = channel.getSnapshot();
+    if (state.snapshot?.generation === "restored")
+      published.push(state.lastChange);
+  });
+  fake.replace({ ...first, generation: "restored", revision: 5 });
+  await channel.refresh();
+  unsubscribe();
+  assert.ok(published.length);
+  assert.ok(published.every((change) => change === null));
+  assert.equal(channel.getSnapshot().undo, null);
+  assert.equal(channel.latestSubmissionId, null);
+  assert.equal(channel.getSnapshot().phase, "ready");
+});
+
 test("a late read from before a write cannot roll back the acknowledged state", async () => {
   let resolvePoll!: (result: { revision: number; changes: unknown[] }) => void;
   const fake = fixture({

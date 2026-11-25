@@ -1,5 +1,11 @@
 # Implementation progress
 
+## November 24, 2026 · First task in a new project
+
+With Focus restricted to one project, two signed-in tests on the pilot at `af13f88` reproduced an empty second project after using Enter or Add. Each submission persisted once, with the second project as its parent. Clearing Focus revealed the tasks. With Focus clear, both controls worked from Inbox and Projects in List, Board and Calendar. A separate check matched the JavaScript, stylesheet and public shell served to a fresh browser against the GitHub image.
+
+The M7 branch now explains when Focus hides tasks and lets the user include the open project while keeping the rest of their Focus. Capture feedback distinguishes an acknowledged write from a draft waiting to sync. A newly created project opens after its write, including from Forecast and from the compact workspace menu. Calendar reveals a newly captured undated task when its section was collapsed. The signed-in regression checks both submission controls, their stored task IDs after reload, and a delayed project creation. The owner’s pilot continues on the November 23 image. [Capture regression](../frontend/integration/project-capture.spec.ts) · [M7 pull request](https://github.com/jbeckman1974/focuspocus/pull/13)
+
 ## November 23, 2026 · Public Docker images
 
 Joe selected public container images for future deployments. The source repository and `ghcr.io/jbeckman1974/focuspocus` use public access. GitHub Actions qualifies the pilot on AMD64 and ARM64 and reports an image digest for Dockhand. The pilot uses its own Git tag and retains its database, credentials and TLS files on the host. [Registry procedure](OPERATIONS.md#public-release-package)

@@ -133,11 +133,16 @@ export function TaskCalendar({
   const month = activeDay.slice(0, 7);
   const weeks = useMemo(() => monthWeeks(month + "-01"), [month]);
   const dueTasks = tasks.byDay.get(activeDay) ?? [];
-  const [undatedOpen, setUndatedOpen] = useState<boolean>();
+  const [undatedChoice, setUndatedChoice] = useState<{
+    open: boolean;
+    selection: ReadonlySet<string>;
+  }>();
   const showUndated =
-    undatedOpen ??
-    (tasks.byDay.size === 0 ||
-      tasks.undated.some((task) => selectedIds.has(task.id)));
+    undatedChoice?.open ||
+    (!undatedChoice && tasks.byDay.size === 0) ||
+    tasks.undated.some(
+      ({ id }) => selectedIds.has(id) && !undatedChoice?.selection.has(id),
+    );
   const undatedId = useId();
   const { taskLocations } = indexWorkspace(workspace);
   const activeButton = useRef<HTMLButtonElement>(null);
@@ -355,7 +360,12 @@ export function TaskCalendar({
                 type="button"
                 aria-expanded={showUndated}
                 aria-controls={undatedId}
-                onClick={() => setUndatedOpen(!showUndated)}
+                onClick={() =>
+                  setUndatedChoice({
+                    open: !showUndated,
+                    selection: selectedIds,
+                  })
+                }
               >
                 <span>No due date</span>
                 <span className="calendar-undated-count">

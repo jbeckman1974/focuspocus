@@ -8,6 +8,8 @@ interface Props {
   accountControls?: ReactNode;
   compact: boolean;
   narrow: boolean;
+  openedDestination?: string;
+  captureDisabled?: boolean;
   browseOpen: boolean;
   inspectorOpen: boolean;
   browseToggle: Ref<HTMLButtonElement>;
@@ -48,6 +50,7 @@ export function WorkspaceToolbar(props: Props) {
           className="fp-add-task"
           aria-label="Add task"
           title="Add task"
+          disabled={props.captureDisabled}
           icon={<Icon name="add" size={17} />}
           onClick={props.onCapture}
         >
@@ -66,7 +69,10 @@ export function WorkspaceToolbar(props: Props) {
         </ToolbarButton>
       </Toolbar>
       {props.accountControls && (
-        <WorkspaceMenu narrow={props.narrow}>
+        <WorkspaceMenu
+          narrow={props.narrow}
+          openedDestination={props.openedDestination}
+        >
           {props.accountControls}
         </WorkspaceMenu>
       )}

@@ -71,3 +71,45 @@ test("AT-24/28 · use touch and return focus from the 320px inspector and naviga
   expect(bounds!.height).toBeGreaterThanOrEqual(viewport.coarse ? 44 : 24);
   expect(bounds!.width).toBeGreaterThanOrEqual(24);
 });
+
+test("creating a project from a compact panel opens its board for capture", async ({
+  page,
+}) => {
+  await signIn(page, "neighbor");
+  const layouts = page.getByRole("group", { name: "Task view" });
+  await layouts.getByRole("button", { name: "Board" }).tap();
+  const main = page.getByRole("main", { name: "Task outline" });
+  const menu = page.locator(".fp-workspace-menu");
+
+  for (const [width, panel, project] of [
+    [320, "Browse", "North fieldbook"],
+    [320, "Inspector", "South fieldbook"],
+    [768, "Browse", "West fieldbook"],
+  ] as const) {
+    await page.setViewportSize({ width, height: 780 });
+    await page.getByRole("button", { name: panel, exact: true }).tap();
+    await expect(main).toBeHidden();
+    if (width === 320) await menu.locator("summary").tap();
+    await menu.getByRole("button", { name: "New project", exact: true }).tap();
+    const dialog = page.getByRole("dialog", { name: "New project" });
+    await dialog.getByRole("textbox").fill(project);
+    await dialog.getByRole("button", { name: "Create project" }).tap();
+
+    await expect(dialog).toBeHidden();
+    await expect(
+      main.getByRole("heading", { name: project, exact: true }),
+    ).toBeVisible();
+    await expect(main).toBeFocused();
+    if (width === 320) await expect(menu).not.toHaveAttribute("open", "");
+    const lane = main.getByRole("region", { name: "Next", exact: true });
+    await lane.getByRole("button", { name: `Add task to ${project}` }).tap();
+    const capture = main.getByRole("textbox", { name: "Task titles" });
+    await expect(capture).toBeFocused();
+    await capture.fill("File field notes");
+    await main.getByRole("button", { name: "Add tasks", exact: true }).tap();
+    await expect(
+      lane.getByRole("button", { name: "File field notes", exact: true }),
+    ).toHaveAccessibleDescription(`Project: ${project}`);
+    await main.getByRole("button", { name: "Close capture" }).tap();
+  }
+});

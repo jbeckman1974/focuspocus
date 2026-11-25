@@ -27,7 +27,9 @@ def outline(workspace, params, user=None):
     eligible = focused_ids(workspace, user, rows) if user is not None else None
     projection = project_outline(rows, tags, view=view, availability=availability, eligible_ids=eligible,
                                  project_id=project_id, tag_id=tag_id, folder_id=folder_id)
-    return {"workspaceId": str(workspace.pk), "revision": workspace.revision, **metadata, **projection}
+    return {"workspaceId": str(workspace.pk), "revision": workspace.revision,
+            "captureOutsideFocus": eligible is not None and (project_id or "inbox") not in eligible,
+            **metadata, **projection}
 
 
 def date_preview(workspace, params, user=None):

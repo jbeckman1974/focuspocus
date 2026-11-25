@@ -28,6 +28,7 @@ const expandedRows = new Set<string>();
 
 interface OutlineProps {
   mutationsDisabled?: boolean;
+  captureBlockedReason?: string;
   rows?: OutlineRow[];
   tools?: ReactNode;
   notice?: ReactNode;
@@ -204,6 +205,7 @@ export function Outline(props: OutlineProps) {
       {list && props.tools}
       <Capture
         disabled={props.mutationsDisabled}
+        blockedReason={props.captureBlockedReason}
         collapsible={!list}
         identity={identity}
         destination={destination}

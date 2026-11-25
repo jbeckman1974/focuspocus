@@ -100,6 +100,7 @@ export function WorkspaceActions({
       </Button>
       {entry && (
         <NewEntry
+          saving={state.phase === "sending" || state.phase === "acknowledged"}
           kind={entry.kind}
           initialTitle={entry.target?.title}
           onClose={() => setEntry(undefined)}

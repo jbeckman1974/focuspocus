@@ -38,6 +38,7 @@ export interface SaveBody {
   definition: Definition;
 }
 export type PersonalChange =
+  | { action: "include-focus"; payload: { id: string } }
   | { action: "save"; payload: SaveBody }
   | { action: "delete"; payload: { id: string } }
   | { action: "focus"; payload: { ids: string[] } };

@@ -7,6 +7,7 @@ from core.commands.context import validate_context
 from core.commands.validation import CommandError, fields, identifier, title
 from core.models import Item, Receipt, Tag
 from .definition import ICONS, check_references, choice, id_list, validate_definition
+from .focus import descendants
 from .models import PerspectiveState, SavedPerspective
 
 
@@ -35,6 +36,20 @@ def validate_targets(workspace, refs):
 
 
 def apply(state, action, payload):
+    if action == "include-focus":
+        fields(payload, ["id"])
+        key = str(identifier(payload["id"]))
+        validate_targets(state.workspace, {"scope": {key}, "contains": set(), "tag": set()})
+        # A retry may find Focus cleared or the destination inside a newly focused folder.
+        if not state.focus_ids or key in state.focus_ids:
+            return False
+        directories = Item.objects.filter(workspace=state.workspace, shelf="active", kind__in=("project", "folder"))
+        rows = [{"id": str(item_id), "parentId": str(parent_id) if parent_id else "root"}
+                for item_id, parent_id in directories.values_list("pk", "parent_id")]
+        if key in descendants(rows, state.focus_ids):
+            return False
+        state.focus_ids = id_list([*state.focus_ids, key])
+        return True
     if action == "focus":
         fields(payload, ["ids"])
         keys = id_list(payload["ids"])

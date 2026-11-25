@@ -37,6 +37,7 @@ import { BulkInspector } from "./preferences/BulkInspector.tsx";
 import { usePersonalPreferences } from "./preferences/usePersonalPreferences.ts";
 import { ContentTools } from "./content/ContentTools.tsx";
 import { PlanningArea } from "./planning/PlanningArea.tsx";
+import { CaptureFeedback } from "./CaptureFeedback.tsx";
 import { usePlanningNavigation } from "./planning/usePlanningNavigation.ts";
 import { useCatalog } from "./planning/useCatalog.ts";
 import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
@@ -98,7 +99,9 @@ function ConnectedOutline({
   const layout = useTaskLayout();
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
   const planning = usePlanningNavigation(catalog.data);
+  const closePlanning = planning.close;
   const [currentView, setView] = useState<View>(inbox);
+  const [openedDestination, setOpenedDestination] = useState<string>();
   const view =
     snapshot && viewExists(snapshot, currentView) ? currentView : inbox;
   const key = viewKey(view);
@@ -212,16 +215,11 @@ function ConnectedOutline({
     if (!destination) return;
     observed.current = navigation.operationId;
     if (!ids.length) return;
-    if (navigation.intent.type === "project") {
-      setView({ kind: "project", id: ids[0] });
-      return;
-    }
-    if (navigation.intent.type === "folder") {
-      setView({ kind: "folder", id: ids[0] });
-      return;
-    }
-    if (navigation.intent.type === "tag") {
-      setView({ kind: "tag", id: ids[0] });
+    const kind = navigation.intent.type;
+    if (kind === "project" || kind === "folder" || kind === "tag") {
+      closePlanning();
+      setView({ kind, id: ids[0] });
+      setOpenedDestination(navigation.operationId);
       return;
     }
     if (
@@ -244,6 +242,7 @@ function ConnectedOutline({
     setSelected((previous) => ({ ...previous, [destinationKey]: ids }));
   }, [
     channel,
+    closePlanning,
     state.lastChange,
     state.lastStaged,
     snapshot,
@@ -412,6 +411,7 @@ function ConnectedOutline({
     <div {...drafts.bindings}>
       <Frame
         standardViews
+        openedDestination={openedDestination}
         personalPreferences={settings}
         planning={{
           active: planning.active,
@@ -503,6 +503,15 @@ function ConnectedOutline({
             onCaptureHandled={() => setCapture(0)}
             timeZone={snapshot.viewZone || snapshot.timeZone}
             mutationsDisabled={mutationsDisabled}
+            captureBlockedReason={
+              readOnly
+                ? "You have view-only access to this workspace."
+                : state.phase === "sending" || state.phase === "acknowledged"
+                  ? "Waiting for the previous change to finish."
+                  : mutationsDisabled
+                    ? state.message
+                    : undefined
+            }
             rows={rows}
             count={projection.result?.count}
             retainedCount={Math.max(0, rows.length - matches.length)}
@@ -526,12 +535,23 @@ function ConnectedOutline({
               </div>
             }
             notice={
-              projection.message && (
-                <p role="alert">
-                  {projection.message}{" "}
-                  <button onClick={projection.retry}>Retry outline</button>
-                </p>
-              )
+              <>
+                {(view.kind === "project" || view.kind === "inbox") && (
+                  <CaptureFeedback
+                    project={project}
+                    outsideFocus={!!result?.captureOutsideFocus}
+                    state={state}
+                    submissionId={channel.latestSubmissionId}
+                    catalog={catalog}
+                  />
+                )}
+                {projection.message && (
+                  <p role="alert">
+                    {projection.message}{" "}
+                    <button onClick={projection.retry}>Retry outline</button>
+                  </p>
+                )}
+              </>
             }
             workspace={snapshot}
             view={view}

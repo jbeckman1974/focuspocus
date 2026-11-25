@@ -41,6 +41,24 @@ function sample(): Snapshot {
 test("cached outline follows a moved item, manual sibling order and the user's focus", () => {
   const snapshot = sample();
   snapshot.focusScopeIds = ["folder"];
+  assert.equal(
+    cachedOutline(snapshot, { kind: "inbox" }, "everything")
+      .captureOutsideFocus,
+    true,
+  );
+  assert.equal(
+    cachedOutline(snapshot, { kind: "project", id: "project" }, "blocked")
+      .captureOutsideFocus,
+    false,
+  );
+  assert.equal(
+    cachedOutline(
+      { ...snapshot, focusScopeIds: ["missing"] },
+      { kind: "project", id: "project" },
+      "everything",
+    ).captureOutsideFocus,
+    true,
+  );
   const all = cachedOutline(snapshot, { kind: "all" }, "everything");
   assert.deepEqual(all.matchIds, [
     "folder",

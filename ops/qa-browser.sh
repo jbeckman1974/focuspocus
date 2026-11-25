@@ -61,7 +61,7 @@ targets += [Path("public-shell.spec.ts"), Path("touch-workspace.spec.ts")]
 prefixes = [""] + [path.name + "/" for path in targets if path.name != "offline-restore.spec.ts"]
 names = [prefix + role for prefix in prefixes for role in ("owner", "neighbor", "planner")]
 names.extend(f"{spec}.spec.ts/owner" for spec in (
-    "board-presentations", "grouped-projects", "selection-inspector",
+    "board-presentations", "grouped-projects", "project-capture", "selection-inspector",
 ))
 accounts = {
     name: {"username": "qa_" + secrets.token_hex(10), "password": secrets.token_urlsafe(32)}

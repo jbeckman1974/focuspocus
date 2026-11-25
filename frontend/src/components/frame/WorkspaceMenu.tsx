@@ -1,16 +1,27 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Icon } from "./Icon.tsx";
 
 export function WorkspaceMenu({
   narrow,
+  openedDestination,
   children,
 }: {
   narrow: boolean;
+  openedDestination?: string;
   children: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const menu = useRef<HTMLDetailsElement>(null);
   const summary = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    if (openedDestination) setExpanded(false);
+  }, [openedDestination]);
   useEffect(() => {
     if (!narrow) return;
     const element = menu.current;

@@ -45,6 +45,13 @@
   font-size: 0.9em;
   opacity: 0.8;
 }
+.capture-feedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin: 0 var(--outline-pad) 0.65rem;
+}
 .planning-results {
   list-style: none;
   padding: 0;
