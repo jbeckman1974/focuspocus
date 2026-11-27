@@ -6,6 +6,16 @@
   padding: 0.45rem 0 2rem;
 }
 
+.outline-window {
+  position: relative;
+  overflow-anchor: none;
+}
+
+.outline-window > .outline-row {
+  position: absolute;
+  inset-inline: 0;
+}
+
 .outline-tree:focus-visible {
   outline-offset: -2px;
 }
@@ -104,11 +114,19 @@
   background: var(--accent, Highlight);
 }
 
-.outline-title {
+.outline-task-text {
   min-width: 0;
   flex: 1;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 0.65em;
   padding: 0.2em;
+}
+
+.outline-title {
+  min-width: 0;
+  overflow-wrap: anywhere;
   line-height: 1.3;
 }
 

@@ -31,7 +31,7 @@ export function useCatalog(
   const accept = useCallback(
     (next: Catalog) =>
       setData((old) =>
-        old && old.personalVersion > next.personalVersion ? old : next,
+        old && old.personalVersion >= next.personalVersion ? old : next,
       ),
     [],
   );

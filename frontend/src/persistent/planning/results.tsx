@@ -1,27 +1,45 @@
+import { useId } from "react";
 import type { Entry } from "../../outline/index.ts";
+import { TaskLocation } from "../../components/TaskLocation.tsx";
 
 interface Props {
   ids: string[];
   entries: ReadonlyMap<string, Entry>;
+  locations: ReadonlyMap<string, Entry>;
   selected: string[];
   select: (ids: string[]) => void;
   open: (id: string) => void;
 }
-export type ResultActions = Pick<Props, "selected" | "select" | "open">;
+export type ResultActions = Pick<
+  Props,
+  "selected" | "select" | "open" | "locations"
+>;
 
 export type ViewActions = ResultActions & { report: (ids: string[]) => void };
 
-export function ResultList({ ids, entries, selected, select, open }: Props) {
+export function ResultList({
+  ids,
+  entries,
+  locations,
+  selected,
+  select,
+  open,
+}: Props) {
+  const prefix = useId();
   return (
     <ul className="planning-results">
       {ids.map((id) => {
         const entry = entries.get(id);
         if (!entry) return null;
         const chosen = selected.includes(id);
+        const location = locations.get(id);
+        const locationId = `${prefix}-location-${id}`;
         return (
           <li key={id}>
             <button
               type="button"
+              aria-label={entry.title}
+              aria-describedby={location && locationId}
               aria-pressed={chosen}
               data-item-id={id}
               onClick={(event) => {
@@ -35,7 +53,8 @@ export function ResultList({ ids, entries, selected, select, open }: Props) {
               }}
               onDoubleClick={() => open(id)}
             >
-              {entry.title}
+              <span className="planning-result-title">{entry.title}</span>
+              {location && <TaskLocation location={location} id={locationId} />}
             </button>
           </li>
         );

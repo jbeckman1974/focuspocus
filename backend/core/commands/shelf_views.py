@@ -8,10 +8,11 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.http import require_GET
 
 from core.models import Item
+from core.queries.outline import tree_order
 
 from .service import scoped_workspace
 from .shelves import archive_eligible, cutoff
-from .state import direct_item
+from .state import LIBRARY_KINDS, TASK_KINDS, direct_item
 from .validation import CommandError
 
 
@@ -29,6 +30,33 @@ def descendant_counts(items):
             pending.append((pk, True))
             pending.extend((child, False) for child in children[pk])
     return counts
+
+
+def shelf_directories(workspace, rows):
+    """Resolve each task's project even when its parent is now on a different shelf."""
+    if not any(row["kind"] in TASK_KINDS for row in rows):
+        return []
+    records = (Item.objects.filter(workspace=workspace, kind__in=("folder", "project", "group"))
+               .order_by("position", "id").values_list("id", "parent_id", "kind", "title", "position"))
+    containers = [
+        {"id": str(pk), "kind": kind, "title": title, "position": position,
+         "parentId": str(parent) if parent else ("root" if kind in LIBRARY_KINDS else "inbox")}
+        for pk, parent, kind, title, position in records
+    ]
+    directories = {row["id"]: row for row in containers if row["kind"] in LIBRARY_KINDS}
+    homes = {"inbox": "inbox"}
+    for node, root, project, _ in tree_order(containers, None):
+        if node["kind"] != "folder":
+            homes[node["id"]] = project or root
+    needed = set()
+    for row in rows:
+        if row["kind"] in TASK_KINDS:
+            project = homes.get(row["parentId"])
+            row["locationId"] = project
+            while project in directories and project not in needed:
+                needed.add(project)
+                project = directories[project]["parentId"]
+    return [row for row in directories.values() if row["id"] in needed]
 
 
 def collection(request, workspace_id, preview=False):
@@ -53,7 +81,8 @@ def collection(request, workspace_id, preview=False):
                 if preview:
                     row["descendantCount"] = counts[item.pk]
                 result.append(row)
-            return JsonResponse({"items": result, "revision": workspace.revision})
+            directories = [] if preview else shelf_directories(workspace, result)
+            return JsonResponse({"items": result, "directories": directories, "revision": workspace.revision})
     except CommandError as error:
         return JsonResponse({"error": str(error)}, status=error.status)
 

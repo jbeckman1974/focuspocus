@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from django.db import IntegrityError, transaction
+from django.db.models.signals import post_init
 from django.test import TestCase
 
 from core.models import Item, Receipt
@@ -28,6 +29,31 @@ class StatusCommandTests(OutlineApiMixin, TestCase):
             self.assertEqual(item.status, "active")
             self.assertIsNone(item.completed_at)
         self.assertTrue(Item.objects.get(pk=first).done)
+
+    def test_status_command_reads_only_selected_ancestry_and_undo_keeps_unrelated_tasks(self):
+        unrelated = Item.objects.bulk_create([
+            Item(workspace=self.space, kind="action", title=f"Inbox {position}", position=position)
+            for position in range(300)
+        ])
+        project = Item.objects.create(workspace=self.space, kind="project", title="Survey", position=1,
+                                      auto_complete=True)
+        group = Item.objects.create(workspace=self.space, parent=project, kind="group", title="Group",
+                                    position=1, auto_complete=True)
+        action = self.capture(["Measure"], parent=str(group.pk))[0]
+        loaded = set()
+
+        def record_loaded(sender, instance, **kwargs):
+            loaded.add(instance.pk)
+
+        post_init.connect(record_loaded, sender=Item)
+        try:
+            receipt = self.command("complete", {"ids": [action]})
+        finally:
+            post_init.disconnect(record_loaded, sender=Item)
+        self.assertFalse(loaded.intersection(item.pk for item in unrelated))
+        self.assertEqual(set(receipt["versions"]), {str(project.pk), str(group.pk), action})
+        self.command("undo", {"contextId": receipt["contextId"], "operationId": receipt["operationId"]})
+        self.assertFalse(Item.objects.filter(workspace=self.space, done=True).exists())
 
     def test_legacy_m2_inverse_remains_usable(self):
         item = self.capture(["A"])[0]

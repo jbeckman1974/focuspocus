@@ -116,3 +116,30 @@ test("Sorbet adapts its board and calendar to a narrow window and saved theme ch
     ),
   ).toBe(true);
 });
+
+test("Calendar reveals a newly captured undated task after an explicit collapse", async ({
+  page,
+}) => {
+  await page.goto("/sample/?demo=offsite#calendar");
+  const undated = page.getByRole("button", { name: "No due date" });
+  await expect(undated).toHaveAttribute("aria-expanded", "false");
+  await undated.click();
+  await undated.click();
+  const add = page.getByRole("button", { name: "Add task", exact: true });
+  await add.click();
+  const field = page.getByRole("textbox", { name: "Task titles" });
+  await field.fill("Check travel receipts");
+  await field.press("Enter");
+  const created = page.getByRole("button", {
+    name: "Check travel receipts",
+    exact: true,
+  });
+  await expect(undated).toHaveAttribute("aria-expanded", "true");
+  await expect(created).toBeVisible();
+
+  await undated.click();
+  await add.click();
+  await expect(field).toBeFocused();
+  await expect(undated).toHaveAttribute("aria-expanded", "false");
+  await expect(created).toBeHidden();
+});

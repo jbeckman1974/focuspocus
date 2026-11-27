@@ -4,7 +4,7 @@ on:
   push:
     tags: ["v*"]
     branches: [main]
-    paths: ["release/version", "release/package"]
+    paths: ["release/version"]
 permissions:
   contents: read
 concurrency:
@@ -17,96 +17,38 @@ jobs:
     timeout-minutes: 8
     permissions:
       contents: read
-      packages: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Verify access to the owner-provisioned private marker
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Verify release source and anonymous access to the public package
         run: |
           bash tools/release/check-dispatch.sh
           git merge-base --is-ancestor "$GITHUB_SHA" origin/main
           if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$(cat release/version)"; fi
-          bash tools/release/check-session.sh
+          python3 tools/release/visibility.py
   qualify:
     needs: package-access
-    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    uses: ./.github/workflows/qualify-platform.yml
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { runner: ubuntu-24.04, platform: amd64, arch: X64 }
-          - { runner: ubuntu-24.04-arm, platform: arm64, arch: ARM64 }
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 35
-    env:
-      PLATFORM: ${{ matrix.platform }}
-      ARCH: ${{ matrix.arch }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Verify version, source and native builder
-        run: |
-          version=$(cat release/version)
-          if [[ "$GITHUB_REF_TYPE" == tag ]]; then test "$GITHUB_REF_NAME" = "$version"; fi
-          bash tools/release/check-dispatch.sh
-          [[ "$version" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          printf 'VERSION=%s\n' "$version" >> "$GITHUB_ENV"
-          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
-          test "$RUNNER_OS" = Linux && test "$RUNNER_ARCH" = "$ARCH"
-          case "$PLATFORM:$(uname -m):$(docker info --format '{{.OSType}}/{{.Architecture}}')" in
-            amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
-            *) exit 1 ;;
-          esac
-      - name: Build and test the frontend
-        run: |
-          docker build --target development -t frontend-qualify frontend
-          docker run --rm frontend-qualify npm run check
-          docker run --rm frontend-qualify npm audit --audit-level=high
-          docker build --target browser-tests -t browser-qualify frontend
-          docker run --rm --shm-size=512m -e CI=true browser-qualify
-      - name: Qualify the production image, database and worker
-        run: |
-          export EXPECTED_ARCH="$PLATFORM"
-          export FOCUSPOCUS_IMAGE="focuspocus-candidate:$PLATFORM"
-          docker build --label "org.opencontainers.image.version=$VERSION" \
-            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
-            --label "io.focuspocus.run-number=$GITHUB_RUN_NUMBER" \
-            --label "io.focuspocus.run-attempt=$GITHUB_RUN_ATTEMPT" -t "$FOCUSPOCUS_IMAGE" .
-          bash ops/verify-stack.sh
-      - name: Stage the tested image and record its registry identity
-        env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)"
-          bash tools/release/check-session.sh
-          image="focuspocus-candidate:$PLATFORM"
-          test "$(docker inspect --format '{{.Os}}/{{.Architecture}}' "$image")" = "linux/$PLATFORM"
-          candidate="$repo:ci-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$PLATFORM"
-          docker tag "$image" "$candidate"
-          docker push --platform "linux/$PLATFORM" "$candidate"
-          mkdir -p "$RUNNER_TEMP/qualified"
-          python3 tools/release/record.py "$candidate" "$image" > "$RUNNER_TEMP/qualified/qualified.json"
-          python3 tools/release/visibility.py "$(jq -er .digest "$RUNNER_TEMP/qualified/qualified.json")"
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: candidate-${{ matrix.platform }}
-          path: ${{ runner.temp }}/qualified/qualified.json
-          retention-days: 1
-          if-no-files-found: error
+    with:
+      platform: amd64
+  qualify-arm64:
+    needs: qualify
+    uses: ./.github/workflows/qualify-platform.yml
+    permissions:
+      contents: read
+      packages: write
+    with:
+      platform: arm64
   publish:
     outputs:
       release: ${{ steps.stage.outputs.release }}
     runs-on: ubuntu-24.04
-    needs: qualify
+    needs: [qualify, qualify-arm64]
     permissions:
       contents: read
       packages: write
@@ -135,7 +77,6 @@ jobs:
     needs: publish
     permissions:
       contents: read
-      packages: read
     strategy:
       fail-fast: false
       matrix:
@@ -152,9 +93,8 @@ jobs:
         with:
           name: candidate-${{ matrix.platform }}
           path: ${{ runner.temp }}/qualified
-      - name: Pull both tags using the native default and verify the selected image
+      - name: Pull both tags anonymously using the native default and verify the selected image
         env:
-          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE: ${{ needs.publish.outputs.release }}
           PLATFORM: ${{ matrix.platform }}
           ARCH: ${{ matrix.arch }}
@@ -164,8 +104,9 @@ jobs:
             amd64:x86_64:linux/x86_64|amd64:x86_64:linux/amd64|arm64:aarch64:linux/aarch64|arm64:aarch64:linux/arm64) ;;
             *) exit 1 ;;
           esac
-          bash tools/release/check-session.sh
-          unset REGISTRY_TOKEN
+          export DOCKER_CONFIG
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/public-pull-XXXXXX")
+          printf '%s\n' '{"auths":{"ghcr.io":{}}}' > "$DOCKER_CONFIG/config.json"
           set -o pipefail
           python3 tools/release/readback.py "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE" "$PLATFORM" "$RUNNER_TEMP/qualified/qualified.json" | tee -a "$GITHUB_STEP_SUMMARY"
   promote:
@@ -185,7 +126,8 @@ jobs:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           RELEASE: ${{ needs.publish.outputs.release }}
         run: |
+          set -o pipefail
           bash tools/release/check-dispatch.sh
           bash tools/release/check-session.sh
           unset REGISTRY_TOKEN
-          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE"
+          python3 tools/release/publish.py promote "ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/$(cat release/package)" "$RELEASE" | tee -a "$GITHUB_STEP_SUMMARY"

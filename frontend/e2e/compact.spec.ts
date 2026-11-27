@@ -39,8 +39,12 @@ test("AT-24 and AT-28 · edit and use preferences at a 320px width", async ({
   await expect(tree).toHaveCSS("color-scheme", "dark");
   await page.getByRole("button", { name: "Add task", exact: true }).click();
   const composer = page.getByRole("textbox", { name: "Task titles" });
+  await expect(composer).toHaveAttribute("placeholder", /Punch list/);
   await composer.fill("Narrow screen task");
   await page.getByRole("button", { name: "Add tasks", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Punch list", exact: true }),
+  ).toBeVisible();
   const row = task(page, "Narrow screen task");
   await row.getByText("Narrow screen task", { exact: true }).click();
   const showInspector = page.getByRole("button", {

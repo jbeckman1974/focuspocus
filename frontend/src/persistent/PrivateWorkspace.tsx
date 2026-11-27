@@ -1,16 +1,23 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { Frame } from "../components/Frame.tsx";
 import { Outline } from "../components/Outline.tsx";
 import {
   homeView,
-  revealSelection,
+  expandSelectionAncestors,
   inbox,
   viewExists,
   viewKey,
-  containsSelection,
 } from "../workspace/viewState.ts";
 import type { View, Command } from "../outline/index.ts";
 import { useDraftBases } from "./useDraftBases.ts";
+import { selectionAfterWrite, viewAfterTaskWrite } from "./commandSelection.ts";
 import type { WorkspaceChannel } from "./channel.ts";
 import { useWorkspaceChannel } from "./offline/useWorkspaceChannel.ts";
 import { TrustDeviceControl } from "./offline/TrustedDevice.tsx";
@@ -30,6 +37,7 @@ import { BulkInspector } from "./preferences/BulkInspector.tsx";
 import { usePersonalPreferences } from "./preferences/usePersonalPreferences.ts";
 import { ContentTools } from "./content/ContentTools.tsx";
 import { PlanningArea } from "./planning/PlanningArea.tsx";
+import { CaptureFeedback } from "./CaptureFeedback.tsx";
 import { usePlanningNavigation } from "./planning/usePlanningNavigation.ts";
 import { useCatalog } from "./planning/useCatalog.ts";
 import { WorkspaceTools } from "./tools/WorkspaceTools.tsx";
@@ -38,6 +46,7 @@ import { WriteNotice } from "./WriteNotice.tsx";
 import { useTaskLayout } from "../workspace/taskLayout.ts";
 
 const expandedRows = new Set<string>();
+const noSelection: string[] = [];
 
 interface Props {
   id: string;
@@ -90,14 +99,16 @@ function ConnectedOutline({
   const layout = useTaskLayout();
   const catalog = useCatalog(snapshot, actorId, channel.refresh);
   const planning = usePlanningNavigation(catalog.data);
+  const closePlanning = planning.close;
   const [currentView, setView] = useState<View>(inbox);
+  const [openedDestination, setOpenedDestination] = useState<string>();
   const view =
     snapshot && viewExists(snapshot, currentView) ? currentView : inbox;
   const key = viewKey(view);
   const [selected, setSelected] = useState<Record<string, string[]>>({});
-  const [collapsedRows, setCollapsed] = useState<Record<string, Set<string>>>(
-    {},
-  );
+  const [collapsedRows, setCollapsed] = useState<
+    Record<string, ReadonlySet<string>>
+  >({});
   const collapsed =
     layout === "list" ? (collapsedRows[key] ?? expandedRows) : expandedRows;
   const [filters, setFilters] = useState<Record<string, Availability>>({});
@@ -127,10 +138,12 @@ function ConnectedOutline({
     catalog.data?.personalVersion ?? 0,
     trusted && (state.offline || state.queue.length > 0),
   );
-  const matches =
-    snapshot && projection.result
-      ? projectedRows(snapshot, projection.result, collapsed)
-      : [];
+  const result = projection.result;
+  const matches = useMemo(
+    () =>
+      snapshot && result ? projectedRows(snapshot, result, collapsed) : [],
+    [snapshot, result, collapsed],
+  );
   const rows = useResolvedRows({
     snapshot,
     result: projection.result,
@@ -140,10 +153,17 @@ function ConnectedOutline({
     cleanupEpoch,
   });
 
-  const outlineSelection = visibleSelection(rows, selected[key] ?? []);
-  const taskIds = new Set(snapshot?.tasks.map((item) => item.id));
+  const requested = selected[key] ?? noSelection;
+  const outlineSelection = useMemo(
+    () => visibleSelection(rows, requested),
+    [rows, requested],
+  );
+  const tasksById = useMemo(
+    () => new Map(snapshot?.tasks.map((task) => [task.id, task])),
+    [snapshot?.tasks],
+  );
   const selection = planning.page
-    ? planning.selection.filter((id) => taskIds.has(id))
+    ? planning.selection.filter((id) => tasksById.has(id))
     : outlineSelection;
   const settings = usePersonalPreferences(id, actorId, csrf);
   const showInspector =
@@ -158,29 +178,48 @@ function ConnectedOutline({
   const [capture, setCapture] = useState(0);
   const drafts = useDraftBases(snapshot, selection);
   const observed = useRef<string | null>(null);
+  const supersededByNavigation = useRef<string | null>(null);
+  function keepUserNavigation() {
+    supersededByNavigation.current = channel.latestSubmissionId;
+  }
+  function chooseView(next: View) {
+    keepUserNavigation();
+    setView(next);
+  }
   useEffect(() => {
-    const change = state.lastChange;
-    const staged = state.lastStaged;
-    const navigation =
-      staged ??
-      (change && snapshot && snapshot.revision >= change.receipt.revision
-        ? { ...change.receipt, intent: change.intent }
-        : null);
-    if (!snapshot || !navigation || observed.current === navigation.operationId)
+    if (!snapshot) return;
+    const navigation = selectionAfterWrite(
+      state.lastStaged,
+      state.lastChange,
+      snapshot.revision,
+    );
+    if (
+      !navigation ||
+      observed.current === navigation.operationId ||
+      navigation.operationId !== channel.latestSubmissionId ||
+      navigation.operationId === supersededByNavigation.current
+    )
       return;
-    observed.current = navigation.operationId;
     const ids = navigation.selection;
+    const first = ids.find((id) => tasksById.has(id));
+    const destination = first
+      ? viewAfterTaskWrite(
+          snapshot,
+          view,
+          navigation.intent,
+          ids,
+          first,
+          result,
+        )
+      : view;
+    if (!destination) return;
+    observed.current = navigation.operationId;
     if (!ids.length) return;
-    if (navigation.intent.type === "project") {
-      setView({ kind: "project", id: ids[0] });
-      return;
-    }
-    if (navigation.intent.type === "folder") {
-      setView({ kind: "folder", id: ids[0] });
-      return;
-    }
-    if (navigation.intent.type === "tag") {
-      setView({ kind: "tag", id: ids[0] });
+    const kind = navigation.intent.type;
+    if (kind === "project" || kind === "folder" || kind === "tag") {
+      closePlanning();
+      setView({ kind, id: ids[0] });
+      setOpenedDestination(navigation.operationId);
       return;
     }
     if (
@@ -189,24 +228,28 @@ function ConnectedOutline({
         navigation.intent.change.name === "file-inbox")
     )
       return;
-    const first = ids.find((id) =>
-      snapshot.tasks.some((task) => task.id === id),
-    );
     if (!first) return;
-    const relocating = [
-      "move",
-      "capture",
-      "group",
-      "indent",
-      "outdent",
-    ].includes(navigation.intent.type);
-    const destination =
-      relocating && !containsSelection(snapshot, view, ids)
-        ? homeView(snapshot, first)
-        : view;
+    const destinationKey = viewKey(destination);
+    setCollapsed((previous) => {
+      const saved = previous[destinationKey];
+      if (!saved?.size) return previous;
+      const revealed = expandSelectionAncestors(snapshot, saved, ids);
+      return revealed === saved
+        ? previous
+        : { ...previous, [destinationKey]: revealed };
+    });
     setView(destination);
-    setSelected((previous) => ({ ...previous, [viewKey(destination)]: ids }));
-  }, [state.lastChange, state.lastStaged, snapshot, view]);
+    setSelected((previous) => ({ ...previous, [destinationKey]: ids }));
+  }, [
+    channel,
+    closePlanning,
+    state.lastChange,
+    state.lastStaged,
+    snapshot,
+    view,
+    result,
+    tasksById,
+  ]);
 
   if (!snapshot)
     return (
@@ -239,19 +282,20 @@ function ConnectedOutline({
   }
 
   const choose = (ids: string[]) => {
+    keepUserNavigation();
     if (planning.page) return planning.select(ids);
     const saved = collapsedRows[key];
     if (layout !== "list" && saved?.size && ids.length) {
-      const revealed = revealSelection(snapshot, view, saved, ids).collapsed;
-      if (revealed.size !== saved.size)
-        setCollapsed((previous) => ({ ...previous, [key]: new Set(revealed) }));
+      const revealed = expandSelectionAncestors(snapshot, saved, ids);
+      if (revealed !== saved)
+        setCollapsed((previous) => ({ ...previous, [key]: revealed }));
     }
     setSelected((previous) => ({ ...previous, [key]: ids }));
   };
 
   function captureTask() {
-    if (planning.page || layout === "list" || view.kind !== "project")
-      setView(inbox);
+    keepUserNavigation();
+    if (planning.page || view.kind !== "project") setView(inbox);
     planning.close();
     if (window.innerWidth <= 850) setShowInspector(false);
     setCapture((n) => n + 1);
@@ -265,6 +309,7 @@ function ConnectedOutline({
       : undefined;
   function showSource(id: string) {
     if (!snapshot) return;
+    keepUserNavigation();
     planning.close();
     if (snapshot.tags.some((item) => item.id === id))
       return setView({ kind: "tag", id });
@@ -272,19 +317,18 @@ function ConnectedOutline({
       return setView({ kind: "project", id });
     if (snapshot.folders?.some((item) => item.id === id))
       return setView({ kind: "folder", id });
-    if (!snapshot.tasks.some((item) => item.id === id)) return;
+    if (!tasksById.has(id)) return;
     const destination = homeView(snapshot, id);
     const destinationKey = viewKey(destination);
-    const memory = revealSelection(
+    const revealed = expandSelectionAncestors(
       snapshot,
-      destination,
-      collapsedRows[destinationKey] ?? new Set(),
+      collapsedRows[destinationKey] ?? expandedRows,
       [id],
     );
     setFilters((current) => ({ ...current, [destinationKey]: "everything" }));
     setCollapsed((current) => ({
       ...current,
-      [destinationKey]: new Set(memory.collapsed),
+      [destinationKey]: revealed,
     }));
     setSelected((current) => ({ ...current, [destinationKey]: [id] }));
     setView(destination);
@@ -324,10 +368,7 @@ function ConnectedOutline({
     view.kind === "folder"
       ? snapshot.folders?.find((f) => f.id === view.id)
       : undefined;
-  const task =
-    selection.length === 1
-      ? snapshot.tasks.find((t) => t.id === selection[0])
-      : undefined;
+  const task = selection.length === 1 ? tasksById.get(selection[0]) : undefined;
   function leaveInbox() {
     if (
       !planning.page &&
@@ -343,21 +384,21 @@ function ConnectedOutline({
     }
   }
   function openPlanning(target: string) {
+    keepUserNavigation();
     leaveInbox();
     planning.open(target, projection.result?.matchIds ?? [], outlineSelection);
   }
   const inspectorTools = task ? (
-    <>
+    <Fragment key={task.id}>
       {controls(task, task.kind)}
       <ContentTools
-        key={task.id}
         snapshot={snapshot}
         itemId={task.id}
         readOnly={mutationsDisabled}
         actorId={actorId}
         stageContent={trusted ? channel.stageContent : undefined}
       />
-    </>
+    </Fragment>
   ) : selection.length > 1 ? (
     <BulkInspector
       snapshot={snapshot}
@@ -370,6 +411,7 @@ function ConnectedOutline({
     <div {...drafts.bindings}>
       <Frame
         standardViews
+        openedDestination={openedDestination}
         personalPreferences={settings}
         planning={{
           active: planning.active,
@@ -384,7 +426,7 @@ function ConnectedOutline({
         onView={(next) => {
           if (next.kind !== "inbox") leaveInbox();
           planning.close();
-          setView(next);
+          chooseView(next);
         }}
         selection={selection}
         onSelect={choose}
@@ -422,7 +464,10 @@ function ConnectedOutline({
               onSignOut={onSignOut}
               travel={travel}
               deviceZone={deviceZone}
-              setTravel={setTravel}
+              setTravel={(travel) => {
+                keepUserNavigation();
+                setTravel(travel);
+              }}
               cleanUp={cleanUp}
             />
           </>
@@ -446,6 +491,7 @@ function ConnectedOutline({
           }}
           channel={channel}
           navigation={planning}
+          onSelect={choose}
           catalog={catalog}
           disabled={mutationsDisabled}
           openSource={showSource}
@@ -457,6 +503,15 @@ function ConnectedOutline({
             onCaptureHandled={() => setCapture(0)}
             timeZone={snapshot.viewZone || snapshot.timeZone}
             mutationsDisabled={mutationsDisabled}
+            captureBlockedReason={
+              readOnly
+                ? "You have view-only access to this workspace."
+                : state.phase === "sending" || state.phase === "acknowledged"
+                  ? "Waiting for the previous change to finish."
+                  : mutationsDisabled
+                    ? state.message
+                    : undefined
+            }
             rows={rows}
             count={projection.result?.count}
             retainedCount={Math.max(0, rows.length - matches.length)}
@@ -464,27 +519,39 @@ function ConnectedOutline({
               <div className="private-outline-tools">
                 <AvailabilityFilter
                   value={availability}
-                  change={(value) =>
-                    setFilters((current) => ({ ...current, [key]: value }))
-                  }
+                  change={(value) => {
+                    keepUserNavigation();
+                    setFilters((current) => ({ ...current, [key]: value }));
+                  }}
                 />
                 <DirectoryLinks
                   snapshot={snapshot}
                   view={view}
                   result={projection.result}
-                  choose={setView}
+                  choose={chooseView}
                 />
                 {project && controls(project, "project")}
                 {folder && controls(folder, "folder")}
               </div>
             }
             notice={
-              projection.message && (
-                <p role="alert">
-                  {projection.message}{" "}
-                  <button onClick={projection.retry}>Retry outline</button>
-                </p>
-              )
+              <>
+                {(view.kind === "project" || view.kind === "inbox") && (
+                  <CaptureFeedback
+                    project={project}
+                    outsideFocus={!!result?.captureOutsideFocus}
+                    state={state}
+                    submissionId={channel.latestSubmissionId}
+                    catalog={catalog}
+                  />
+                )}
+                {projection.message && (
+                  <p role="alert">
+                    {projection.message}{" "}
+                    <button onClick={projection.retry}>Retry outline</button>
+                  </p>
+                )}
+              </>
             }
             workspace={snapshot}
             view={view}
@@ -493,6 +560,7 @@ function ConnectedOutline({
             run={run}
             collapsed={collapsed}
             onToggle={(id) => {
+              keepUserNavigation();
               const next = new Set(collapsed);
               if (next.has(id)) next.delete(id);
               else next.add(id);

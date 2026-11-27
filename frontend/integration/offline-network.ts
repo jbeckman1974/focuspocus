@@ -26,15 +26,33 @@ export async function createOfflineNetwork() {
   let backend = "127.0.0.1";
   let watch: RegExp | undefined;
   let interrupt: Interruption | undefined;
+  let hold:
+    | {
+        path?: RegExp;
+        arrived: () => void;
+        resume: Promise<void>;
+        release: () => void;
+      }
+    | undefined;
   let transmitted = 0;
   const identities: string[] = [];
   const statuses: number[] = [];
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     if (!connected) {
       req.socket.destroy();
       return;
     }
     const path = req.url ?? "/";
+    if (
+      hold?.path?.test(path) &&
+      (req.method === "POST" || req.method === "PATCH")
+    ) {
+      const gate = hold;
+      gate.path = undefined;
+      gate.arrived();
+      await gate.resume;
+      if (req.destroyed || res.destroyed) return;
+    }
     const observed = req.method === "POST" && !!watch?.test(path);
     const fault = observed ? interrupt : undefined;
     if (observed) interrupt = undefined;
@@ -108,11 +126,29 @@ export async function createOfflineNetwork() {
       watch = path;
       interrupt = disruption;
     },
+    holdNextWrite(path: RegExp) {
+      if (hold) throw new Error("A test write is already on hold.");
+      let arrived!: () => void;
+      let resume!: () => void;
+      const received = new Promise<void>((resolve) => {
+        arrived = resolve;
+      });
+      const waiting = new Promise<void>((resolve) => {
+        resume = resolve;
+      });
+      function release() {
+        if (hold?.release === release) hold = undefined;
+        resume();
+      }
+      hold = { path, arrived, resume: waiting, release };
+      return { received, release };
+    },
     wasInterrupted: () => !connected && !interrupt,
     bytesForwarded: () => transmitted,
     identities,
     statuses,
     async close() {
+      hold?.release();
       const closed = once(server, "close");
       server.close();
       server.closeAllConnections();

@@ -84,11 +84,11 @@ def execute(user, workspace_id, name, body, *, item_id=None, if_match=None, comm
     identity = dict(workspace=workspace, actor=user, operation_id=op, context_id=context)
     serialized = json.dumps([name, str(item_id), if_match, body], sort_keys=True, separators=(",", ":"))
     fingerprint = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
-    prior = Receipt.objects.filter(**identity).first()
+    prior = Receipt.objects.filter(**identity).values("fingerprint", "result").first()
     if prior is not None:
-        if prior.fingerprint != fingerprint:
+        if prior["fingerprint"] != fingerprint:
             raise CommandError("Operation key already used for a different request.", 409)
-        return prior.result
+        return prior["result"]
     tree = Outline(workspace)
     payload = body["payload"]
     with recording(workspace) as history:

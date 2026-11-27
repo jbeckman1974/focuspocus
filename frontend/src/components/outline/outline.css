@@ -107,6 +107,7 @@
 
 .outline-capture {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   gap: 0.5rem;
   margin: 0 var(--outline-pad) 1rem;
@@ -118,6 +119,11 @@
 
 .outline-capture:focus-within {
   border-color: var(--accent, Highlight);
+}
+.capture-blocked-reason {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 0.875em;
 }
 
 .outline-capture-mark {

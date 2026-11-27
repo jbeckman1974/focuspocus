@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Entry } from "../../outline/index.ts";
+import { TaskLocation } from "../../components/TaskLocation.tsx";
 import { newDefinition } from "./perspective.ts";
 import type { SaveBody } from "./perspective.ts";
 import { PerspectiveEditor } from "./PerspectiveEditor.tsx";
@@ -11,6 +12,7 @@ import type { ResultActions, ViewActions } from "./results.tsx";
 import type { CatalogActions } from "./useCatalog.ts";
 
 type SearchScope = "here" | "remaining" | "everything";
+const searchTypingDelayMs = 60;
 interface Result {
   rows: (Entry & { context?: boolean })[];
   matchIds: string[];
@@ -40,7 +42,12 @@ function ContextRows({
           }}
         >
           {row.context ? (
-            <span>{row.title}</span>
+            <span className="planning-context-label">
+              {row.title}
+              {actions.locations.has(row.id) && (
+                <TaskLocation location={actions.locations.get(row.id)!} />
+              )}
+            </span>
           ) : (
             <ResultList {...actions} entries={entries} ids={[row.id]} />
           )}
@@ -74,13 +81,29 @@ export function Perspectives({
   const [selectionFilter, setSelectionFilter] = useState<string[]>();
   const [editing, setEditing] = useState<{ initial: SaveBody; base: number }>();
   const [deleting, setDeleting] = useState(false);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setNeedle(text);
+  const searchTimer = useRef<number>(undefined);
+  useEffect(() => () => window.clearTimeout(searchTimer.current), []);
+
+  function search(value: string, event: Event) {
+    setText(value);
+    window.clearTimeout(searchTimer.current);
+    function submit() {
+      setNeedle(value);
       setOffset(0);
-    }, 180);
-    return () => window.clearTimeout(timer);
-  }, [text]);
+    }
+    // Group adjacent keystrokes before starting a full workspace query.
+    // Clear, paste and whole-field replacements can be submitted immediately.
+    const keystroke =
+      event instanceof InputEvent &&
+      (event.inputType.startsWith("delete") ||
+        (event.inputType === "insertText" && (event.data?.length ?? 0) <= 1) ||
+        event.inputType === "insertCompositionText");
+    if (value && keystroke) {
+      searchTimer.current = window.setTimeout(submit, searchTypingDelayMs);
+    } else {
+      submit();
+    }
+  }
   useEffect(() => {
     setOffset(0);
     setDeleting(false);
@@ -96,13 +119,14 @@ export function Perspectives({
         : {}),
       text: needle,
       scope,
+      rowFields: "summary",
       offset,
       limit: 100,
       ...(session.zone ? { viewZone: session.zone } : {}),
     },
     catalog.data?.personalVersion,
   );
-  const data = result.data;
+  const data = text === needle ? result.data : undefined;
   useVisibleMatches(report, data?.matchIds);
   const entries = new Map(data?.rows.map((row) => [row.id, row]));
   const edit = (initial: SaveBody) =>
@@ -204,7 +228,7 @@ export function Perspectives({
           <input
             type="search"
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => search(e.target.value, e.nativeEvent)}
           />
         </label>
         <label>

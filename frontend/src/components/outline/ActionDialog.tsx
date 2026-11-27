@@ -42,6 +42,7 @@ export function ActionDialog(props: Props) {
   useLayoutEffect(() => {
     const dialog = ref.current;
     dialog?.showModal();
+    dialog?.querySelector<HTMLElement>("input, select")?.focus();
     return () => dialog?.close();
   }, []);
 

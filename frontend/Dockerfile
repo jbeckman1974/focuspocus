@@ -19,3 +19,11 @@ ENV PLAYWRIGHT_OUTPUT_DIR=/tmp/focuspocus-browser-results
 RUN ./node_modules/.bin/playwright install --with-deps chromium && rm -rf /var/lib/apt/lists/*
 USER node
 CMD ["npm", "run", "test:browser"]
+
+FROM development AS accessibility-tests
+USER root
+ENV PLAYWRIGHT_BROWSERS_PATH=/opt/browsers
+ENV PLAYWRIGHT_OUTPUT_DIR=/tmp/focuspocus-accessibility-results
+RUN ./node_modules/.bin/playwright install --with-deps chromium firefox webkit && rm -rf /var/lib/apt/lists/*
+USER node
+ENTRYPOINT ["./node_modules/.bin/playwright", "test", "--config", "integration/accessibility/config.ts"]

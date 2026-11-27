@@ -1,6 +1,6 @@
-import { useMemo, useState } from "react";
-import type { DragEvent, RefObject } from "react";
-import { effectiveDone, INBOX } from "../../outline/index.ts";
+import { useMemo, useRef, useState } from "react";
+import type { DragEvent, MouseEvent, RefObject } from "react";
+import { effectiveDone, indexWorkspace, INBOX } from "../../outline/index.ts";
 import type {
   Command,
   OutlineRow,
@@ -12,6 +12,7 @@ import { canReorder } from "../../outline/views.ts";
 import { viewKey } from "../../workspace/viewState.ts";
 import { TaskRow } from "./TaskRow.tsx";
 import type { EditDraft } from "./TaskRow.tsx";
+import { useOutlineWindow } from "./useOutlineWindow.ts";
 import { useTreeNavigation } from "./useTreeNavigation.ts";
 
 import { useCompletionShortcut } from "../frame/shortcuts.ts";
@@ -44,8 +45,10 @@ export function TaskTree(props: TreeProps) {
   const shortcut = useCompletionShortcut();
   const { rows, selection, workspace, view } = props;
   const ids = useMemo(() => rows.map(({ task }) => task.id), [rows]);
+  const identity = viewKey(view);
+  const rowWindow = useOutlineWindow(identity, ids, props.tree);
   const nav = useTreeNavigation(
-    viewKey(view),
+    identity,
     ids,
     selection,
     props.select,
@@ -53,19 +56,44 @@ export function TaskTree(props: TreeProps) {
   );
   const [dragIds, setDragIds] = useState<string[]>([]);
   const [dropBefore, setDropBefore] = useState<string>();
-  const tagTitles = new Map(workspace.tags.map((tag) => [tag.id, tag.title]));
-  const siblingSizes = new Map<string, number>();
-  const positions = new Map<string, number>();
-  const parentKey = (task: Task, depth: number) =>
-    depth === 0 ? "" : task.parentId;
-  for (const { task, depth } of rows) {
-    const key = parentKey(task, depth);
-    const position = (siblingSizes.get(key) ?? 0) + 1;
-    positions.set(task.id, position);
-    siblingSizes.set(key, position);
+  const [dragSource, setDragSource] = useState<string>();
+  const selected = useMemo(() => new Set(selection), [selection]);
+  const tagTitles = useMemo(
+    () => new Map(workspace.tags.map((tag) => [tag.id, tag.title])),
+    [workspace.tags],
+  );
+  const { positions, siblingSizes } = useMemo(() => {
+    const siblingSizes = new Map<string, number>();
+    const positions = rows.map(({ task, depth }) => {
+      const key = depth === 0 ? "" : task.parentId;
+      const position = (siblingSizes.get(key) ?? 0) + 1;
+      siblingSizes.set(key, position);
+      return position;
+    });
+    return { positions, siblingSizes };
+  }, [rows]);
+  const indices = rowWindow.layout?.mounted(
+    rowWindow.viewport.top,
+    rowWindow.viewport.height,
+    [nav.active, props.draft?.id, dragSource],
+  );
+  const pointerFocus = useRef(false);
+  function pressRow(event: MouseEvent<HTMLDivElement>) {
+    if (
+      !(event.target instanceof Element) ||
+      !event.target.closest("[data-task-id]")
+    )
+      return;
+    // Native focus occurs before click. Jumping to the previous cursor here
+    // can unmount the pressed row before it receives the selection gesture.
+    pointerFocus.current = true;
+    window.setTimeout(() => {
+      pointerFocus.current = false;
+    }, 0);
   }
 
   function endDrag() {
+    setDragSource(undefined);
     setDragIds([]);
     setDropBefore(undefined);
   }
@@ -75,6 +103,83 @@ export function TaskTree(props: TreeProps) {
     event.preventDefault();
     props.run({ type: "move", ids: dragIds, parentId, beforeId });
     endDrag();
+  }
+
+  function renderRow(index: number) {
+    const { task, depth, hasChildren, context } = rows[index];
+    return (
+      <TaskRow
+        key={task.id}
+        observe={rowWindow.observe}
+        top={rowWindow.layout?.offsets[index]}
+        task={task}
+        location={indexWorkspace(workspace).taskLocations.get(task.id)!}
+        id={nav.rowId(task.id)}
+        depth={depth}
+        position={positions[index]}
+        size={siblingSizes.get(depth === 0 ? "" : task.parentId)!}
+        hasChildren={hasChildren}
+        expanded={!props.collapsed.has(task.id)}
+        active={nav.active === task.id}
+        selected={selected.has(task.id)}
+        tags={task.tags.map((id) => tagTitles.get(id) ?? id)}
+        done={effectiveDone(workspace, task.id)}
+        draft={props.draft}
+        mutationsDisabled={props.mutationsDisabled}
+        context={context}
+        dropBefore={dropBefore === task.id}
+        select={(event) =>
+          nav.select(
+            task.id,
+            event.shiftKey,
+            props.multiple || event.metaKey || event.ctrlKey,
+          )
+        }
+        edit={() => props.edit(task)}
+        changeDraft={props.changeDraft}
+        save={props.saveDraft}
+        cancel={props.cancelDraft}
+        toggle={() => {
+          props.toggle(task.id);
+          props.tree.current?.focus({ preventScroll: true });
+        }}
+        check={() => {
+          props.run({
+            type: task.done ? "reopen" : "complete",
+            ids: [task.id],
+          });
+          props.tree.current?.focus({ preventScroll: true });
+        }}
+        actions={() => props.panel("commands")}
+        dragStart={(event) => {
+          if (props.draft?.id === task.id) {
+            event.preventDefault();
+            return;
+          }
+          const moving = selected.has(task.id) ? selection : [task.id];
+          if (!selected.has(task.id)) props.select(moving);
+          event.dataTransfer.effectAllowed = "move";
+          event.dataTransfer.setData(
+            "application/x-focuspocus-outline",
+            "selection",
+          );
+          setDragSource(task.id);
+          setDragIds(moving);
+        }}
+        dragOver={(event) => {
+          if (!dragIds.length || dragIds.includes(task.id) || !canReorder(view))
+            return;
+          event.preventDefault();
+          event.dataTransfer.dropEffect = "move";
+          setDropBefore(task.id);
+        }}
+        drop={(event) => {
+          if (canReorder(view) && !dragIds.includes(task.id))
+            drop(event, task.parentId, task.id);
+        }}
+        dragEnd={endDrag}
+      />
+    );
   }
 
   return (
@@ -109,88 +214,25 @@ export function TaskTree(props: TreeProps) {
         aria-activedescendant={nav.active ? nav.rowId(nav.active) : undefined}
         tabIndex={0}
         onKeyDown={(event) => handleTreeKey(event, props, nav, ids, shortcut)}
+        onPointerDownCapture={pressRow}
+        onMouseDownCapture={pressRow}
         onFocus={(event) => {
-          if (event.target === event.currentTarget) nav.revealActive();
+          if (event.target === event.currentTarget && !pointerFocus.current)
+            nav.revealActive();
         }}
-        onScroll={nav.rememberScroll}
+        onScroll={rowWindow.onScroll}
       >
-        {rows.map(({ task, depth, hasChildren, context }) => {
-          return (
-            <TaskRow
-              key={task.id}
-              task={task}
-              id={nav.rowId(task.id)}
-              depth={depth}
-              position={positions.get(task.id)!}
-              size={siblingSizes.get(parentKey(task, depth))!}
-              hasChildren={hasChildren}
-              expanded={!props.collapsed.has(task.id)}
-              active={nav.active === task.id}
-              selected={selection.includes(task.id)}
-              tags={task.tags.map((id) => tagTitles.get(id) ?? id)}
-              done={effectiveDone(workspace, task.id)}
-              draft={props.draft}
-              mutationsDisabled={props.mutationsDisabled}
-              context={context}
-              dropBefore={dropBefore === task.id}
-              select={(event) =>
-                nav.select(
-                  task.id,
-                  event.shiftKey,
-                  props.multiple || event.metaKey || event.ctrlKey,
-                )
-              }
-              edit={() => props.edit(task)}
-              changeDraft={props.changeDraft}
-              save={props.saveDraft}
-              cancel={props.cancelDraft}
-              toggle={() => {
-                props.toggle(task.id);
-                props.tree.current?.focus({ preventScroll: true });
-              }}
-              check={() => {
-                props.run({
-                  type: task.done ? "reopen" : "complete",
-                  ids: [task.id],
-                });
-                props.tree.current?.focus({ preventScroll: true });
-              }}
-              actions={() => props.panel("commands")}
-              dragStart={(event) => {
-                if (props.draft?.id === task.id) {
-                  event.preventDefault();
-                  return;
-                }
-                const moving = selection.includes(task.id)
-                  ? selection
-                  : [task.id];
-                if (!selection.includes(task.id)) props.select(moving);
-                event.dataTransfer.effectAllowed = "move";
-                event.dataTransfer.setData(
-                  "application/x-focuspocus-outline",
-                  "selection",
-                );
-                setDragIds(moving);
-              }}
-              dragOver={(event) => {
-                if (
-                  !dragIds.length ||
-                  dragIds.includes(task.id) ||
-                  !canReorder(view)
-                )
-                  return;
-                event.preventDefault();
-                event.dataTransfer.dropEffect = "move";
-                setDropBefore(task.id);
-              }}
-              drop={(event) => {
-                if (canReorder(view) && !dragIds.includes(task.id))
-                  drop(event, task.parentId, task.id);
-              }}
-              dragEnd={endDrag}
-            />
-          );
-        })}
+        {rowWindow.layout && indices ? (
+          <div
+            className="outline-window"
+            role="presentation"
+            style={{ height: rowWindow.layout.offsets.at(-1) }}
+          >
+            {indices.map(renderRow)}
+          </div>
+        ) : (
+          rows.map((_, index) => renderRow(index))
+        )}
       </div>
     </>
   );

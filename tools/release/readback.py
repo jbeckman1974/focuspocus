@@ -7,6 +7,7 @@ from pathlib import Path
 
 from provenance import RUN_ATTEMPT, RUN_NUMBER, build_order
 from publish import DIGEST, PLATFORMS, docker, inspect_digest, verify_index
+from visibility import public_package, verify_public
 
 
 def verify_tag(repo, tag, index_digest, arch, version, commit, candidate=None, expected_order=None):
@@ -52,11 +53,15 @@ def readback(repo, release, arch, candidate):
     if os.environ.get("DOCKER_DEFAULT_PLATFORM"):
         raise ValueError("Native pull requires the daemon's default architecture")
     tested_version = candidate if release["version_index"] == release["index"] else None
-    return [
+    results = [
         verify_tag(repo, version, release["version_index"], arch, version, release["version_source"], tested_version),
         verify_tag(repo, release["build"], release["index"], arch, version, commit, candidate,
                    build_order(release["run_number"], release["run_attempt"])),
     ]
+    package = public_package()
+    for result in results:
+        verify_public(package, result["tag"], result["index"])
+    return results
 
 
 if __name__ == "__main__":

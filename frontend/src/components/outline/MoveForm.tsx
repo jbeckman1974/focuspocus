@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import type { Command, Workspace } from "../../outline/index.ts";
 import { INBOX } from "../../outline/index.ts";
+import { numberedChoices } from "../../outline/directory.ts";
 import { moveDestinations } from "./controls.ts";
 
 interface Props {
@@ -20,9 +21,9 @@ export function MoveForm({ workspace, selection, submit }: Props) {
     targets.some((target) => target.id === firstParent) ? firstParent! : INBOX,
   );
   const [beforeId, setBeforeId] = useState("");
-  const siblings = workspace.tasks.filter(
-    (task) => task.parentId === parentId && !selection.includes(task.id),
-  );
+  const siblings = numberedChoices(
+    workspace.tasks.filter((task) => task.parentId === parentId),
+  ).filter((task) => !selection.includes(task.id));
 
   return (
     <form

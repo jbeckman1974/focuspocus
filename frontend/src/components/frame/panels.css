@@ -95,6 +95,29 @@
 .fp-selection-count {
   margin: 17px 0 14px;
 }
+.fp-selection-info {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.fp-selection-list summary {
+  cursor: pointer;
+}
+.fp-selection-list ul {
+  display: grid;
+  gap: 6px;
+  max-height: 12rem;
+  margin: 8px 0 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.fp-selection-list li {
+  display: grid;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+}
 .fp-edit-field,
 .fp-tags-field {
   display: grid;

@@ -52,9 +52,9 @@ def removed_from_outline(inverse):
 def cursor(workspace):
     latest = (Receipt.objects.filter(workspace=workspace, result__revision=workspace.revision,
                                      inverse__journal__isnull=False)
-              .order_by("-created_at", "-pk").values_list("inverse", flat=True).first())
-    if latest and latest["journal"]["generation"] == str(workspace.generation):
-        return latest["journal"]["end"]
+              .order_by("-created_at", "-pk").values_list("inverse__journal__generation", "inverse__journal__end").first())
+    if latest and latest[0] == str(workspace.generation):
+        return latest[1]
     return f"{workspace.generation}.{workspace.revision}"
 
 

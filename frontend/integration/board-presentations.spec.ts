@@ -1,6 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
-import { inspector, task } from "../e2e/controls.ts";
-import { signIn, submitCapture, withProfile } from "./account.ts";
+import {
+  inspector,
+  sidebarDestination,
+  task,
+  taskId,
+} from "../e2e/controls.ts";
+import {
+  createDestination,
+  signIn,
+  submitCapture,
+  withProfile,
+} from "./account.ts";
+import { openPlanning } from "./planning-controls.ts";
 
 function boardCard(page: Page, lane: string, title: string) {
   return page
@@ -94,4 +105,59 @@ test("AT-01/16/17 · the same private task moves through the board, list and due
   await expect(
     agenda.getByRole("button", { name: title, exact: true }),
   ).toHaveAttribute("data-task-id", id);
+});
+
+test("Projects keeps three identically titled tasks distinguishable in List, Next, Calendar and search", async ({
+  page,
+}) => {
+  await signIn(page, "owner");
+  const title = "Check the field drawing";
+  const projects = ["Alder survey", "Juniper survey", "Willow survey"];
+  const ids = new Map<string, string>();
+  for (const project of projects) {
+    await createDestination(page, "project", project);
+    await sidebarDestination(page, project).click();
+    await submitCapture(page, title);
+    const id = await taskId(page, title);
+    ids.set(project, id);
+  }
+  expect(new Set(ids.values()).size).toBe(projects.length);
+  await openPlanning(page, "Projects");
+  await page
+    .getByLabel("Availability", { exact: true })
+    .selectOption("first-available");
+  for (const [project, id] of ids) {
+    const row = page
+      .getByRole("treeitem", { name: title, exact: true })
+      .filter({
+        has: page.getByText(project, { exact: true }),
+      });
+    await expect(row).toHaveAttribute("data-task-id", id);
+    await expect(row).toHaveAccessibleDescription(new RegExp(project));
+  }
+
+  const layouts = page.getByRole("group", { name: "Task view" });
+  await layouts.getByRole("button", { name: "Board" }).click();
+  const next = page.getByRole("region", { name: "Next", exact: true });
+  for (const [project, id] of ids) {
+    const card = next.locator(`[data-task-id="${id}"]`);
+    await expect(card.getByText(project, { exact: true })).toBeVisible();
+    await expect(
+      card.getByRole("button", { name: title, exact: true }),
+    ).toHaveAccessibleDescription(`Project: ${project}`);
+  }
+  await layouts.getByRole("button", { name: "Calendar" }).click();
+  for (const [project, id] of ids) {
+    const agendaTask = page.locator(`.calendar-agenda [data-task-id="${id}"]`);
+    await expect(agendaTask.getByText(project, { exact: true })).toBeVisible();
+    await expect(agendaTask).toHaveAccessibleDescription(`Project: ${project}`);
+  }
+  await page.getByRole("button", { name: "Search…", exact: true }).click();
+  await page.getByRole("searchbox", { name: "Search tasks" }).fill(title);
+  const results = page.getByRole("region", { name: "Search results" });
+  for (const [project, id] of ids) {
+    const result = results.locator(`[data-item-id="${id}"]`);
+    await expect(result.getByText(project, { exact: true })).toBeVisible();
+    await expect(result).toHaveAccessibleDescription(`Project: ${project}`);
+  }
 });

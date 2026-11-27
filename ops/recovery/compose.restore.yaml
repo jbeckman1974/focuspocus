@@ -1,0 +1,12 @@
+# Field drill. Attach an operator-created empty bind mount and keep HTTP internal.
+services:
+  db:
+    volumes:
+      - type: bind
+        source: ${FOCUSPOCUS_RECOVERY_DATA_DIR:?choose an empty private recovery directory}/pgdata
+        target: /var/lib/postgresql
+        bind:
+          create_host_path: false
+  web:
+    networks: !override [database]
+    ports: !reset []

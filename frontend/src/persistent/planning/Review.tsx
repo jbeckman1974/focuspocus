@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { usePlanningRead } from "./read.ts";
 import type { PlanningSession } from "./read.ts";
 import { QueryNotice, ResultList } from "./results.tsx";
@@ -126,6 +126,7 @@ export function Review({
   personalVersion: number;
 }) {
   const [scope, setScope] = useState<"due" | "all">("due");
+  const scopeControl = useRef<HTMLSelectElement>(null);
   const [chosen, choose] = useState("");
   const [edit, setEdit] = useState<{ entry: ReviewEntry; base: Snapshot }>();
   const queue = usePlanningRead<{ projects: ReviewEntry[]; viewZone: string }>(
@@ -165,6 +166,7 @@ export function Review({
       <label>
         Review scope{" "}
         <select
+          ref={scopeControl}
           aria-label="Review scope"
           value={scope}
           onChange={(e) => {
@@ -225,8 +227,11 @@ export function Review({
           <div className="planning-actions">
             <button
               disabled={disabled}
-              onClick={() =>
-                channel.runDurable(
+              onClick={() => {
+                // The reviewed project can leave the queue. Its scope control
+                // stays mounted while both the queue and project detail reload.
+                scopeControl.current?.focus({ preventScroll: true });
+                void channel.runDurable(
                   {
                     type: "planning-review",
                     name: "mark-reviewed",
@@ -236,8 +241,8 @@ export function Review({
                     },
                   },
                   session.snapshot,
-                )
-              }
+                );
+              }}
             >
               Mark reviewed
             </button>

@@ -6,13 +6,13 @@ import { sidebarDestination, task } from "../e2e/controls.ts";
 type Person = "owner" | "neighbor" | "planner";
 type Credentials = { username: string; password: string };
 
-export async function signIn(page: Page, person: Person) {
+export async function signIn(page: Page, person: Person, url = "/app/") {
   const accounts: Record<string, Credentials> = JSON.parse(
     readFileSync("/run/qa-accounts.json", "utf8"),
   );
   const credentials =
     accounts[basename(test.info().file) + "/" + person] ?? accounts[person];
-  await page.goto("/app/");
+  await page.goto(url);
   await page.getByLabel("Username", { exact: true }).fill(credentials.username);
   const password = page.getByLabel("Password", { exact: true });
   await expect(password).toBeVisible();

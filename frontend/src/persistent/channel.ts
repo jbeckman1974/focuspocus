@@ -47,6 +47,7 @@ export class WorkspaceChannel {
   private listeners = new Set<() => void>();
   private active = true;
   private polling = false;
+  private submittedId: string | null = null;
   private requestedSnapshot = 0;
   private finishedSnapshot = 0;
   private epoch = 0;
@@ -92,11 +93,13 @@ export class WorkspaceChannel {
                 }
               : {}),
           }),
-        saved: (entry, receipt) =>
+        saved: (entry, receipt) => {
+          if (entry.generation !== this.state.snapshot?.generation) return;
           this.update({
             ...this.history.acknowledge(entry.write.name, receipt),
             lastChange: { receipt, intent: entry.write.intent },
-          }),
+          });
+        },
         lost: (status) => {
           if (this.active) {
             this.stop();
@@ -107,6 +110,17 @@ export class WorkspaceChannel {
   }
 
   getSnapshot = () => this.state;
+
+  get latestSubmissionId() {
+    return this.submittedId;
+  }
+
+  private prepareSubmission(intent: Intent, base: Snapshot) {
+    const write = prepare(intent, base);
+    this.submittedId = write.envelope.operationId;
+    return write;
+  }
+
   subscribe = (callback: () => void) => {
     this.listeners.add(callback);
     return () => {
@@ -122,6 +136,19 @@ export class WorkspaceChannel {
 
   private update(next: Partial<ChannelState>) {
     if (!this.active) return;
+    if (
+      next.snapshot &&
+      this.state.snapshot &&
+      next.snapshot.generation !== this.state.snapshot.generation
+    ) {
+      this.submittedId = null;
+      next = {
+        ...next,
+        ...this.history.clear(),
+        lastStaged: null,
+        lastChange: null,
+      };
+    }
     this.state = { ...this.state, ...next };
     this.listeners.forEach((fn) => fn());
   }
@@ -240,7 +267,6 @@ export class WorkspaceChannel {
         this.update({
           phase: "ready",
           pending: null,
-          ...(restored ? { ...this.history.clear(), lastChange: null } : {}),
           message: restored
             ? "Workspace restored. Check your recent changes."
             : "Saved changes",
@@ -249,7 +275,6 @@ export class WorkspaceChannel {
         this.update({ phase: "ready", message: "" });
       } else if (snapshot?.generation !== next.generation) {
         this.update({
-          ...this.history.clear(),
           message:
             "Workspace restored. Check the current values before making changes.",
         });
@@ -272,7 +297,7 @@ export class WorkspaceChannel {
       void this.runDurable(intent, base);
       return true;
     }
-    const write = prepare(intent, base);
+    const write = this.prepareSubmission(intent, base);
     void this.send(write);
     return true;
   }
@@ -284,10 +309,11 @@ export class WorkspaceChannel {
     if (!this.durable) return this.run(intent, base);
     if (!this.active || !base || this.staging || this.state.phase !== "ready")
       return false;
-    const write = prepare(intent, base);
+    const write = this.prepareSubmission(intent, base);
     this.staging = true;
     try {
       await this.durable.stage(write, base);
+      if (this.state.snapshot?.generation !== base.generation) return true;
       const { payload, operationId } = write.envelope;
       const selection = Array.isArray(payload.items)
         ? payload.items.map((v: { id: string }) => v.id)
@@ -317,7 +343,7 @@ export class WorkspaceChannel {
       throw new Error(
         "Open this workspace on a trusted device before saving offline.",
       );
-    const write = prepare(
+    const write = this.prepareSubmission(
       { type: "content", action: content.action, id: content.itemId },
       base,
     );
@@ -357,7 +383,9 @@ export class WorkspaceChannel {
       !this.state.snapshot
     )
       return;
-    void this.send(prepare(this.state.pending.intent, this.state.snapshot));
+    void this.send(
+      this.prepareSubmission(this.state.pending.intent, this.state.snapshot),
+    );
   }
 
   discard() {

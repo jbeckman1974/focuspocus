@@ -87,6 +87,8 @@ export function cachedOutline(
 
   const tags = view.kind === "tag" ? descendantsOfTag(snapshot, view.id) : null;
   const focus = new Set(snapshot.focusScopeIds ?? []);
+  const destination = view.kind === "project" ? view.id : "inbox";
+  let captureOutsideFocus = focus.size > 0;
   const scoped =
     view.kind === "folder" || view.kind === "project" ? view.id : null;
   const key =
@@ -105,6 +107,7 @@ export function cachedOutline(
     const row = byId.get(branch.id);
     const scope = branch.scope || scoped === branch.id;
     const focused = branch.focused || focus.has(branch.id);
+    if (branch.id === destination) captureOutsideFocus = !focused;
     if (row) {
       order.push(row);
       const eligible =
@@ -140,6 +143,7 @@ export function cachedOutline(
   return {
     workspaceId: snapshot.workspaceId,
     revision: snapshot.revision,
+    captureOutsideFocus,
     view: view.kind,
     count: matches.length,
     matchIds: matches.map((row) => row.id),

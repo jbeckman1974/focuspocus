@@ -92,6 +92,53 @@ test("the move picker excludes the selected subtree and labels nested groups", (
   );
 });
 
+test("move destinations distinguish same-named siblings and their nested groups", () => {
+  const group = workspace.tasks[0]!;
+  const nested = workspace.tasks[1]!;
+  const repeated: Workspace = {
+    ...workspace,
+    tasks: [
+      group,
+      nested,
+      { ...group, id: "a2" },
+      { ...nested, id: "b2", parentId: "a2" },
+      { ...group, id: "other", parentId: "p2" },
+    ],
+  };
+  const destinations = moveDestinations(repeated, ["a"]);
+  assert.equal(
+    destinations.find((row) => row.id === "a2")?.title,
+    "Office / Maps (2 of 2)",
+  );
+  assert.equal(
+    destinations.find((row) => row.id === "b2")?.title,
+    "Office / Maps (2 of 2) / Drafts",
+  );
+  assert.equal(
+    destinations.find((row) => row.id === "other")?.title,
+    "Field / Maps",
+  );
+});
+
+test("a literal folder separator in a group name cannot obscure another move destination", () => {
+  const group = {
+    ...workspace.tasks[0]!,
+    id: "literal",
+    title: "Maps / Drafts",
+  };
+  const list = moveDestinations(
+    { ...workspace, tasks: [...workspace.tasks, group] },
+    [],
+  );
+  const candidates = list.filter(
+    (entry) => entry.id === "b" || entry.id === "literal",
+  );
+  assert.deepEqual(
+    candidates.map((item) => item.title),
+    ["Office / Maps / Drafts (1 of 2)", "Office / Maps / Drafts (2 of 2)"],
+  );
+});
+
 test("view headings use the current project or tag name", () => {
   assert.equal(viewTitle({ kind: "inbox" }, workspace), "Inbox");
   assert.equal(viewTitle({ kind: "project", id: "p1" }, workspace), "Office");

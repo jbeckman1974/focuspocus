@@ -1,9 +1,59 @@
-import type { Entry } from "./types.ts";
+import { INBOX, type Entry, type Workspace } from "./types.ts";
 
 export type FolderEntry = Entry & {
   parentId?: string | null;
   position?: number;
 };
+
+/** Keep ordinary project labels short and distinguish repeated names by their folder path. */
+export function projectLocations(
+  workspace: Pick<Workspace, "projects" | "folders">,
+): Map<string, Entry> {
+  const inbox = { id: INBOX, title: "Inbox" };
+  const locations = new Map([[INBOX, inbox]]);
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const project of workspace.projects) {
+    locations.set(
+      project.id,
+      project.title === inbox.title
+        ? { ...project, title: "Inbox (project)" }
+        : project,
+    );
+    if (seen.has(project.title)) repeated.add(project.title);
+    seen.add(project.title);
+  }
+  if (repeated.size) {
+    const folders = new Map(
+      numberedChoices(workspace.folders ?? [], true).map((entry) => [
+        entry.id,
+        entry,
+      ]),
+    );
+    const projects = numberedChoices(workspace.projects, true);
+    for (const [index, project] of workspace.projects.entries()) {
+      if (!repeated.has(project.title)) continue;
+      const parts = [projects[index].title];
+      const visited = new Set<string>();
+      let parent = project.parentId;
+      while (parent && folders.has(parent) && !visited.has(parent)) {
+        visited.add(parent);
+        const folder = folders.get(parent)!;
+        parts.push(folder.title);
+        parent = folder.parentId;
+      }
+      if (parts.length > 1 || parts[0] !== project.title)
+        locations.set(project.id, {
+          ...project,
+          title: parts.reverse().join(" / "),
+        });
+    }
+  }
+  // A literal project name can itself be another project's displayed folder path.
+  return new Map(
+    numberedChoices([...locations.values()]).map((entry) => [entry.id, entry]),
+  );
+}
 
 export function directoryRows<T extends FolderEntry>(
   entries: T[],
@@ -31,4 +81,41 @@ export function directoryRows<T extends FolderEntry>(
       stack.push({ entry: nested[i]!, depth: row.depth + 1 });
   }
   return result;
+}
+
+/** Distinguish repeated option labels in manual order while retaining their IDs. */
+export function numberedChoices<T extends Entry>(
+  entries: readonly T[],
+  byParent = false,
+): T[] {
+  const scopes = new Map<string | null, Map<string, T[]>>();
+  for (const entry of entries) {
+    const parent = byParent ? (entry.parentId ?? "root") : null;
+    let names = scopes.get(parent);
+    if (!names) {
+      names = new Map();
+      scopes.set(parent, names);
+    }
+    const siblings = names.get(entry.title);
+    if (siblings) siblings.push(entry);
+    else names.set(entry.title, [entry]);
+  }
+  const titles = new Map<string, string>();
+  for (const names of scopes.values()) {
+    const used = new Set(names.keys());
+    for (const [title, siblings] of names) {
+      if (siblings.length < 2) continue;
+      siblings.forEach((entry, index) => {
+        const base = `${title} (${index + 1} of ${siblings.length})`;
+        let label = base;
+        for (let suffix = 2; used.has(label); suffix++)
+          label = `${base} · ${suffix}`;
+        used.add(label);
+        titles.set(entry.id, label);
+      });
+    }
+  }
+  return entries.map((entry) =>
+    titles.has(entry.id) ? { ...entry, title: titles.get(entry.id)! } : entry,
+  );
 }

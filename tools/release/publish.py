@@ -7,10 +7,10 @@ import subprocess
 import sys
 from pathlib import Path
 
-from provenance import REVISION, RUN_ATTEMPT, RUN_NUMBER, build_order, require_ancestor, require_original_version
+from provenance import DIGEST, REVISION, RUN_ATTEMPT, RUN_NUMBER, build_order, require_ancestor, require_original_version
+from visibility import public_package, verify_public
 
 PLATFORMS = ("amd64", "arm64")
-DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 
 
 def docker(*args):
@@ -42,17 +42,27 @@ def verify_index(index, expected):
         raise ValueError("Release index differs from the tested platform manifests")
 
 
-def stage_image(repo, architecture, directory, commit):
+def stage_image(repo, architecture, directory, commit, version, run_number, attempt):
     root = directory / ("candidate-" + architecture)
     record = json.loads((root / "qualified.json").read_text())
     if record["commit"] != commit or record["platform"] != "linux/" + architecture:
         raise ValueError("Candidate is from another commit or architecture")
+    if (record.get("version"), record.get("run_number"), record.get("run_attempt")) != (version, run_number, attempt):
+        raise ValueError("Qualification records differ from this release attempt. Re-run all release jobs.")
     digest = record["digest"]
     if not DIGEST.fullmatch(digest) or not DIGEST.fullmatch(record["id"]):
         raise ValueError("Invalid tested image identity")
-    manifest = json.loads(docker("buildx", "imagetools", "inspect", "--raw", repo + "@" + digest))
+    ref = repo + "@" + digest
+    manifest = json.loads(docker("buildx", "imagetools", "inspect", "--raw", ref))
     if manifest["config"]["digest"] != record["id"]:
         raise ValueError("Registry platform manifest has the wrong image configuration")
+    docker("pull", "--platform", record["platform"], ref)
+    image = json.loads(docker("image", "inspect", ref))[0]
+    labels = image["Config"]["Labels"] or {}
+    actual = (image["Os"], image["Architecture"], image["Id"], labels.get("org.opencontainers.image.version"),
+              labels.get("org.opencontainers.image.revision"), labels.get(RUN_NUMBER), labels.get(RUN_ATTEMPT))
+    if actual != ("linux", architecture, record["id"], version, commit, run_number, attempt):
+        raise ValueError("Immutable registry image differs from its native qualification record")
     return digest
 
 
@@ -83,7 +93,7 @@ def publish(repo, version, commit, run, attempt, directory, run_number, maintena
         raise ValueError("Invalid release provenance")
     build_order(run_number, attempt)
     build = f"{version}-b{run}-{attempt}"
-    expected = {arch: stage_image(repo, arch, directory, commit) for arch in PLATFORMS}
+    expected = {arch: stage_image(repo, arch, directory, commit, version, run_number, attempt) for arch in PLATFORMS}
     qualified = repo + ":ci-" + run + "-" + attempt
     args = [repo + "@" + expected[arch] for arch in PLATFORMS]
     docker("buildx", "imagetools", "create", "--tag", qualified, *args)
@@ -125,7 +135,7 @@ def promote_stable(repo, release):
     stable = repo + ":stable"
     previous = inspect_digest(stable, optional=True)
     if previous == digest:
-        return
+        return digest
     if previous:
         old = repo + "@" + previous
         docker("pull", "--platform", "linux/amd64", old)
@@ -135,7 +145,7 @@ def promote_stable(repo, release):
         if not re.fullmatch(r"v\d+\.\d+\.\d+", old_version):
             raise ValueError("Cannot establish the current stable version")
         if tuple(map(int, old_version[1:].split("."))) > tuple(map(int, version[1:].split("."))):
-            return
+            return previous
         if old_version == version:
             old_source = labels.get("org.opencontainers.image.revision")
             require_ancestor(old_source, release["source"])
@@ -146,6 +156,7 @@ def promote_stable(repo, release):
     docker("buildx", "imagetools", "create", "--tag", stable, ref)
     if inspect_digest(stable) != digest:
         raise ValueError("Stable tag readback failed")
+    return digest
 
 
 if __name__ == "__main__":
@@ -154,6 +165,8 @@ if __name__ == "__main__":
                           maintenance=os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch")
         print(json.dumps(release))
     elif sys.argv[1] == "promote":
-        promote_stable(sys.argv[2], json.loads(sys.argv[3]))
+        stable = promote_stable(sys.argv[2], json.loads(sys.argv[3]))
+        verify_public(public_package(), "stable", stable)
+        print("Verified public stable index", stable)
     else:
         raise SystemExit("Expected stage or promote")

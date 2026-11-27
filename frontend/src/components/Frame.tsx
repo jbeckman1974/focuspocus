@@ -1,5 +1,11 @@
 import { FluentProvider } from "@fluentui/react-components";
-import { useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ReactNode } from "react";
 import type { Command, View, Workspace } from "../outline/index.ts";
 import { WorkspaceToolbar } from "./frame/WorkspaceToolbar.tsx";
@@ -21,6 +27,7 @@ interface FrameProps {
   personalPreferences?: PersonalSettings;
   workspace: Workspace;
   view: View;
+  openedDestination?: string;
   onView: (view: View) => void;
   selection: string[];
   onSelect: (ids: string[]) => void;
@@ -53,6 +60,7 @@ export function Frame({
   workspace,
   personalPreferences,
   view,
+  openedDestination,
   onView,
   selection,
   run,
@@ -103,6 +111,7 @@ export function Frame({
   const main = useRef<HTMLElement>(null);
   const lastPanel = useRef<"outline" | "browse" | "inspector">("outline");
   const previousCompact = useRef(compact);
+  const lastOpenedDestination = useRef(openedDestination);
   const inspectorVisible = inspectorOpen && (!compact || !browseOpen);
   const sidebarMax = Math.max(152, Math.min(340, Math.floor(width * 0.23)));
   const inspectorMax = Math.max(190, Math.min(400, Math.floor(width * 0.27)));
@@ -119,6 +128,46 @@ export function Frame({
     }
     previousCompact.current = compact;
   }, [compact, setInspectorOpen]);
+
+  const closePanelsForCreation = useEffectEvent(() => {
+    setBrowseOpen(false);
+    if (inspectorOpen) setInspectorOpen(false);
+  });
+
+  useLayoutEffect(() => {
+    if (lastOpenedDestination.current === openedDestination) return;
+    lastOpenedDestination.current = openedDestination;
+    if (!compact || !openedDestination) return;
+    const dialog = document.querySelector<HTMLDialogElement>(
+      ".fp-workspace-menu dialog[open]",
+    );
+    closePanelsForCreation();
+    function focusDestination() {
+      const content = main.current;
+      const active = document.activeElement;
+      if (
+        !content ||
+        content.hidden ||
+        document.querySelector("dialog[open]") ||
+        (active &&
+          active !== document.body &&
+          !active.closest(
+            ".fp-workspace-menu, #workspace-navigation, #task-inspector",
+          ))
+      )
+        return;
+      (content.querySelector<HTMLElement>('[role="tree"]') ?? content).focus();
+    }
+    const focus = requestAnimationFrame(() => {
+      if (dialog?.open && dialog.isConnected)
+        dialog.addEventListener("close", focusDestination, { once: true });
+      else focusDestination();
+    });
+    return () => {
+      cancelAnimationFrame(focus);
+      dialog?.removeEventListener("close", focusDestination);
+    };
+  }, [compact, openedDestination]);
 
   function chooseView(next: View) {
     onView(next);
@@ -226,6 +275,8 @@ export function Frame({
           accountControls={accountControls}
           compact={compact}
           narrow={width <= 600}
+          openedDestination={openedDestination}
+          captureDisabled={mutationsDisabled}
           browseOpen={browseOpen}
           inspectorOpen={inspectorVisible}
           browseToggle={browseToggle}

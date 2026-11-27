@@ -6,6 +6,7 @@ type Page = "forecast" | "review" | "perspectives";
 
 export function usePlanningNavigation(catalog: Catalog | undefined) {
   const [page, setPage] = useState<Page | null>(null);
+  const close = useCallback(() => setPage(null), []);
   const [choice, setChoice] = useState("");
   const [selection, select] = useState<string[]>([]);
   const [visible, setVisible] = useState<string[]>([]);
@@ -66,7 +67,7 @@ export function usePlanningNavigation(catalog: Catalog | undefined) {
     report,
     source,
     open,
-    close: () => setPage(null),
+    close,
     active,
     links: planningLinks(catalog),
   };

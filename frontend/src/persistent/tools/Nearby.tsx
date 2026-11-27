@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
+import { TaskLocation } from "../../components/TaskLocation.tsx";
+import { indexWorkspace } from "../../outline/tree.ts";
 import type { Snapshot } from "../api.ts";
 import type { WorkspaceClient } from "./transport.ts";
 import { useAction, useResource } from "./hooks.ts";
@@ -50,7 +52,8 @@ export function Nearby({
         .filter((p) => p.meters <= p.place.radiusMeters)
         .sort((a, b) => a.meters - b.meters)
     : [];
-  const titles = new Map(snapshot.tasks.map((t) => [t.id, t.title]));
+  const prefix = useId();
+  const { byId, taskLocations } = indexWorkspace(snapshot);
   async function locate() {
     if (!navigator.geolocation)
       throw new Error("Location is unavailable. Choose a saved place instead.");
@@ -107,12 +110,20 @@ export function Nearby({
                 </h4>
                 <ul>
                   {place.itemIds
-                    .filter((i) => titles.has(i))
+                    .filter((id) => byId.has(id))
                     .map((id) => (
                       <li key={id}>
-                        <button onClick={() => openItem(id)}>
-                          {titles.get(id)}
-                        </button>
+                        <button
+                          onClick={() => openItem(id)}
+                          aria-label={byId.get(id)!.title}
+                          aria-describedby={`${prefix}-${place.tagId}-${id}`}
+                        >
+                          {byId.get(id)!.title}
+                        </button>{" "}
+                        <TaskLocation
+                          location={taskLocations.get(id)!}
+                          id={`${prefix}-${place.tagId}-${id}`}
+                        />
                       </li>
                     ))}
                 </ul>

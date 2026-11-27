@@ -63,20 +63,37 @@ export function reconcileSelection(
   return { selection, collapsed };
 }
 
+export function expandSelectionAncestors(
+  workspace: Workspace,
+  collapsed: ReadonlySet<string>,
+  requested: readonly string[],
+): ReadonlySet<string> {
+  if (!collapsed.size) return collapsed;
+  let next: Set<string> | undefined;
+  const tree = indexWorkspace(workspace);
+  for (const id of requested) {
+    const task = tree.byId.get(id);
+    if (!task) continue;
+    for (const parent of tree.ancestors(task)) {
+      if (collapsed.has(parent.id)) {
+        next ??= new Set(collapsed);
+        next.delete(parent.id);
+      }
+    }
+  }
+  return next ?? collapsed;
+}
+
 export function revealSelection(
   workspace: Workspace,
   view: View,
   collapsed: ReadonlySet<string>,
   requested: string[],
 ): ViewMemory {
-  if (!collapsed.size)
-    return reconcileSelection(workspace, view, collapsed, requested);
-  const nextCollapsed = new Set(collapsed);
-  const tree = indexWorkspace(workspace);
-  for (const id of requested) {
-    const task = tree.byId.get(id);
-    if (!task) continue;
-    for (const parent of tree.ancestors(task)) nextCollapsed.delete(parent.id);
-  }
-  return reconcileSelection(workspace, view, nextCollapsed, requested);
+  return reconcileSelection(
+    workspace,
+    view,
+    expandSelectionAncestors(workspace, collapsed, requested),
+    requested,
+  );
 }

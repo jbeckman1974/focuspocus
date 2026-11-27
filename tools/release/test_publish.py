@@ -1,10 +1,13 @@
 import json
+import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from publish import promote_stable, publish, stage_image, verify_index, verify_previous_version
+from provenance import RUN_NUMBER, RUN_ATTEMPT
+from record import record as record_qualification
 
 
 class PromotionTests(unittest.TestCase):
@@ -31,8 +34,65 @@ class PromotionTests(unittest.TestCase):
             record.mkdir()
             (record / "qualified.json").write_text(json.dumps({"commit": "other", "platform": "linux/amd64"}))
             with self.assertRaises(ValueError):
-                stage_image("example.invalid/project", "amd64", directory, "expected")
+                stage_image("example.invalid/project", "amd64", directory, "expected", "v1.0.0", "3", "1")
             docker.assert_not_called()
+
+    def test_retry_checks_both_immutable_configurations_before_creating_any_tag(self):
+        repo, version, commit = "example.invalid/project", "v1.0.0", "f" * 40
+        index = "sha256:" + "a" * 64
+        tags, images = {}, {}
+        settings = {"GITHUB_SHA": commit, "GITHUB_RUN_NUMBER": "8", "GITHUB_RUN_ATTEMPT": "2", "VERSION": version}
+
+        def registry(*args):
+            if args[0] == "pull":
+                return ""
+            ref = args[-1]
+            if args[:2] == ("image", "inspect"):
+                return json.dumps([images[ref]])
+            if args[:3] == ("buildx", "imagetools", "inspect"):
+                if ref == repo + "@" + index:
+                    return json.dumps({"manifests": self.manifests})
+                return json.dumps({"config": {"digest": images[ref]["Id"]}})
+            self.assertEqual(args[:4], ("buildx", "imagetools", "create", "--tag"))
+            tags[args[4]] = index
+            return ""
+
+        with TemporaryDirectory() as temp, patch.dict(os.environ, settings), \
+                patch("record.docker", side_effect=registry), patch("publish.docker", side_effect=registry), \
+                patch("publish.inspect_digest", side_effect=lambda target, optional=False: tags.get(target)):
+            directory = Path(temp)
+            for arch, digest in self.children.items():
+                candidate = repo + ":ci-42-2-" + arch
+                immutable = repo + "@" + digest
+                config = {"Os": "linux", "Architecture": arch, "Id": digest, "Config": {"Labels": {
+                    "org.opencontainers.image.version": version, "org.opencontainers.image.revision": commit,
+                    RUN_NUMBER: "8", RUN_ATTEMPT: "2",
+                }}}
+                images[candidate] = images[immutable] = config
+                folder = directory / ("candidate-" + arch)
+                folder.mkdir()
+                with patch("record.inspect_digest", return_value=digest):
+                    qualified = record_qualification(candidate, candidate)
+                (folder / "qualified.json").write_text(json.dumps(qualified))
+
+            def stage():
+                return publish(repo, version, commit, "42", "2", directory, "8")
+
+            old = directory / "candidate-arm64" / "qualified.json"
+            qualified = json.loads(old.read_text())
+            old.write_text(json.dumps({**qualified, "run_attempt": "1"}))
+            with self.assertRaisesRegex(ValueError, "Re-run all release jobs"):
+                stage()
+            self.assertEqual(tags, {})
+            old.write_text(json.dumps(qualified))
+            labels = images[repo + "@" + self.children["arm64"]]["Config"]["Labels"]
+            labels[RUN_ATTEMPT] = "1"
+            with self.assertRaisesRegex(ValueError, "Immutable registry image"):
+                stage()
+            self.assertEqual(tags, {})
+            labels[RUN_ATTEMPT] = "2"
+            self.assertEqual(stage()["platforms"], self.children)
+            self.assertEqual(set(tags), {repo + suffix for suffix in (":ci-42-2", ":v1.0.0", ":v1.0.0-b42-2")})
 
     def test_invalid_release_version_never_loads_candidates(self):
         with patch("publish.stage_image") as stage:
@@ -86,7 +146,8 @@ class PromotionTests(unittest.TestCase):
             release = publish(repo, "v0.1.0", "f" * 40, "1", "3", Path("."), "1")
             self.assertEqual(release["source"], release["version_source"])
             self.assertNotIn(repo + ":stable", tags)
-            promote_stable(repo, release)
+            self.assertEqual(promote_stable(repo, release), digest)
+            self.assertEqual(promote_stable(repo, release), digest)
         self.assertEqual(list(tags), [repo + suffix for suffix in (":ci-1-3", ":v0.1.0", ":v0.1.0-b1-3", ":stable")])
 
     def test_maintenance_keeps_original_index_and_records_both_sources(self):

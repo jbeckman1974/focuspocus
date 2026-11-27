@@ -45,6 +45,13 @@
   font-size: 0.9em;
   opacity: 0.8;
 }
+.capture-feedback {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  margin: 0 var(--outline-pad) 0.65rem;
+}
 .planning-results {
   list-style: none;
   padding: 0;
@@ -53,8 +60,15 @@
 .planning-results li {
   margin: 0.15rem 0;
 }
+.planning-context-label,
 .planning-results button {
-  display: block;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  column-gap: 0.65em;
+  overflow-wrap: anywhere;
+}
+.planning-results button {
   width: 100%;
   border: 1px solid transparent;
   text-align: left;

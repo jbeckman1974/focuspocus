@@ -39,8 +39,7 @@ export interface Snapshot {
   localProjectionVersion?: number;
   resolvedCleanup?: "immediate" | "on-cleanup";
   filingPolicy?: FilingPolicy;
-  tasks: (Task &
-    RuleFields & { version: number; filingProjectId?: string | null })[];
+  tasks: (Task & RuleFields & { version: number })[];
   folders?: (Entry & RuleFields & { version: number })[];
   tags: (Entry & {
     version: number;

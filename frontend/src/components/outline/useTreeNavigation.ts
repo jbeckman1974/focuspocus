@@ -1,41 +1,7 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useState } from "react";
 import type { RefObject } from "react";
 import { adjacentId, extendRange, stillSelected } from "./controls.ts";
 import type { TreeCursor } from "./controls.ts";
-
-interface Anchor {
-  item?: string;
-  offset: number;
-  top: number;
-}
-
-function readAnchor(container: HTMLElement): Anchor {
-  const top = container.getBoundingClientRect().top;
-  const item = [
-    ...container.querySelectorAll<HTMLElement>("[data-task-id]"),
-  ].find((row) => row.getBoundingClientRect().bottom > top);
-  return {
-    item: item?.dataset.taskId,
-    offset: item ? item.getBoundingClientRect().top - top : 0,
-    top: container.scrollTop,
-  };
-}
-
-function restoreAnchor(container: HTMLElement, anchor?: Anchor) {
-  const item = anchor?.item
-    ? [...container.querySelectorAll<HTMLElement>("[data-task-id]")].find(
-        (row) => row.dataset.taskId === anchor.item,
-      )
-    : undefined;
-  if (item && anchor) {
-    container.scrollTop +=
-      item.getBoundingClientRect().top -
-      container.getBoundingClientRect().top -
-      anchor.offset;
-  } else {
-    container.scrollTop = anchor?.top ?? 0;
-  }
-}
 
 function revealRow(container: HTMLElement, rowId: string) {
   const row = document.getElementById(rowId);
@@ -63,7 +29,6 @@ export function useTreeNavigation(
   const [activeByView, setActiveByView] = useState<Record<string, TreeCursor>>(
     {},
   );
-  const scroll = useRef(new Map<string, Anchor>());
   const remembered = activeByView[identity];
   const active =
     remembered &&
@@ -72,10 +37,6 @@ export function useTreeNavigation(
       ? remembered.id
       : (selected.find((id) => ids.includes(id)) ?? ids[0]);
   const rowId = (id: string) => `${prefix}-${id}`;
-
-  useLayoutEffect(() => {
-    if (tree.current) restoreAnchor(tree.current, scroll.current.get(identity));
-  }, [identity, tree]);
 
   useLayoutEffect(() => {
     if (tree.current && document.activeElement === tree.current && active) {
@@ -125,9 +86,6 @@ export function useTreeNavigation(
     },
     revealActive() {
       if (tree.current && active) revealRow(tree.current, rowId(active));
-    },
-    rememberScroll() {
-      if (tree.current) scroll.current.set(identity, readAnchor(tree.current));
     },
   };
 }

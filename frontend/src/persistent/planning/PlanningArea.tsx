@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { indexWorkspace } from "../../outline/tree.ts";
 import type { WorkspaceChannel } from "../channel.ts";
 import type { PlanningSession } from "./read.ts";
 import type { CatalogActions } from "./useCatalog.ts";
@@ -13,6 +14,7 @@ interface Props {
   session: PlanningSession;
   catalog: CatalogActions;
   navigation: PlanningNavigation;
+  onSelect: (ids: string[]) => void;
   channel: WorkspaceChannel;
   disabled: boolean;
   openSource: (id: string) => void;
@@ -24,6 +26,7 @@ export function PlanningArea({
   session,
   catalog,
   navigation,
+  onSelect,
   channel,
   disabled,
   openSource,
@@ -31,8 +34,9 @@ export function PlanningArea({
   children,
 }: Props) {
   const actions = {
+    locations: indexWorkspace(session.snapshot).taskLocations,
     selected: navigation.selection,
-    select: navigation.select,
+    select: onSelect,
     report: navigation.report,
     open: openSource,
   };

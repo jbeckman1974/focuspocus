@@ -46,6 +46,33 @@ class OutlineApiTests(OutlineApiMixin, TestCase):
         )
         self.assertEqual(str(Item.objects.get(pk=third).parent_id), group)
 
+    def test_same_named_groups_ungroup_in_place_without_losing_siblings_or_nested_actions(self):
+        project = str(uuid4())
+        self.command("create-container", {"id": project, "title": "Survey plans"})
+        first, second, third, fourth, last = self.capture(["Plats", "Boundary", "Plats", "Field notes", "Record"], project)
+        left, right, inner = (str(uuid4()) for _ in range(3))
+        for key, children in [(left, [first, second]), (right, [third, fourth]), (inner, [third])]:
+            self.command("group", {"id": key, "title": "Survey", "ids": children})
+
+        def hierarchy():
+            rows = self.client.get(self.base + "outline", {"view": "projects", "projectId": project}).json()["rows"]
+            return [(row["id"], row["parentId"]) for row in rows if row["kind"] in ("group", "action")]
+
+        grouped = [(left, project), (first, left), (second, left), (right, project),
+                   (inner, right), (third, inner), (fourth, right), (last, project)]
+        self.assertEqual(hierarchy(), grouped)
+        self.command("ungroup", {"ids": [right, inner]}, 422)
+        self.assertEqual(hierarchy(), grouped)
+        change = self.command("ungroup", {"ids": [right, left]})
+        self.assertEqual(change["selection"], [first, second, inner, fourth])
+        promoted = [(first, project), (second, project), (inner, project), (third, inner),
+                    (fourth, project), (last, project)]
+        self.assertEqual(hierarchy(), promoted)
+        undo = self.command("undo", {key: change[key] for key in ("operationId", "contextId")})
+        self.assertEqual(hierarchy(), grouped)
+        self.command("redo", {key: undo[key] for key in ("operationId", "contextId")})
+        self.assertEqual(hierarchy(), promoted)
+
     def test_replay_precedes_version_check_and_permission_precedes_replay(self):
         item = str(uuid4())
         envelope = self.envelope({"parentId": "inbox", "items": [{"id": item, "title": "Once"}]})

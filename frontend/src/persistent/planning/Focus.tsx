@@ -12,7 +12,7 @@ export function Focus({
 }) {
   const [draft, setDraft] = useState<{ ids: string[]; version: number }>();
   const entries = [...(snapshot.folders ?? []), ...snapshot.projects];
-  const active = catalog.data?.focusIds ?? [];
+  const active = catalog.data?.focusIds ?? snapshot.focusScopeIds ?? [];
   return (
     <div className="planning-focus">
       <button
@@ -32,7 +32,7 @@ export function Focus({
               .join(", ")}
           </span>
           <button
-            disabled={!!catalog.pending}
+            disabled={!catalog.data || !!catalog.pending}
             onClick={() =>
               void catalog.save({ action: "focus", payload: { ids: [] } })
             }

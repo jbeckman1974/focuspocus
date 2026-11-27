@@ -1,14 +1,17 @@
 import { INBOX } from "./types.ts";
-import type { Task, Workspace } from "./types.ts";
+import type { Task, TaskLocationEntry, Workspace } from "./types.ts";
+import { projectLocations } from "./directory.ts";
 
 /** One index for a workspace revision. Traversal never depends on the JS call stack. */
 export class TaskTree {
   readonly byId = new Map<string, Task>();
+  readonly taskLocations = new Map<string, TaskLocationEntry>();
   readonly roots: string[];
   private readonly childrenByParent = new Map<string, Task[]>();
 
   constructor(workspace: Workspace) {
-    this.roots = [INBOX, ...workspace.projects.map((project) => project.id)];
+    const locations = projectLocations(workspace);
+    this.roots = [...locations.keys()];
     const used = new Set([INBOX]);
     for (const entry of [
       ...workspace.projects,
@@ -32,6 +35,17 @@ export class TaskTree {
       if (task.kind !== "group" && (task.kind !== "action" || hasChildren)) {
         throw new Error("Only groups may contain child tasks.");
       }
+      // Parents are visited first, including when the snapshot's tasks arrive out of order.
+      const home =
+        locations.get(task.parentId) ?? this.taskLocations.get(task.parentId)!;
+      const filingTarget =
+        task.parentId === INBOX && task.filingProjectId
+          ? locations.get(task.filingProjectId)
+          : undefined;
+      this.taskLocations.set(
+        task.id,
+        filingTarget ? { ...home, filingTarget } : home,
+      );
       reachable++;
     }
     if (reachable !== workspace.tasks.length) {

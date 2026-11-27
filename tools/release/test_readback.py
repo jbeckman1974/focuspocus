@@ -1,11 +1,12 @@
 import json
 import os
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 from provenance import RUN_ATTEMPT, RUN_NUMBER
 from publish import promote_stable
 from readback import readback
+from visibility import PUBLIC_PACKAGE
 
 
 def digest(char):
@@ -14,6 +15,12 @@ def digest(char):
 
 class ReadbackTests(unittest.TestCase):
     def setUp(self):
+        identity = patch("readback.public_package", return_value=PUBLIC_PACKAGE)
+        identity.start()
+        self.addCleanup(identity.stop)
+        anonymous = patch("readback.verify_public")
+        self.anonymous = anonymous.start()
+        self.addCleanup(anonymous.stop)
         self.repo = "example.invalid/focuspocus"
         self.version = "v0.1.0"
         self.build = self.version + "-b1-2"
@@ -76,6 +83,15 @@ class ReadbackTests(unittest.TestCase):
         self.assertEqual([x["child"] for x in actual], [digest("2"), digest("d")])
         self.assertEqual([x["source"] for x in actual], ["e" * 40, self.source])
         self.assertEqual(self.pulls, [self.repo + ":" + tag for tag in (self.version, self.build)])
+        self.assertEqual(self.anonymous.call_args_list, [
+            call(PUBLIC_PACKAGE, self.version, self.release["version_index"]),
+            call(PUBLIC_PACKAGE, self.build, self.release["index"]),
+        ])
+
+    def test_anonymous_digest_mismatch_fails_native_readback(self):
+        self.anonymous.side_effect = ValueError("Anonymous manifest differs")
+        with self.assertRaisesRegex(ValueError, "Anonymous manifest differs"):
+            self.run_readback()
 
     def test_default_selection_and_labels_must_match(self):
         self.pulled_arch = "amd64"

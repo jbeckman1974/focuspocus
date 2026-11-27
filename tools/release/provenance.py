@@ -5,6 +5,7 @@ import subprocess
 
 
 REVISION = re.compile(r"[0-9a-f]{40}")
+DIGEST = re.compile(r"sha256:[0-9a-f]{64}")
 RUN_NUMBER = "io.focuspocus.run-number"
 RUN_ATTEMPT = "io.focuspocus.run-attempt"
 

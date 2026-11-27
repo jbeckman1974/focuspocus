@@ -1,4 +1,5 @@
 from uuid import uuid4
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 
@@ -59,6 +60,75 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.assertEqual(self.space.revision, 0)
         self.assertEqual(Change.objects.filter(workspace=self.space).count(), 0)
 
+    def test_include_in_focus_preserves_concurrent_additions_and_a_later_clear(self):
+        first, second, added = (self.ids[code] for code in ("P01", "P02", "P06"))
+        self.post("commands", self.put("focus", {"ids": [first]}, 0))
+        self.assertTrue(self.read("outline", view="projects", projectId=added)["captureOutsideFocus"])
+        self.assertFalse(self.read("outline", view="projects", projectId=first)["captureOutsideFocus"])
+        self.assertTrue(self.read("outline", view="inbox")["captureOutsideFocus"])
+        stale = self.put("include-focus", {"id": added}, 1)
+        self.post("commands", self.put("focus", {"ids": [first, second]}, 1))
+        self.post("commands", stale, 409)
+        include = self.put("include-focus", {"id": added}, 2)
+        updated = self.post("commands", include)
+        self.assertEqual(updated["focusIds"], [first, second, added])
+        self.assertEqual(self.post("commands", include), updated)
+        self.assertFalse(self.read("outline", view="projects", projectId=added)["captureOutsideFocus"])
+        self.post("commands", self.put("focus", {"ids": []}, 3))
+        self.assertEqual(self.post("commands", self.put("include-focus", {"id": added}, 4))["focusIds"], [])
+        self.assertFalse(self.read("outline", view="inbox")["captureOutsideFocus"])
+        self.post("commands", self.put("include-focus", {"id": self.ids["A26"]}, 4), 404)
+
+    def test_include_retry_after_focusing_an_ancestor_does_not_pin_the_nested_project(self):
+        other, folder, project = (self.ids[code] for code in ("P03", "F01", "P01"))
+        self.post("commands", self.put("focus", {"ids": [other]}, 0))
+        self.assertTrue(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+        stale = self.put("include-focus", {"id": project}, 1)
+        focused = self.post("commands", self.put("focus", {"ids": [other, folder]}, 1))
+        self.post("commands", stale, 409)
+        # P01 is two levels below F01. Retrying should preserve the exact explicit roots and version.
+        retry = self.put("include-focus", {"id": project}, focused["personalVersion"])
+        self.assertEqual(self.post("commands", retry), focused)
+        self.assertEqual(self.post("commands", retry), focused)
+        self.assertFalse(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+        remaining = [key for key in self.read("perspectives/")["focusIds"] if key != folder]
+        self.post("commands", self.put("focus", {"ids": remaining}, focused["personalVersion"]))
+        self.assertTrue(self.read("outline", view="projects", projectId=project)["captureOutsideFocus"])
+
+    def test_summary_search_preserves_scope_order_unicode_note_and_tag_results(self):
+        fields = ("id", "kind", "parentId", "title", "context")
+        self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))
+        self.send("bulk-edit", {"ids": [self.ids["A27"]], "title": "Straße plans"})
+        ItemNote.objects.create(workspace=self.space, item_id=self.ids["A26"], document={}, plain_text="Bench limits")
+        cases = [
+            {"scope": "everything", "text": "bench", "offset": 1, "limit": 1},
+            {"scope": "here", "text": "field"},
+            {"scope": "here", "hereIds": [self.ids["A26"], self.private_id], "text": "bench"},
+            {"scope": "everything", "text": "STRASSE", "viewZone": "America/New_York"},
+            {"scope": "everything", "text": "private marker"},
+            {"scope": "here", "hereIds": []},
+        ]
+        for body in cases:
+            with self.subTest(body=body):
+                full = self.post("query", body)
+                with patch("core.perspectives.query.read_records", side_effect=AssertionError("Unexpected rule evaluation")):
+                    summary = self.post("query", {**body, "rowFields": "summary"})
+                for key in ("matchIds", "count", "actionCount", "groups", "offset", "nextOffset",
+                            "workspaceId", "revision", "personalVersion", "focusIds", "timeZone", "viewZone", "dateDefaults"):
+                    self.assertEqual(summary[key], full[key])
+                self.assertEqual(summary["rows"], [{key: row[key] for key in fields} for row in full["rows"]])
+                self.assertIsNone(summary["nextDateBoundary"])
+        self.assertEqual(self.post("query", {**cases[3], "rowFields": "summary"})["matchIds"], [self.ids["A27"]])
+        self.send("delete", {"ids": [self.ids["A26"]]})
+        self.assertEqual(self.post("query", {**cases[2], "rowFields": "summary"})["matchIds"], [])
+
+        # Remaining and saved/preview rules can depend on the clock and need full evaluation.
+        for body in ({"scope": "remaining"}, {"definition": {**self.definition(), "presentation": "outline"}}):
+            full = self.post("query", body)
+            with patch("core.perspectives.query.read_text_records", side_effect=AssertionError("Missing rule evaluation")):
+                summary = self.post("query", {**body, "rowFields": "summary"})
+            self.assertEqual(summary, {**full, "rows": [{key: row[key] for key in fields} for row in full["rows"]]})
+
     def test_viewer_private_state_replay_conflict_and_revocation(self):
         other = get_user_model().objects.create_user(username="fixture-perspective-reader")
         member = Membership.objects.create(workspace=self.space, user=other, role="viewer")
@@ -77,6 +147,7 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         member.delete()
         self.post("commands", body, 404)
         self.post("query", {"perspectiveId": payload["id"]}, 404)
+        self.post("query", {"rowFields": "summary", "text": "bench", "scope": "everything"}, 404)
 
     def test_receipts_keep_the_acknowledged_version_and_replay_the_current_catalog(self):
         payload = self.save_body()
@@ -115,8 +186,15 @@ class PersonalPerspectiveTests(ReferenceWorkspaceCase):
         self.send("delete", {"ids": [self.ids["P06"]]})
         self.assertEqual(self.post("query", {"scope": "everything"})["count"], 0)
 
+    def test_here_accepts_large_outline_but_preserves_focus_and_workspace(self):
+        self.post("commands", self.put("focus", {"ids": [self.ids["P06"]]}, 0))
+        here = [str(uuid4()) for _ in range(11_097)]
+        here.extend([self.ids["A18"], self.ids["P01"], self.private_id])
+        result = self.post("query", {"scope": "here", "hereIds": here})
+        self.assertEqual((result["count"], result["matchIds"]), (1, [self.ids["A18"]]))
+
     def test_invalid_input_and_undoable_shared_history_unchanged(self):
-        for bad in ({"scope": "private"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
+        for bad in ({"scope": "private"}, {"rowFields": "unknown"}, {"offset": -1}, {"viewZone": []}, {"hereIds": [True]},
                     {"text": "bad\x00text"}, {"text": "\ud800"},
                     {"definition": {"version": 99, "expression": {"all": []}}},
                     {"definition": {"version": 1, "expression": {"sql": "arbitrary"}}}):

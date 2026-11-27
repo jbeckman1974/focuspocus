@@ -1,7 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 interface CaptureProps {
   disabled?: boolean;
+  blockedReason?: string;
   collapsible?: boolean;
   identity: string;
   destination: string;
@@ -14,6 +15,7 @@ export function Capture({
   identity,
   destination,
   disabled,
+  blockedReason,
   collapsible = false,
   signal,
   onFocusRequestHandled,
@@ -21,6 +23,7 @@ export function Capture({
 }: CaptureProps) {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const input = useRef<HTMLTextAreaElement>(null);
+  const statusId = useId();
   const lastSignal = useRef(0);
   const [openScope, setOpenScope] = useState<string>();
   const trigger = useRef<HTMLElement | null>(null);
@@ -102,6 +105,8 @@ export function Capture({
       </span>
       <textarea
         ref={input}
+        readOnly={disabled}
+        aria-describedby={blockedReason ? statusId : undefined}
         aria-label="Task titles"
         title="Enter adds tasks. Shift+Enter starts another line."
         placeholder={`Add a task to ${destination}…`}
@@ -130,6 +135,11 @@ export function Capture({
         <button type="button" aria-label="Close capture" onClick={close}>
           Close
         </button>
+      )}
+      {blockedReason && (
+        <span id={statusId} className="capture-blocked-reason">
+          {blockedReason}
+        </span>
       )}
     </form>
   );

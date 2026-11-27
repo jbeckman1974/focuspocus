@@ -1,7 +1,7 @@
 import { canReorder } from "../outline/views.ts";
 import type { ReactNode } from "react";
-import { useMemo, useRef, useState } from "react";
-import { INBOX, visibleRows } from "../outline/index.ts";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { INBOX, indexWorkspace, visibleRows } from "../outline/index.ts";
 import type {
   Command,
   Task,
@@ -28,6 +28,7 @@ const expandedRows = new Set<string>();
 
 interface OutlineProps {
   mutationsDisabled?: boolean;
+  captureBlockedReason?: string;
   rows?: OutlineRow[];
   tools?: ReactNode;
   notice?: ReactNode;
@@ -72,6 +73,7 @@ export function Outline(props: OutlineProps) {
     {},
   );
   const [panel, setPanel] = useState<OutlinePanel>();
+  const returnToTree = useRef(false);
   const [multiple, setMultiple] = useState(false);
   const editId = editing[identity];
   const draft: EditDraft | undefined =
@@ -80,18 +82,24 @@ export function Outline(props: OutlineProps) {
       : undefined;
   const activeDraft = useRef(draft);
   activeDraft.current = draft;
-  const selectedTask = workspace.tasks.find((task) => task.id === selection[0]);
+  const selectedTask =
+    selection.length === 1
+      ? indexWorkspace(workspace).byId.get(selection[0])
+      : undefined;
   const title = viewTitle(view, workspace);
   const count = props.count ?? rows.length;
   const destination = view.kind === "project" ? title : "Inbox";
 
-  function focusTree() {
-    tree.current?.focus({ preventScroll: true });
-  }
+  useLayoutEffect(() => {
+    if (!panel && returnToTree.current) {
+      returnToTree.current = false;
+      tree.current?.focus({ preventScroll: true });
+    }
+  }, [panel]);
 
   function closePanel() {
+    returnToTree.current = true;
     setPanel(undefined);
-    window.requestAnimationFrame(focusTree);
   }
 
   function edit(task: Task) {
@@ -118,7 +126,7 @@ export function Outline(props: OutlineProps) {
       });
     }
     setEditing((previous) => ({ ...previous, [identity]: undefined }));
-    focusTree();
+    tree.current?.focus({ preventScroll: true });
   }
 
   async function saveEdit() {
@@ -197,6 +205,7 @@ export function Outline(props: OutlineProps) {
       {list && props.tools}
       <Capture
         disabled={props.mutationsDisabled}
+        blockedReason={props.captureBlockedReason}
         collapsible={!list}
         identity={identity}
         destination={destination}

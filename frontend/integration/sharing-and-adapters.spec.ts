@@ -36,6 +36,22 @@ test("AT-17/26/29 · invite a viewer, keep reminders personal, promote and revok
     await expect(
       guest.getByRole("button", { name: "New project", exact: true }),
     ).toBeDisabled();
+    const addTask = guest.getByRole("button", {
+      name: "Add task",
+      exact: true,
+    });
+    await expect(addTask).toBeDisabled();
+    const layouts = guest.getByRole("group", { name: "Task view" });
+    await layouts.getByRole("button", { name: "Board" }).click();
+    await expect(
+      guest
+        .getByRole("region", { name: "Next" })
+        .getByRole("button", { name: "Add task to Inbox" }),
+    ).toBeDisabled();
+    await expect(
+      guest.getByRole("textbox", { name: "Task titles" }),
+    ).toBeHidden();
+    await layouts.getByRole("button", { name: "List" }).click();
     const reminders = await toolsPanel(guest, "Reminders");
     await reminders.getByLabel("Reminder task").selectOption({ label: title });
     await reminders.getByLabel(/Remind me at/).fill("2028-02-11T08:20");
@@ -56,6 +72,7 @@ test("AT-17/26/29 · invite a viewer, keep reminders personal, promote and revok
     await expect(
       guest.getByRole("button", { name: "New project", exact: true }),
     ).toBeEnabled({ timeout: 15000 });
+    await expect(addTask).toBeEnabled();
     await panel
       .getByRole("button", { name: "Remove " + username, exact: true })
       .click();

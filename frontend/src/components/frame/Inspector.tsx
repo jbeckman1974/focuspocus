@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { FormEvent, ReactNode } from "react";
 import type { Command, Entry, Task, Workspace } from "../../outline/index.ts";
+import { indexWorkspace } from "../../outline/index.ts";
+import { TaskLocation } from "../TaskLocation.tsx";
 import { Icon } from "./Icon.tsx";
 
 interface InspectorProps {
@@ -14,6 +16,34 @@ interface InspectorProps {
 }
 
 type Drafts = Record<string, string>;
+
+function SelectedTasks({
+  items,
+  locations,
+}: {
+  items: Task[];
+  locations: ReadonlyMap<string, Entry>;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <details
+      className="fp-selection-count fp-selection-list"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>{items.length} items selected</summary>
+      {open && (
+        <ul aria-label="Selected tasks">
+          {items.map((item) => (
+            <li key={item.id}>
+              <span>{item.title}</span>
+              <TaskLocation location={locations.get(item.id)!} />
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  );
+}
 
 function TagOption({
   tag,
@@ -57,8 +87,8 @@ export function Inspector({
   mutationsDisabled = false,
 }: InspectorProps) {
   const [drafts, setDrafts] = useState<Drafts>({});
-  const selected = new Set(selection);
-  const items = workspace.tasks.filter((task) => selected.has(task.id));
+  const { byId, taskLocations } = indexWorkspace(workspace);
+  const items = [...new Set(selection)].flatMap((id) => byId.get(id) ?? []);
   const ids = items.map((task) => task.id);
   const key = JSON.stringify([...ids].sort());
   const titleKey = `${key}:title`;
@@ -123,13 +153,14 @@ export function Inspector({
       </div>
       {first ? (
         <div className="fp-inspector-body">
-          <p className="fp-selection-count">
-            {items.length === 1
-              ? first.kind === "group"
-                ? "Action group"
-                : "Action"
-              : `${items.length} items selected`}
-          </p>
+          {items.length === 1 ? (
+            <div className="fp-selection-count fp-selection-info">
+              <span>{first.kind === "group" ? "Action group" : "Action"}</span>
+              <TaskLocation location={taskLocations.get(first.id)!} />
+            </div>
+          ) : (
+            <SelectedTasks items={items} locations={taskLocations} />
+          )}
           {tools}
           <form className="fp-edit-field" onSubmit={saveTitle}>
             <label htmlFor="inspector-title">Title</label>

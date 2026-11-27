@@ -22,16 +22,34 @@ export async function taskId(page: Page, title: string): Promise<string> {
   return (await row.getAttribute("data-task-id"))!;
 }
 
-// Reach controls through the user's tab order, including dialog focus traps.
+// Tab into a compound toolbar once, then use its normal arrow-key navigation.
 export async function tabTo(page: Page, target: Locator) {
+  await page.bringToFront();
   await expect(target).toBeVisible();
+  await expect(target).toBeEnabled();
+  const key = await target.evaluate((element) => {
+    const active = document.activeElement;
+    return active &&
+      active !== document.body &&
+      element.compareDocumentPosition(active) & Node.DOCUMENT_POSITION_FOLLOWING
+      ? "Shift+Tab"
+      : "Tab";
+  });
   for (let stops = 0; stops < 100; stops++) {
-    if (
-      await target.evaluate((element) => element === document.activeElement)
-    ) {
-      return;
-    }
-    await page.keyboard.press("Tab");
+    const next = await target.evaluate((element, tabKey) => {
+      const active = element.ownerDocument.activeElement;
+      if (active === element) return null;
+      const toolbar = element.closest('[role="toolbar"]');
+      if (active && toolbar?.contains(active)) {
+        return active.compareDocumentPosition(element) &
+          Node.DOCUMENT_POSITION_FOLLOWING
+          ? "ArrowRight"
+          : "ArrowLeft";
+      }
+      return tabKey;
+    }, key);
+    if (!next) return;
+    await page.keyboard.press(next);
   }
   await expect(target, "Reachable with the Tab key").toBeFocused({
     timeout: 1000,
