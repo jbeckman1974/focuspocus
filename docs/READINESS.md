@@ -45,9 +45,9 @@ The M7 pilot at `d5b86a9` retained the same database after the application servi
 
 ### Hands-on checks for the owner
 
-The current pilot uses the public GitHub-built image from `af13f88`. Both native runners and the physical host verified its digest. Mac Chrome passed seven signed-in editing walkthroughs and a two-session keyboard conflict check. The existing owner login survived replacement. The physical four-suite rehearsal and the owner’s daily-use review cycle still need their own results. [Pilot verification](https://github.com/jbeckman1974/focuspocus/pull/13#issuecomment-7119736297)
+The current pilot uses the public GitHub-built image from `370aeae`. The two native runners and the physical host verified the public digest. The existing stack retained its database and the operator's health checks. Mac Chrome passed the Focus capture and delayed Forecast project-creation regressions. The full physical four-suite rehearsal and the owner's daily-use review cycle have separate acceptance records. [November 27 verification](PROGRESS.md#november-27-2026--one-stack-pilot-update) · [Prior pilot walkthroughs](https://github.com/jbeckman1974/focuspocus/pull/13#issuecomment-7119736297)
 
-On that pilot, a new project outside the active Focus can stay empty after Add or Enter. Choose **Clear focus** and reopen the project to see any tasks already saved before entering the title again.
+To try the capture fix, focus on one project, then create a second project and enter a task there with **Enter** or **Add**. Check that the message names the destination and explains why Focus hides its tasks. Choose **Include project in Focus**. Both projects should remain in Focus, and the new task should appear once. From Forecast, create another project and check that the new project opens for its first task. If the app was open during the update, close all FocusPocus tabs and app windows and reopen it to load the new interface.
 
 To revisit the reported Projects issue, create identically titled actions in different projects and group two pairs under the same name. Check that Projects stays open and that each task shows its project. Switch between two tasks several times with the inspector open, then select both and expand the selection count to see the current pair.
 

@@ -1,10 +1,16 @@
 # Implementation progress
 
+## November 27, 2026 · One-stack pilot update
+
+Joe selected `focuspocus-test` as the single permanent development and testing stack. GitHub built the PR #13 capture fixes at `370aeaedb48dd6ac3cd8ffbe20af42eb0ba36f07` on AMD64 and ARM64. Both native runners pulled the published image anonymously, and the test host independently verified the same public index, `sha256:0b995dbf0071f36464a8a7cc2288e36e7f08efaae217114ee09c9f05d68ab374`. Dockhand pulled it directly and updated the migration, web and worker image references in the existing stack. [GitHub qualification and publication](https://github.com/jbeckman1974/focuspocus/actions/runs/46034019012)
+
+The web, worker and database passed the operator's original health checks after deployment. The commands, intervals, timeouts, retries and start periods matched the pre-update settings. PostgreSQL retained the same container, storage and migration ledger. The migrator exited successfully. A fresh encrypted pre-update dump passed archive verification and its off-host copy decrypted with the recovery key. Two synthetic accounts verified isolation, the earlier task identity, a new capture and cross-session replay. Mac Chrome passed both signed-in regressions on the deployed image, including Add and Enter outside Focus and first capture after delayed project creation from Forecast. [Owner walkthrough](READINESS.md#hands-on-checks-for-the-owner)
+
 ## November 24, 2026 · First task in a new project
 
 With Focus restricted to one project, two signed-in tests on the pilot at `af13f88` reproduced an empty second project after using Enter or Add. Each submission persisted once, with the second project as its parent. Clearing Focus revealed the tasks. With Focus clear, both controls worked from Inbox and Projects in List, Board and Calendar. A separate check matched the JavaScript, stylesheet and public shell served to a fresh browser against the GitHub image.
 
-The M7 branch now explains when Focus hides tasks and lets the user include the open project while keeping the rest of their Focus. Capture feedback distinguishes an acknowledged write from a draft waiting to sync. A newly created project opens after its write, including from Forecast and from the compact workspace menu. Calendar reveals a newly captured undated task when its section was collapsed. The signed-in regression checks both submission controls, their stored task IDs after reload, and a delayed project creation. The owner’s pilot continues on the November 23 image. [Capture regression](../frontend/integration/project-capture.spec.ts) · [M7 pull request](https://github.com/jbeckman1974/focuspocus/pull/13)
+The M7 branch now explains when Focus hides tasks and lets the user include the open project while keeping the rest of their Focus. Capture feedback distinguishes an acknowledged write from a draft waiting to sync. A newly created project opens after its write, including from Forecast and from the compact workspace menu. Calendar reveals a newly captured undated task when its section was collapsed. The signed-in regression checks both submission controls, their stored task IDs after reload, and a delayed project creation. The owner was still testing the November 23 image at this point. [Capture regression](../frontend/integration/project-capture.spec.ts) · [M7 pull request](https://github.com/jbeckman1974/focuspocus/pull/13)
 
 ## November 23, 2026 · Public Docker images
 
